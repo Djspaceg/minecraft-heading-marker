@@ -13,8 +13,15 @@ A Minecraft Java Edition data pack that displays multiple custom waypoint marker
 - ⚡ **Instant Updates** - All markers update every tick (20 times per second)
 - 👥 **Multiplayer Support** - Each player has their own set of 5 markers
 - 🌍 **Cross-Dimension** - Works in Overworld, Nether, and End
+- 💡 **Built-in Help** - In-game help command with clickable examples and tab-completion
 
 ## Quick Start
+
+### Get Help In-Game
+```
+/function heading_marker:help
+```
+Shows all commands with clickable examples that you can edit and use!
 
 ### Set a Marker (2D - Y defaults to 64)
 ```
@@ -136,6 +143,29 @@ Your markers are automatically saved and will be restored when you:
 - Reload the data pack
 
 No need to manually save - it happens automatically!
+
+#### In-Game Help and Tab-Completion
+
+Get interactive help at any time:
+```
+/function heading_marker:help
+```
+
+This shows:
+- ✅ All available commands with clickable examples
+- ✅ Color reference guide  
+- ✅ Commands you can click to copy and edit
+- ✅ Quick example functions for common use cases
+
+**Tab-completion support:** When typing `/function heading_marker:`, press Tab to see all available commands including:
+- `set` - Set a marker
+- `remove` - Remove a marker
+- `help` - Show help
+- `examples/home` - Example for home base
+- `examples/mine` - Example for mines
+- `examples/farm` - Example for farms
+- `examples/village` - Example for villages
+- `examples/portal` - Example for portals
 
 #### Understanding Distance²
 

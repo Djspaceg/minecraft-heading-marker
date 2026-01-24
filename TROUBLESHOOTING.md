@@ -7,8 +7,8 @@ This guide helps you diagnose and fix common issues with the Heading Marker data
 Before diving into specific issues, verify:
 
 - [ ] Minecraft version is 1.20.2 or later (macros were added in 1.20.2)
-- [ ] The `heading_marker` folder is in the correct location: `saves/[YourWorld]/datapacks/heading_marker/`
-- [ ] The `pack.mcmeta` file is at: `saves/[YourWorld]/datapacks/heading_marker/pack.mcmeta`
+- [ ] The `headingmarker` folder is in the correct location: `saves/[YourWorld]/datapacks/headingmarker/`
+- [ ] The `pack.mcmeta` file is at: `saves/[YourWorld]/datapacks/headingmarker/pack.mcmeta`
 - [ ] You have operator permissions (required to run function commands)
 - [ ] You've run `/reload` after installing
 
@@ -17,16 +17,17 @@ Before diving into specific issues, verify:
 ### Data Pack Not Loading (No Welcome Message)
 
 **Symptoms:**
+
 - No message appears when joining the world
-- `/datapack list` doesn't show `heading_marker`
+- `/datapack list` doesn't show `headingmarker`
 
 **Causes & Solutions:**
 
 1. **Incorrect folder location**
-   - ✅ CORRECT: `saves/[YourWorld]/datapacks/heading_marker/pack.mcmeta`
+   - ✅ CORRECT: `saves/[YourWorld]/datapacks/headingmarker/pack.mcmeta`
    - ❌ WRONG: `saves/[YourWorld]/datapacks/pack.mcmeta` (folder not copied)
-   - ❌ WRONG: `saves/[YourWorld]/heading_marker/pack.mcmeta` (not in datapacks folder)
-   - ❌ WRONG: `saves/[YourWorld]/datapacks/heading_marker/data/pack.mcmeta` (too deep)
+   - ❌ WRONG: `saves/[YourWorld]/headingmarker/pack.mcmeta` (not in datapacks folder) [rename to `datapacks/headingmarker`]
+   - ❌ WRONG: `saves/[YourWorld]/datapacks/headingmarker/data/pack.mcmeta` (too deep)
 
 2. **Wrong Minecraft version**
    - This data pack requires Minecraft 1.20.2 or later (for macro support)
@@ -35,21 +36,24 @@ Before diving into specific issues, verify:
 
 3. **File permissions**
    - Ensure Minecraft can read the files
-   - On Linux/Mac, check file permissions: `chmod -R 755 heading_marker`
+   - On Linux/Mac, check file permissions: `chmod -R 755 headingmarker`
 
 4. **Corrupted download**
    - Re-download the data pack
    - Ensure all files copied correctly
 
 **How to verify:**
+
 ```
 /datapack list
 ```
-You should see `heading_marker` in the enabled list.
+
+You should see `headingmarker` in the enabled list.
 
 ### Data Pack Shows as Incompatible
 
 **Symptoms:**
+
 - Data pack appears with a red ❌ in `/datapack list`
 - Says "incompatible" or "made for a different version"
 
@@ -60,12 +64,12 @@ You should see `heading_marker` in the enabled list.
    - If on older version, the `pack_format: 48` won't be recognized
 
 2. **Check pack.mcmeta**
-   - File should exist at: `datapacks/heading_marker/pack.mcmeta`
+   - File should exist at: `datapacks/headingmarker/pack.mcmeta`
    - Should contain valid JSON with `pack_format: 48`
 
 3. **Force enable (if using older version)**
    ```
-   /datapack enable "file/heading_marker"
+   /datapack enable "file/headingmarker"
    ```
    Note: May not work correctly on versions before 1.20.2
 
@@ -74,18 +78,22 @@ You should see `heading_marker` in the enabled list.
 ### Commands Don't Work / Not Recognized
 
 **Symptoms:**
+
 - Commands show "Unknown function" error
-- Tab-completion doesn't show `heading_marker:` functions
+- Tab-completion doesn't show `headingmarker:` functions
 
 **Causes & Solutions:**
 
 1. **Data pack not enabled**
+
    ```
    /datapack list
    ```
+
    If not shown, enable it:
+
    ```
-   /datapack enable "file/heading_marker"
+   /datapack enable "file/headingmarker"
    /reload
    ```
 
@@ -94,38 +102,42 @@ You should see `heading_marker` in the enabled list.
    - Multiplayer: Ask admin to run: `/op YourUsername`
 
 3. **Typo in command**
-   - Correct: `/function heading_marker:help` (underscore)
-   - Wrong: `/function heading_marker:help` (hyphen)
+   - Correct: `/function headingmarker:help`
+   - Wrong: `/function headingmarker:help` (hyphen)
    - Use Tab to auto-complete
 
 4. **Namespace confusion**
-   - Folder name: `heading_marker` (with hyphen)
-   - Namespace in commands: `heading_marker` (with underscore)
+   - Folder name: `headingmarker`
+   - Namespace in commands: `headingmarker` (canonical)
    - This is normal! The namespace comes from the folder inside `data/`
 
-### No Help Message When Running /function heading_marker:help
+### No Help Message When Running /function headingmarker:help
 
 **Symptoms:**
+
 - Command runs but no text appears
 - Or shows "Unknown function"
 
 **Solutions:**
 
 1. **Verify data pack loaded**
+
    ```
    /datapack list
    ```
 
 2. **Check for typos**
+
    ```
-   /function heading_marker:help
+   /function headingmarker:help
    ```
+
    (Note: underscore not hyphen)
 
 3. **Reload and try again**
    ```
    /reload
-   /function heading_marker:help
+   /function headingmarker:help
    ```
 
 ## Marker Display Issues
@@ -133,6 +145,7 @@ You should see `heading_marker` in the enabled list.
 ### No Markers Showing on HUD
 
 **Symptoms:**
+
 - Markers set successfully but nothing appears on actionbar
 - No distance numbers visible
 
@@ -140,15 +153,17 @@ You should see `heading_marker` in the enabled list.
 
 1. **Markers not actually set**
    - Verify marker is active:
+
    ```
    /scoreboard objectives setdisplay sidebar hm.red.active
    ```
+
    You should see `1` if red marker is active
 
 2. **Tick function not running**
    - The display updates every tick
    - Verify with: `/datapack list`
-   - Ensure `heading_marker` is enabled
+   - Ensure `headingmarker` is enabled
 
 3. **In wrong dimension**
    - Markers are per-dimension
@@ -162,6 +177,7 @@ You should see `heading_marker` in the enabled list.
 ### Markers Show Distance of 0 But I'm Far Away
 
 **Symptoms:**
+
 - Distance shows as `🔴0` even though you're not at the location
 
 **Causes:**
@@ -177,6 +193,7 @@ You should see `heading_marker` in the enabled list.
 ### Markers Disappear After Restart
 
 **Symptoms:**
+
 - Markers work but don't persist between sessions
 - Have to re-set markers every time
 
@@ -185,7 +202,7 @@ You should see `heading_marker` in the enabled list.
 1. **Persistence system not triggering**
    - Markers should save automatically when `/reload` runs
    - Or when the world closes normally
-   - Force save: `/function heading_marker:save_markers`
+   - Force save: `/function headingmarker:save_markers`
 
 2. **Player UUID not matching**
    - This is rare but can happen if player data corrupts
@@ -193,7 +210,7 @@ You should see `heading_marker` in the enabled list.
 
 3. **Storage cleared**
    - Check if other data packs might be clearing storage
-   - Verify with: `/data get storage heading_marker:players`
+   - Verify with: `/data get storage headingmarker:players`
 
 4. **Server not saving properly**
    - On servers, ensure auto-save is enabled
@@ -204,6 +221,7 @@ You should see `heading_marker` in the enabled list.
 ### Other Players Can't See My Markers
 
 **This is expected behavior!**
+
 - Markers are **per-player** and **personal**
 - Other players cannot see your markers
 - Each player sets their own markers independently
@@ -212,6 +230,7 @@ You should see `heading_marker` in the enabled list.
 ### Markers Not Persisting on Server
 
 **Symptoms:**
+
 - Works in single-player but not on multiplayer server
 
 **Solutions:**
@@ -221,7 +240,7 @@ You should see `heading_marker` in the enabled list.
    - Server needs to restart to load data pack
 
 2. **Verify UUID-based storage**
-   - Check storage: `/data get storage heading_marker:players`
+   - Check storage: `/data get storage headingmarker:players`
    - Should show UUIDs as keys
 
 3. **Server auto-save settings**
@@ -233,12 +252,14 @@ You should see `heading_marker` in the enabled list.
 ### Game Lags With Markers Active
 
 **Symptoms:**
+
 - FPS drops when markers are displayed
 - Game feels sluggish
 
 **This is unlikely with this data pack (very lightweight)**
 
 **If it happens:**
+
 1. Reduce active markers (remove unused ones)
 2. Check for other performance-heavy data packs
 3. Update to latest Minecraft version
@@ -246,41 +267,51 @@ You should see `heading_marker` in the enabled list.
 ## Debugging Commands
 
 ### Check if data pack is loaded
+
 ```
 /datapack list
 ```
 
 ### Force reload data pack
+
 ```
 /reload
 ```
 
 ### Check marker status
+
 ```
 /scoreboard objectives setdisplay sidebar hm.red.active
 ```
+
 (Should show 1 if active, 0 or blank if not)
 
 ### Check marker coordinates
+
 ```
 /scoreboard objectives setdisplay sidebar hm.red.x
 ```
+
 (Shows X coordinate of red marker)
 
 ### View storage
+
 ```
-/data get storage heading_marker:players
+/data get storage headingmarker:players
 ```
+
 (Shows saved markers for all players)
 
 ### Force save markers
+
 ```
-/function heading_marker:save_markers
+/function headingmarker:save_markers
 ```
 
 ### Force load markers
+
 ```
-/function heading_marker:load_markers
+/function headingmarker:load_markers
 ```
 
 ## Still Having Issues?
@@ -296,7 +327,7 @@ If none of these solutions work:
 
 2. **Try a clean install:**
    - Remove the data pack completely
-   - Delete the `heading_marker` folder
+   - Delete the `headingmarker` folder
    - Run `/reload`
    - Restart Minecraft
    - Re-install fresh copy
@@ -318,6 +349,7 @@ If none of these solutions work:
 ### "The marker doesn't point me to the location"
 
 **This data pack shows distance only, not direction.**
+
 - You see distance² to each waypoint
 - You need to navigate using coordinates and distance
 - Lower distance = you're getting closer
@@ -326,12 +358,14 @@ If none of these solutions work:
 ### "I can't see other players' markers"
 
 **Markers are personal to each player.**
+
 - This is by design for privacy and independence
 - Share coordinates in chat if coordinating with others
 
 ### "The markers don't work in the Nether/End"
 
 **Markers ARE dimension-specific (this is a feature!).**
+
 - Each dimension has its own set of 5 markers
 - Set different markers in each dimension
 - They auto-switch when you change dimensions
@@ -339,6 +373,7 @@ If none of these solutions work:
 ### "I have to type `/function` every time"
 
 **Yes, this is how data pack commands work.**
+
 - Minecraft data packs use function commands
 - There's no shorter slash command available
 - Use tab-completion to speed up typing
@@ -355,3 +390,4 @@ If none of these solutions work:
 ---
 
 **Need more help?** Check the main README.md or INSTALLATION.md files!
+

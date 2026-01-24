@@ -143,3 +143,5 @@ If you have questions about contributing:
 By contributing to Heading Marker, you agree that your contributions will be licensed under the MIT License.
 
 Thank you for helping make Heading Marker better! 🧭
+
+

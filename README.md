@@ -208,15 +208,22 @@ datapack/
     │   └── functions/
     │       ├── load.mcfunction              # Initialization & scoreboards
     │       ├── tick.mcfunction              # Updates HUD every tick
-    │       ├── display_hud.mcfunction       # Renders actionbar display
-    │       ├── set_marker.mcfunction        # Mark current location
-    │       ├── set_marker_at.mcfunction     # Mark specific coordinates
-    │       ├── clear_marker.mcfunction      # Remove marker
-    │       ├── set_color_*.mcfunction       # Change marker color (5 colors)
-    │       ├── help_coordinates.mcfunction  # Coordinate entry help
-    │       ├── add_marker.mcfunction        # Legacy/help function
-    │       ├── add_marker_coordinates.mcfunction  # Legacy redirect
-    │       └── remove_marker.mcfunction     # Legacy redirect
+    │       ├── display_all_markers.mcfunction # Renders actionbar display
+    │       ├── marker_set.mcfunction        # Set marker command
+    │       ├── marker_remove.mcfunction     # Remove marker command
+    │       ├── save_markers.mcfunction      # Persistence (save)
+    │       ├── load_markers.mcfunction      # Persistence (load)
+    │       └── internal/                    # Helper functions
+    │           ├── set_red/blue/green/yellow/purple.mcfunction
+    │           ├── remove_red/blue/green/yellow/purple.mcfunction
+    │           ├── calc_red/blue/green/yellow/purple.mcfunction
+    │           ├── auto_select_color.mcfunction
+    │           ├── set_marker_2d.mcfunction
+    │           ├── set_marker_3d.mcfunction
+    │           ├── show_actionbar.mcfunction
+    │           ├── show_multi.mcfunction
+    │           ├── save_player.mcfunction
+    │           └── load_player.mcfunction
     └── minecraft/
         └── tags/
             └── functions/
@@ -224,13 +231,15 @@ datapack/
                 └── tick.json                # Run every tick (20x/sec)
 ```
 
-### Scoreboard Objectives
-- `hm.x`, `hm.y`, `hm.z` - Waypoint coordinates
-- `hm.color` - Marker color (0-4)
-- `hm.active` - Whether marker is enabled
-- `hm.dx`, `hm.dz` - Delta calculations
-- `hm.dist` - Distance² to waypoint
-- `hm.temp` - Temporary calculations
+### Scoreboard Objectives (per player, per color)
+- `hm.red.x/y/z`, `hm.red.active`, `hm.red.dist` - Red marker
+- `hm.blue.x/y/z`, `hm.blue.active`, `hm.blue.dist` - Blue marker
+- `hm.green.x/y/z`, `hm.green.active`, `hm.green.dist` - Green marker
+- `hm.yellow.x/y/z`, `hm.yellow.active`, `hm.yellow.dist` - Yellow marker
+- `hm.purple.x/y/z`, `hm.purple.active`, `hm.purple.dist` - Purple marker
+- `hm.input.x/y/z/color` - Command input variables
+- `hm.nextcolor` - Auto-cycling tracker
+- `hm.dx`, `hm.dz`, `hm.dist`, `hm.temp` - Calculation variables
 
 ### Resource Pack Structure
 ```

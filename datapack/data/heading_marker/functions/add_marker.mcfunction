@@ -1,16 +1,17 @@
-# Heading Marker - Add Marker Command
-# Usage: Place a lodestone, then right-click it with a compass
-# Alternative: Use /function heading_marker:add_marker_coordinates for coordinate-based markers
+# Heading Marker - Add Marker (Legacy)
+# This function is for backward compatibility
+# Redirects to the new HUD marker system
 
-# This function helps players create heading markers
-# For now, we'll use lodestone compass mechanics which Minecraft provides natively
+tellraw @s ["",{"text":"[Heading Marker] ","color":"gold","bold":true},{"text":"HUD Marker System","color":"aqua"}]
+tellraw @s [""]
+tellraw @s ["",{"text":"This data pack now shows markers on your HUD!","color":"yellow"}]
+tellraw @s [""]
+tellraw @s ["",{"text":"Available commands:","color":"gold","bold":true}]
+tellraw @s ["",{"text":"• ","color":"gray"},{"text":"/function heading_marker:set_marker","color":"aqua","clickEvent":{"action":"suggest_command","value":"/function heading_marker:set_marker"}},{"text":" - Mark current location","color":"white"}]
+tellraw @s ["",{"text":"• ","color":"gray"},{"text":"/function heading_marker:help_coordinates","color":"aqua","clickEvent":{"action":"suggest_command","value":"/function heading_marker:help_coordinates"}},{"text":" - Set coordinates manually","color":"white"}]
+tellraw @s ["",{"text":"• ","color":"gray"},{"text":"/function heading_marker:clear_marker","color":"aqua","clickEvent":{"action":"suggest_command","value":"/function heading_marker:clear_marker"}},{"text":" - Remove marker","color":"white"}]
+tellraw @s ["",{"text":"• ","color":"gray"},{"text":"/function heading_marker:set_color_*","color":"aqua"},{"text":" - Change marker color (red/blue/green/yellow/purple)","color":"white"}]
+tellraw @s [""]
+tellraw @s ["",{"text":"The marker will appear on your actionbar showing distance and coordinates!","color":"green"}]
 
-# Display usage instructions
-tellraw @s ["",{"text":"[Heading Marker] ","color":"gold","bold":true},{"text":"To add a heading marker:","color":"yellow"}]
-tellraw @s ["",{"text":"1. ","color":"gray"},{"text":"Place a Lodestone","color":"aqua"},{"text":" at your desired waypoint location","color":"yellow"}]
-tellraw @s ["",{"text":"2. ","color":"gray"},{"text":"Hold a Compass","color":"aqua"},{"text":" and right-click the Lodestone","color":"yellow"}]
-tellraw @s ["",{"text":"3. ","color":"gray"},{"text":"Your compass will now point to that location!","color":"green"}]
-tellraw @s ["",{"text":"","color":"gray"},{"text":"Tip: ","color":"gold","bold":true},{"text":"You can create multiple lodestone compasses for different waypoints.","color":"yellow"}]
-
-# Play a sound effect
 playsound minecraft:block.note_block.chime master @s ~ ~ ~ 1 1.5

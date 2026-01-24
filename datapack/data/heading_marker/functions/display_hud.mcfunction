@@ -7,9 +7,8 @@ execute store result score @s hm.temp run data get entity @s Pos[2]
 
 # Calculate delta X and Z
 scoreboard players operation @s hm.dx -= @s hm.x
-scoreboard players operation @s hm.temp -= @s hm.z
-scoreboard players set @s hm.dz 0
 scoreboard players operation @s hm.dz = @s hm.temp
+scoreboard players operation @s hm.dz -= @s hm.z
 
 # Calculate approximate distance (simplified)
 scoreboard players operation @s hm.dist = @s hm.dx

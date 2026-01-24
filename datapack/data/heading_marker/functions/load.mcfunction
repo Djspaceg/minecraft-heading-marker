@@ -2,8 +2,6 @@
 # This function runs when the data pack loads
 
 # Create scoreboards for tracking markers
-scoreboard objectives add hm.marker dummy "Heading Marker"
-scoreboard objectives add hm.id dummy "Marker ID"
 scoreboard objectives add hm.x dummy "Target X"
 scoreboard objectives add hm.y dummy "Target Y"
 scoreboard objectives add hm.z dummy "Target Z"

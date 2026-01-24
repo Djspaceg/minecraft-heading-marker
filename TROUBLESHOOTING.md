@@ -7,8 +7,8 @@ This guide helps you diagnose and fix common issues with the Heading Marker data
 Before diving into specific issues, verify:
 
 - [ ] Minecraft version is 1.20.2 or later (macros were added in 1.20.2)
-- [ ] The `heading-marker` folder is in the correct location: `saves/[YourWorld]/datapacks/heading-marker/`
-- [ ] The `pack.mcmeta` file is at: `saves/[YourWorld]/datapacks/heading-marker/pack.mcmeta`
+- [ ] The `heading_marker` folder is in the correct location: `saves/[YourWorld]/datapacks/heading_marker/`
+- [ ] The `pack.mcmeta` file is at: `saves/[YourWorld]/datapacks/heading_marker/pack.mcmeta`
 - [ ] You have operator permissions (required to run function commands)
 - [ ] You've run `/reload` after installing
 
@@ -18,15 +18,15 @@ Before diving into specific issues, verify:
 
 **Symptoms:**
 - No message appears when joining the world
-- `/datapack list` doesn't show `heading-marker`
+- `/datapack list` doesn't show `heading_marker`
 
 **Causes & Solutions:**
 
 1. **Incorrect folder location**
-   - ✅ CORRECT: `saves/[YourWorld]/datapacks/heading-marker/pack.mcmeta`
+   - ✅ CORRECT: `saves/[YourWorld]/datapacks/heading_marker/pack.mcmeta`
    - ❌ WRONG: `saves/[YourWorld]/datapacks/pack.mcmeta` (folder not copied)
-   - ❌ WRONG: `saves/[YourWorld]/heading-marker/pack.mcmeta` (not in datapacks folder)
-   - ❌ WRONG: `saves/[YourWorld]/datapacks/heading-marker/data/pack.mcmeta` (too deep)
+   - ❌ WRONG: `saves/[YourWorld]/heading_marker/pack.mcmeta` (not in datapacks folder)
+   - ❌ WRONG: `saves/[YourWorld]/datapacks/heading_marker/data/pack.mcmeta` (too deep)
 
 2. **Wrong Minecraft version**
    - This data pack requires Minecraft 1.20.2 or later (for macro support)
@@ -35,7 +35,7 @@ Before diving into specific issues, verify:
 
 3. **File permissions**
    - Ensure Minecraft can read the files
-   - On Linux/Mac, check file permissions: `chmod -R 755 heading-marker`
+   - On Linux/Mac, check file permissions: `chmod -R 755 heading_marker`
 
 4. **Corrupted download**
    - Re-download the data pack
@@ -45,7 +45,7 @@ Before diving into specific issues, verify:
 ```
 /datapack list
 ```
-You should see `heading-marker` in the enabled list.
+You should see `heading_marker` in the enabled list.
 
 ### Data Pack Shows as Incompatible
 
@@ -60,12 +60,12 @@ You should see `heading-marker` in the enabled list.
    - If on older version, the `pack_format: 48` won't be recognized
 
 2. **Check pack.mcmeta**
-   - File should exist at: `datapacks/heading-marker/pack.mcmeta`
+   - File should exist at: `datapacks/heading_marker/pack.mcmeta`
    - Should contain valid JSON with `pack_format: 48`
 
 3. **Force enable (if using older version)**
    ```
-   /datapack enable "file/heading-marker"
+   /datapack enable "file/heading_marker"
    ```
    Note: May not work correctly on versions before 1.20.2
 
@@ -85,7 +85,7 @@ You should see `heading-marker` in the enabled list.
    ```
    If not shown, enable it:
    ```
-   /datapack enable "file/heading-marker"
+   /datapack enable "file/heading_marker"
    /reload
    ```
 
@@ -95,11 +95,11 @@ You should see `heading-marker` in the enabled list.
 
 3. **Typo in command**
    - Correct: `/function heading_marker:help` (underscore)
-   - Wrong: `/function heading-marker:help` (hyphen)
+   - Wrong: `/function heading_marker:help` (hyphen)
    - Use Tab to auto-complete
 
 4. **Namespace confusion**
-   - Folder name: `heading-marker` (with hyphen)
+   - Folder name: `heading_marker` (with hyphen)
    - Namespace in commands: `heading_marker` (with underscore)
    - This is normal! The namespace comes from the folder inside `data/`
 
@@ -148,7 +148,7 @@ You should see `heading-marker` in the enabled list.
 2. **Tick function not running**
    - The display updates every tick
    - Verify with: `/datapack list`
-   - Ensure `heading-marker` is enabled
+   - Ensure `heading_marker` is enabled
 
 3. **In wrong dimension**
    - Markers are per-dimension
@@ -296,7 +296,7 @@ If none of these solutions work:
 
 2. **Try a clean install:**
    - Remove the data pack completely
-   - Delete the `heading-marker` folder
+   - Delete the `heading_marker` folder
    - Run `/reload`
    - Restart Minecraft
    - Re-install fresh copy

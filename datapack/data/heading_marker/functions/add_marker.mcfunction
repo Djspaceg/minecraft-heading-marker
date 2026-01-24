@@ -1,6 +1,6 @@
 # Heading Marker - Add Marker Command
-# Usage: Place a lodestone, then throw a compass at it
-# Alternative: Use /function heading_marker:add_marker_at with coordinates
+# Usage: Place a lodestone, then right-click it with a compass
+# Alternative: Use /function heading_marker:add_marker_coordinates for coordinate-based markers
 
 # This function helps players create heading markers
 # For now, we'll use lodestone compass mechanics which Minecraft provides natively

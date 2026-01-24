@@ -59,6 +59,12 @@ scoreboard objectives add hm.loaded dummy "Markers Loaded"
 scoreboard objectives add hm.dimension dummy "Current Dimension"
 scoreboard objectives add hm.prev_dim dummy "Previous Dimension"
 
+# Initialize dimension tracking for all online players
+execute as @a in minecraft:overworld run scoreboard players set @s hm.dimension 0
+execute as @a in minecraft:the_nether run scoreboard players set @s hm.dimension -1
+execute as @a in minecraft:the_end run scoreboard players set @s hm.dimension 1
+execute as @a run scoreboard players operation @s hm.prev_dim = @s hm.dimension
+
 # Display welcome message with help command
 tellraw @a ["",{"text":"[Heading Marker] ","color":"gold","bold":true},{"text":"Data pack loaded!","color":"yellow"}]
 tellraw @a ["",{"text":"Type ","color":"gray"},{"text":"/function heading_marker:help","color":"aqua","clickEvent":{"action":"suggest_command","value":"/function heading_marker:help"},"hoverEvent":{"action":"show_text","contents":"Click to run help command"}},{"text":" for commands and examples","color":"gray"}]

@@ -10,32 +10,23 @@
 
 ### Set Marker (2D - Y defaults to 64)
 ```
-/scoreboard players set @s hm.input.x 1000
-/scoreboard players set @s hm.input.y -500
-/function heading_marker:marker_set
+/function heading_marker:set {x:1000, z:-500}
 ```
 
 ### Set Marker (3D)
 ```
-/scoreboard players set @s hm.input.x 1000
-/scoreboard players set @s hm.input.y 64
-/scoreboard players set @s hm.input.z -500
-/function heading_marker:marker_set
+/function heading_marker:set {x:1000, y:64, z:-500}
 ```
 
 ### Set Marker with Specific Color
 ```
-/scoreboard players set @s hm.input.x 1000
-/scoreboard players set @s hm.input.y 64
-/scoreboard players set @s hm.input.z -500
-/scoreboard players set @s hm.input.color 2  # 0=red, 1=blue, 2=green, 3=yellow, 4=purple
-/function heading_marker:marker_set
+/function heading_marker:set {x:1000, y:64, z:-500, color:2}
 ```
+Colors: `0=red, 1=blue, 2=green, 3=yellow, 4=purple`
 
-### Remove Marker (color required)
+### Remove Marker
 ```
-/scoreboard players set @s hm.input.color 1  # Remove blue marker
-/function heading_marker:marker_remove
+/function heading_marker:remove {color:1}
 ```
 
 ## HUD Display
@@ -69,7 +60,7 @@ When markers are active, your actionbar shows:
 
 - Minecraft: 1.21+
 - Data Pack Format: 48
-- Resource Pack Format: 34 (optional/future)
+- Uses macros (added in Minecraft 1.20.2)
 
 ## More Help
 

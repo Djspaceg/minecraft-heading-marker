@@ -60,10 +60,10 @@ The resource pack is optional but provides custom icons for your waypoint marker
 To verify the installation was successful:
 
 1. Join your world
-2. Type `/function heading_marker:add_marker` in chat
-3. You should see instructions on how to create waypoint markers
+2. Type `/function heading_marker:help` in chat
+3. You should see help information and instructions for using Heading Marker
 
-If you see the instructions, congratulations! The data pack is installed correctly.
+If you see the help message, congratulations! The data pack is installed correctly.
 
 ## Troubleshooting
 

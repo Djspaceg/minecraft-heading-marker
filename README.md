@@ -8,11 +8,11 @@ A Minecraft Java Edition data pack that displays multiple custom waypoint marker
 - 📍 **Coordinate-Based** - Enter 2D (X, Z) or 3D (X, Y, Z) coordinates via commands
 - 🎨 **5 Color Options** - 🔴 Red, 🔵 Blue, 🟢 Green, 🟡 Yellow, 🟣 Purple
 - 📏 **Distance Tracking** - See real-time distance² to all active waypoints
-- 💾 **Persistence** - Markers saved and restored between gameplay sessions
+- 💾 **Persistence** - Markers saved and restored between gameplay sessions (single-player and small servers)
 - 🔄 **Auto-Color Cycling** - Automatically assigns next available color
 - ⚡ **Instant Updates** - All markers update every tick (20 times per second)
-- 👥 **Multiplayer Support** - Each player has their own set of 5 markers
-- 🌍 **Cross-Dimension** - Works in Overworld, Nether, and End
+- 👥 **Per-Player Markers** - Each player has their own set of 5 markers (persistence best for single-player/small servers)
+- 🌍 **All Dimensions Supported** - Use markers in Overworld, Nether, and End (distance tracking is per-dimension; markers in other dimensions won't show distance)
 - 💡 **Built-in Help** - In-game help command with clickable examples and tab-completion
 
 ## Quick Start
@@ -25,7 +25,7 @@ Shows all commands with clickable examples that you can edit and use!
 
 ### Set a Marker (2D - Y defaults to 64)
 ```
-/function heading_marker:set {x:1000, z:-500}
+/function heading_marker:set_2d {x:1000, z:-500}
 ```
 Result: `🔴 Red marker set at 1000 64 -500`
 
@@ -37,7 +37,7 @@ Result: `🔵 Blue marker set at 1000 64 -500` (auto-cycled to next color)
 
 ### Set with Specific Color
 ```
-/function heading_marker:set {x:1000, y:64, z:-500, color:2}
+/function heading_marker:set_3d_color {x:1000, y:64, z:-500, color:2}
 ```
 Result: `🟢 Green marker set at 1000 64 -500`
 
@@ -223,10 +223,20 @@ datapack/
     │       ├── load.mcfunction              # Initialization & scoreboards
     │       ├── tick.mcfunction              # Updates HUD every tick
     │       ├── display_all_markers.mcfunction # Renders actionbar display
-    │       ├── marker_set.mcfunction        # Set marker command
-    │       ├── marker_remove.mcfunction     # Remove marker command
+    │       ├── set.mcfunction               # Set marker (3D mode)
+    │       ├── set_2d.mcfunction            # Set marker (2D mode, Y=64)
+    │       ├── set_2d_color.mcfunction      # Set marker (2D with color)
+    │       ├── set_3d_color.mcfunction      # Set marker (3D with color)
+    │       ├── remove.mcfunction            # Remove marker command
+    │       ├── help.mcfunction              # In-game help system
     │       ├── save_markers.mcfunction      # Persistence (save)
     │       ├── load_markers.mcfunction      # Persistence (load)
+    │       ├── examples/                    # Example marker templates
+    │       │   ├── home.mcfunction
+    │       │   ├── mine.mcfunction
+    │       │   ├── farm.mcfunction
+    │       │   ├── village.mcfunction
+    │       │   └── portal.mcfunction
     │       └── internal/                    # Helper functions
     │           ├── set_red/blue/green/yellow/purple.mcfunction
     │           ├── remove_red/blue/green/yellow/purple.mcfunction

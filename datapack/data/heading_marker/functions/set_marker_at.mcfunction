@@ -6,15 +6,19 @@
 #   /scoreboard players set @s hm.z -500
 #   /function heading_marker:set_marker_at
 
-# Check if coordinates are set
-execute unless score @s hm.x = @s hm.x run tellraw @s ["",{"text":"[Heading Marker] ","color":"gold","bold":true},{"text":"Error: X coordinate not set!","color":"red"}]
-execute unless score @s hm.x = @s hm.x run return 0
+# Initialize coordinate check value (-999999 means unset)
+execute unless score @s hm.x matches -2147483648.. run scoreboard players set @s hm.x -999999
+
+# Check if coordinates are properly set
+execute if score @s hm.x matches -999999 run tellraw @s ["",{"text":"[Heading Marker] ","color":"gold","bold":true},{"text":"Error: Coordinates not set!","color":"red"}]
+execute if score @s hm.x matches -999999 run tellraw @s ["",{"text":"Use /function heading_marker:help_coordinates for instructions.","color":"yellow"}]
+execute if score @s hm.x matches -999999 run return 0
 
 # Activate marker for this player
 scoreboard players set @s hm.active 1
 
-# Set default color (0 = red, 1 = blue, 2 = green, 3 = yellow, 4 = purple)
-scoreboard players set @s hm.color 0
+# Set default color if not already set (0 = red, 1 = blue, 2 = green, 3 = yellow, 4 = purple)
+execute unless score @s hm.color matches 0..4 run scoreboard players set @s hm.color 0
 
 # Display confirmation
 tellraw @s ["",{"text":"[Heading Marker] ","color":"gold","bold":true},{"text":"Waypoint marker set!","color":"green"}]

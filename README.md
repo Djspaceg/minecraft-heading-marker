@@ -1,15 +1,47 @@
 # Heading Marker
 
-A Minecraft Java Edition data pack that lets you create custom waypoint markers on your compass using slash commands. Navigate to any coordinates with ease using the built-in lodestone compass system enhanced with helpful commands!
+A Minecraft Java Edition data pack that displays custom waypoint markers on your HUD (actionbar) using slash commands. Enter coordinates and see a colored icon appear on your screen showing the waypoint location and distance!
 
 ## Features
 
-- ✨ Add heading markers to your compass using simple commands
-- 🧭 Works with Minecraft's native lodestone compass system
-- 📍 Support for 2D (X, Z) or 3D (X, Y, Z) coordinates
-- 🎨 Each marker can have unique colors (using carpet on lodestones)
-- 📡 Full multiplayer support
-- 🔧 Easy to use slash commands
+- 🎯 **HUD Waypoint Markers** - Colored icons appear on your actionbar
+- 📍 **Coordinate-Based** - Enter 2D (X, Z) or 3D (X, Y, Z) coordinates via commands
+- 🎨 **5 Color Options** - Red, Blue, Green, Yellow, or Purple markers
+- 📏 **Distance Tracking** - See real-time distance to your waypoint
+- ⚡ **Instant Updates** - Marker updates every tick (20 times per second)
+- 👥 **Multiplayer Support** - Each player has their own personal marker
+- 🌍 **Cross-Dimension** - Works in Overworld, Nether, and End
+
+## Quick Start
+
+1. **Mark your current location:**
+   ```
+   /function heading_marker:set_marker
+   ```
+
+2. **Or set specific coordinates:**
+   ```
+   /scoreboard players set @s hm.x 1000
+   /scoreboard players set @s hm.y 64
+   /scoreboard players set @s hm.z -500
+   /function heading_marker:set_marker_at
+   ```
+
+3. **See the marker on your actionbar!**
+   - A colored icon (🔴🔵🟢🟡🟣) appears
+   - Shows waypoint coordinates
+   - Displays distance² to target
+
+4. **Change marker color:**
+   ```
+   /function heading_marker:set_color_blue
+   ```
+   (Options: red, blue, green, yellow, purple)
+
+5. **Clear the marker:**
+   ```
+   /function heading_marker:clear_marker
+   ```
 
 ## Installation
 
@@ -22,79 +54,119 @@ A Minecraft Java Edition data pack that lets you create custom waypoint markers 
 3. Rename the folder to `heading-marker` (optional but recommended)
 4. Load or reload your world
 5. Run `/reload` in-game to activate the data pack
+6. You should see a welcome message confirming the data pack loaded
 
-### Resource Pack Installation (Optional)
+### Resource Pack (Future Enhancement)
 
-1. Copy the `resourcepack` folder to your Minecraft `resourcepacks` directory:
-   - Windows: `%appdata%\.minecraft\resourcepacks\`
-   - Mac/Linux: `~/.minecraft/resourcepacks/`
-2. Rename the folder to `heading-marker-resources` (optional)
-3. Enable the resource pack in Minecraft settings
+The resource pack structure is prepared for future custom icon textures. Currently, the HUD uses emoji icons (🔴🔵🟢🟡🟣) which work without a resource pack.
 
 ## Usage
 
-### Basic Commands
+### Main Commands
 
-The data pack provides three main functions:
+#### Set Marker at Current Location
+```
+/function heading_marker:set_marker
+```
+Marks your current position as the waypoint. The marker immediately appears on your actionbar.
 
-#### Add a Marker
+#### Set Marker at Specific Coordinates
+```
+/function heading_marker:help_coordinates
+```
+Shows clickable commands to set exact coordinates:
+1. Set X: `/scoreboard players set @s hm.x <value>`
+2. Set Y: `/scoreboard players set @s hm.y <value>`
+3. Set Z: `/scoreboard players set @s hm.z <value>`
+4. Activate: `/function heading_marker:set_marker_at`
+
+**Example - Set marker at X=1000, Y=64, Z=-500:**
+```
+/scoreboard players set @s hm.x 1000
+/scoreboard players set @s hm.y 64
+/scoreboard players set @s hm.z -500
+/function heading_marker:set_marker_at
+```
+
+#### Change Marker Color
+```
+/function heading_marker:set_color_red
+/function heading_marker:set_color_blue
+/function heading_marker:set_color_green
+/function heading_marker:set_color_yellow
+/function heading_marker:set_color_purple
+```
+
+#### Clear Marker
+```
+/function heading_marker:clear_marker
+```
+Removes the waypoint marker from your HUD.
+
+#### Get Help
 ```
 /function heading_marker:add_marker
 ```
-Displays instructions on how to create a waypoint marker using a lodestone and compass.
+Shows all available commands and usage instructions.
 
-**Steps:**
-1. Place a Lodestone at your desired waypoint location
-2. Hold a Compass and right-click the Lodestone
-3. Your compass will now point to that location!
+### How the HUD Works
 
-**Tip:** Place colored carpet on the lodestone before linking to color-code your waypoints!
-
-#### Add Marker at Specific Coordinates
+When a marker is active, you'll see on your actionbar:
 ```
-/function heading_marker:add_marker_coordinates
+🔴 Waypoint: 1000 64 -500 | Distance²: 245820
 ```
-Shows advanced instructions for creating a marker at specific coordinates using commands.
 
-#### Remove a Marker
-```
-/function heading_marker:remove_marker
-```
-Displays instructions on how to remove waypoint markers.
+- **🔴** - Colored icon (changes based on your color selection)
+- **Waypoint: X Y Z** - The target coordinates
+- **Distance²** - Squared distance to target (lower = closer)
 
-**Options:**
-- Break the Lodestone - compass will spin randomly again
-- Use an anvil to clear lodestone tracking
-- Drop or destroy the lodestone compass
+The display updates automatically 20 times per second as you move!
 
 ### Advanced Usage
 
-You can also use direct Minecraft commands for more control:
+#### Multiple Waypoints (Per Player)
 
-#### Place a lodestone at specific coordinates:
-```
-/execute positioned <x> <y> <z> run setblock ~ ~ ~ lodestone
-```
+Each player can have one active marker at a time. To track multiple locations:
+- Take note of coordinates before clearing
+- Switch between waypoints as needed
+- Or share coordinates with teammates
 
-#### Get a compass:
-```
-/give @s compass
-```
+#### Understanding Distance²
 
-#### Teleport to coordinates to link your compass:
-```
-/tp @s <x> <y> <z>
-```
+The distance shown is squared (distance²) for performance:
+- **0-100**: Very close (0-10 blocks)
+- **100-10,000**: Close range (10-100 blocks)
+- **10,000-1,000,000**: Medium range (100-1000 blocks)
+- **1,000,000+**: Far away (1000+ blocks)
+
+To get actual distance, take the square root of the displayed value.
+
+#### Color Coding Your Waypoints
+
+Use different colors for different waypoint types:
+- 🔴 **Red** - Home/Base
+- 🔵 **Blue** - Mines/Resources
+- 🟢 **Green** - Farms
+- 🟡 **Yellow** - Villages/Trading
+- 🟣 **Purple** - Nether Portals/End Portals
+
+#### Multiplayer Coordination
+
+On multiplayer servers:
+- Each player's marker is personal (others can't see it)
+- Share coordinates in chat to help teammates
+- Use consistent color codes as a team
+- Great for treasure hunts and group exploration!
 
 ## How It Works
 
-This data pack leverages Minecraft's built-in lodestone compass mechanics:
-- Lodestone compasses point to a specific lodestone block
-- Breaking the lodestone causes the compass to spin randomly
-- Each compass can only track one lodestone at a time
-- Multiple compasses can track different lodestones for multiple waypoints
+This data pack uses Minecraft's built-in scoreboard and title/actionbar systems:
+- Scoreboards store waypoint coordinates per player
+- A tick function (runs 20x/second) calculates your distance
+- The actionbar displays the marker with real-time updates
+- No mods or external tools required!
 
-The data pack adds helpful slash commands to make working with these mechanics easier and more intuitive!
+The system is 100% vanilla Minecraft - it works on any server running the data pack.
 
 ## Compatibility
 
@@ -108,31 +180,49 @@ The data pack adds helpful slash commands to make working with these mechanics e
 ### Data Pack Structure
 ```
 datapack/
-├── pack.mcmeta                           # Data pack metadata
+├── pack.mcmeta                              # Data pack metadata (format 48)
 └── data/
     ├── heading_marker/
     │   └── functions/
-    │       ├── load.mcfunction          # Initialization
-    │       ├── add_marker.mcfunction    # Add marker command
-    │       ├── add_marker_coordinates.mcfunction  # Advanced add
-    │       └── remove_marker.mcfunction # Remove marker command
+    │       ├── load.mcfunction              # Initialization & scoreboards
+    │       ├── tick.mcfunction              # Updates HUD every tick
+    │       ├── display_hud.mcfunction       # Renders actionbar display
+    │       ├── set_marker.mcfunction        # Mark current location
+    │       ├── set_marker_at.mcfunction     # Mark specific coordinates
+    │       ├── clear_marker.mcfunction      # Remove marker
+    │       ├── set_color_*.mcfunction       # Change marker color (5 colors)
+    │       ├── help_coordinates.mcfunction  # Coordinate entry help
+    │       ├── add_marker.mcfunction        # Legacy/help function
+    │       ├── add_marker_coordinates.mcfunction  # Legacy redirect
+    │       └── remove_marker.mcfunction     # Legacy redirect
     └── minecraft/
         └── tags/
             └── functions/
-                └── load.json            # Load tag
+                ├── load.json                # Auto-load on world start
+                └── tick.json                # Run every tick (20x/sec)
 ```
+
+### Scoreboard Objectives
+- `hm.x`, `hm.y`, `hm.z` - Waypoint coordinates
+- `hm.color` - Marker color (0-4)
+- `hm.active` - Whether marker is enabled
+- `hm.dx`, `hm.dz` - Delta calculations
+- `hm.dist` - Distance² to waypoint
+- `hm.temp` - Temporary calculations
 
 ### Resource Pack Structure
 ```
 resourcepack/
-├── pack.mcmeta                          # Resource pack metadata
+├── pack.mcmeta                              # Resource pack metadata (format 34)
 └── assets/
     └── heading_marker/
         └── textures/
             └── gui/
                 └── sprites/
-                    └── hud/             # Custom HUD icons (future)
+                    └── hud/                 # Custom HUD icons (future)
 ```
+
+**Note:** The resource pack is currently a placeholder. The HUD uses emoji icons (🔴🔵🟢🟡🟣) which work without a resource pack.
 
 ## Contributing
 

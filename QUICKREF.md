@@ -3,68 +3,101 @@
 ## Installation
 
 1. Copy `datapack/` to your world's `datapacks/` folder
-2. Copy `resourcepack/` to your Minecraft `resourcepacks/` folder
-3. Run `/reload` in-game
+2. Run `/reload` in-game
+3. See the colored marker appear on your actionbar!
 
 ## Commands
 
+### Set Marker at Current Location
+```
+/function heading_marker:set_marker
+```
+
+### Set Marker at Specific Coordinates
+```
+/scoreboard players set @s hm.x <x_value>
+/scoreboard players set @s hm.y <y_value>
+/scoreboard players set @s hm.z <z_value>
+/function heading_marker:set_marker_at
+```
+
+### Change Marker Color
+```
+/function heading_marker:set_color_red
+/function heading_marker:set_color_blue
+/function heading_marker:set_color_green
+/function heading_marker:set_color_yellow
+/function heading_marker:set_color_purple
+```
+
+### Clear Marker
+```
+/function heading_marker:clear_marker
+```
+
+### Get Help
 ```
 /function heading_marker:add_marker
+/function heading_marker:help_coordinates
 ```
-Shows instructions for adding a waypoint marker
 
+## Quick Example
+
+**Mark home at current position:**
 ```
-/function heading_marker:remove_marker
+/function heading_marker:set_marker
 ```
-Shows instructions for removing a waypoint marker
 
+**Set waypoint to X=1000, Y=64, Z=-500:**
 ```
-/function heading_marker:add_marker_coordinates
+/scoreboard players set @s hm.x 1000
+/scoreboard players set @s hm.y 64
+/scoreboard players set @s hm.z -500
+/function heading_marker:set_marker_at
 ```
-Shows advanced instructions for coordinate-based markers
 
-## Quick Usage
+**Change to blue marker:**
+```
+/function heading_marker:set_color_blue
+```
 
-1. **Get a compass:** `/give @s compass`
-2. **Get a lodestone:** `/give @s lodestone`
-3. **Place lodestone** at your waypoint location
-4. **Right-click lodestone** with compass in hand
-5. **Your compass now points to that waypoint!**
+## HUD Display
 
-## Multiple Waypoints
+When active, your actionbar shows:
+```
+🔴 Waypoint: 1000 64 -500 | Distance²: 245820
+```
 
-- Each compass tracks ONE lodestone
-- Create multiple compasses for multiple waypoints
-- Use anvil to rename compasses for organization
-- Place colored carpet on lodestone for visual coding
+- Colored icon based on your selection
+- Target coordinates
+- Distance² to waypoint (lower = closer)
+- Updates 20 times per second
+
+## Color Guide
+
+- 🔴 Red - Home/Base
+- 🔵 Blue - Mines/Resources  
+- 🟢 Green - Farms
+- 🟡 Yellow - Villages
+- 🟣 Purple - Portals
 
 ## Tips
 
-- Label your compasses in an anvil
-- Keep a home compass in your Ender Chest
-- Store compasses in item frames at your base
-- Lodestone compasses work across dimensions!
-
-## Coordinates
-
-Place lodestone at exact coordinates:
-```
-/execute positioned <x> <y> <z> run setblock ~ ~ ~ lodestone
-```
-
-Teleport to coordinates:
-```
-/tp @s <x> <y> <z>
-```
+- One marker per player at a time
+- Distance² shown (square root to get actual distance)
+- Works in all dimensions
+- Markers are personal (others can't see yours)
+- Share coordinates in chat with teammates
 
 ## Version
 
 - Minecraft: 1.21+
 - Data Pack Format: 48
-- Resource Pack Format: 34
+- Resource Pack Format: 34 (optional/future)
 
 ## More Help
 
 - See README.md for full documentation
 - See INSTALLATION.md for detailed setup
 - See USAGE.md for examples and use cases
+- See TUTORIAL.md for step-by-step guide

@@ -8,10 +8,10 @@ A Minecraft Java Edition data pack that displays multiple custom waypoint marker
 - 📍 **Coordinate-Based** - Enter 2D (X, Z) or 3D (X, Y, Z) coordinates via commands
 - 🎨 **5 Color Options** - 🔴 Red, 🔵 Blue, 🟢 Green, 🟡 Yellow, 🟣 Purple
 - 📏 **Distance Tracking** - See real-time distance² to all active waypoints
-- 💾 **Persistence** - Markers saved and restored between gameplay sessions (single-player and small servers)
+- 💾 **Persistence** - Markers saved and restored between gameplay sessions (UUID-based per-player storage for multiplayer servers)
 - 🔄 **Auto-Color Cycling** - Automatically assigns next available color
 - ⚡ **Instant Updates** - All markers update every tick (20 times per second)
-- 👥 **Per-Player Markers** - Each player has their own set of 5 markers (persistence best for single-player/small servers)
+- 👥 **Per-Player Markers** - Each player has their own set of 5 markers with UUID-based persistence for multiplayer servers
 - 🌍 **All Dimensions Supported** - Use markers in Overworld, Nether, and End (distance tracking is per-dimension; markers in other dimensions won't show distance)
 - 💡 **Built-in Help** - In-game help command with clickable examples and tab-completion
 
@@ -142,13 +142,13 @@ Your markers are automatically saved and will be restored when you:
 - Restart the server
 - Reload the data pack
 
-**Persistence Limitations:**
-- **Single-Player/Small Servers**: Full persistence works perfectly
-- **Large Multiplayer Servers**: Only the last player's markers are saved to storage due to technical limitations (UUID-based storage would require complex macro iterations)
-- **In-Session**: All players' markers persist in memory during gameplay regardless of server size
-- **Recommendation**: For large multiplayer servers, consider external tools or UUID-based storage mods for persistent per-player markers across server restarts
+**Persistence System:**
+- **UUID-Based Storage**: Each player's markers are saved separately using their unique player UUID
+- **Multiplayer-Safe**: Works correctly for any number of players on multiplayer servers
+- **Automatic Loading**: Markers are automatically loaded when players join the server or world
+- **Per-Player**: Each player's markers persist independently without interfering with others
 
-No need to manually save - it happens automatically within these constraints!
+No need to manually save - it happens automatically!
 
 #### In-Game Help and Tab-Completion
 

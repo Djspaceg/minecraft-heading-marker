@@ -1,5 +1,5 @@
 # Save Markers to Storage
-# Saves all player markers to persistent storage
+# Saves all player markers to persistent storage with UUID-based keys
 
-# Save each player's markers
-execute as @a run function heading_marker:internal/save_player
+# Save each player's markers using UUID-based storage
+execute as @a run function heading_marker:internal/save_player_uuid

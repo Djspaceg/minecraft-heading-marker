@@ -142,7 +142,13 @@ Your markers are automatically saved and will be restored when you:
 - Restart the server
 - Reload the data pack
 
-No need to manually save - it happens automatically!
+**Persistence Limitations:**
+- **Single-Player/Small Servers**: Full persistence works perfectly
+- **Large Multiplayer Servers**: Only the last player's markers are saved to storage due to technical limitations (UUID-based storage would require complex macro iterations)
+- **In-Session**: All players' markers persist in memory during gameplay regardless of server size
+- **Recommendation**: For large multiplayer servers, consider external tools or UUID-based storage mods for persistent per-player markers across server restarts
+
+No need to manually save - it happens automatically within these constraints!
 
 #### In-Game Help and Tab-Completion
 

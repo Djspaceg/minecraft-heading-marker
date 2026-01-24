@@ -92,9 +92,24 @@ Each dimension maintains its own independent set of markers.
 5. Run `/reload` in-game to activate the data pack
 6. You should see a welcome message confirming the data pack loaded
 
-### Resource Pack (Future Enhancement)
+### Resource Pack (Optional Custom Sprites)
 
-The resource pack structure is prepared for future custom icon textures. Currently, the HUD uses emoji icons (🔴🔵🟢🟡🟣) which work without a resource pack.
+The resource pack includes a pre-configured font file for custom marker sprites.
+
+**Current Status:** The HUD uses emoji icons (🔴🔵🟢🟡🟣) which work without a resource pack.
+
+**To Add Custom Sprites:**
+1. Create 16x16 pixel PNG images for each marker color
+2. Place them in `resourcepack/assets/heading_marker/textures/hud/`:
+   - `marker_red.png`
+   - `marker_blue.png`
+   - `marker_green.png`
+   - `marker_yellow.png`
+   - `marker_purple.png`
+3. Install the resource pack in your world
+4. The font file (`resourcepack/assets/heading_marker/font/default.json`) is already configured to map these sprites to unicode characters \uE000-\uE004
+
+**Note:** You can use the data pack without the resource pack. Sprites are optional!
 
 ## Usage
 

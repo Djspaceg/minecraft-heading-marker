@@ -1,6 +1,6 @@
 {
   "pack": {
     "pack_format": 34,
-    "description": "Heading Marker - Resource pack placeholder for future custom waypoint icons"
+    "description": "Heading Marker - Custom font file ready for 16x16 marker sprites (drop PNGs in textures/hud/)"
   }
 }

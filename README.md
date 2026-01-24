@@ -1,47 +1,61 @@
 # Heading Marker
 
-A Minecraft Java Edition data pack that displays custom waypoint markers on your HUD (actionbar) using slash commands. Enter coordinates and see a colored icon appear on your screen showing the waypoint location and distance!
+A Minecraft Java Edition data pack that displays multiple custom waypoint markers on your HUD (actionbar) using slash commands. Track up to 5 waypoints simultaneously with colored icons and real-time distance tracking!
 
 ## Features
 
-- 🎯 **HUD Waypoint Markers** - Colored icons appear on your actionbar
+- 🎯 **Multiple HUD Markers** - Track up to 5 waypoints at once (one per color)
 - 📍 **Coordinate-Based** - Enter 2D (X, Z) or 3D (X, Y, Z) coordinates via commands
-- 🎨 **5 Color Options** - Red, Blue, Green, Yellow, or Purple markers
-- 📏 **Distance Tracking** - See real-time distance to your waypoint
-- ⚡ **Instant Updates** - Marker updates every tick (20 times per second)
-- 👥 **Multiplayer Support** - Each player has their own personal marker
+- 🎨 **5 Color Options** - 🔴 Red, 🔵 Blue, 🟢 Green, 🟡 Yellow, 🟣 Purple
+- 📏 **Distance Tracking** - See real-time distance² to all active waypoints
+- 💾 **Persistence** - Markers saved and restored between gameplay sessions
+- 🔄 **Auto-Color Cycling** - Automatically assigns next available color
+- ⚡ **Instant Updates** - All markers update every tick (20 times per second)
+- 👥 **Multiplayer Support** - Each player has their own set of 5 markers
 - 🌍 **Cross-Dimension** - Works in Overworld, Nether, and End
 
 ## Quick Start
 
-1. **Mark your current location:**
-   ```
-   /function heading_marker:set_marker
-   ```
+### Set a Marker (2D - Y defaults to 64)
+```
+/scoreboard players set @s hm.input.x 1000
+/scoreboard players set @s hm.input.y -500
+/function heading_marker:marker_set
+```
+Result: `🔴 Red marker set at 1000 64 -500`
 
-2. **Or set specific coordinates:**
-   ```
-   /scoreboard players set @s hm.x 1000
-   /scoreboard players set @s hm.y 64
-   /scoreboard players set @s hm.z -500
-   /function heading_marker:set_marker_at
-   ```
+### Set a Marker (3D with specific coordinates)
+```
+/scoreboard players set @s hm.input.x 1000
+/scoreboard players set @s hm.input.y 64
+/scoreboard players set @s hm.input.z -500
+/function heading_marker:marker_set
+```
+Result: `🔵 Blue marker set at 1000 64 -500` (auto-cycled to next color)
 
-3. **See the marker on your actionbar!**
-   - A colored icon (🔴🔵🟢🟡🟣) appears
-   - Shows waypoint coordinates
-   - Displays distance² to target
+### Set with Specific Color
+```
+/scoreboard players set @s hm.input.x 1000
+/scoreboard players set @s hm.input.y 64
+/scoreboard players set @s hm.input.z -500
+/scoreboard players set @s hm.input.color 2  # 0=red, 1=blue, 2=green, 3=yellow, 4=purple
+/function heading_marker:marker_set
+```
+Result: `🟢 Green marker set at 1000 64 -500`
 
-4. **Change marker color:**
-   ```
-   /function heading_marker:set_color_blue
-   ```
-   (Options: red, blue, green, yellow, purple)
+### Remove a Marker
+```
+/scoreboard players set @s hm.input.color 1  # Remove blue marker
+/function heading_marker:marker_remove
+```
+Result: `🔵 Blue marker removed`
 
-5. **Clear the marker:**
-   ```
-   /function heading_marker:clear_marker
-   ```
+### Actionbar Display
+When markers are active, you'll see:
+```
+🔴245820 🔵180500 🟢0
+```
+(Shows emoji icon and distance² for each active marker)
 
 ## Installation
 
@@ -64,72 +78,80 @@ The resource pack structure is prepared for future custom icon textures. Current
 
 ### Main Commands
 
-#### Set Marker at Current Location
+#### Set Marker - 2D Mode (X, Z coordinates)
 ```
-/function heading_marker:set_marker
+/scoreboard players set @s hm.input.x 1000
+/scoreboard players set @s hm.input.y -500
+/function heading_marker:marker_set
 ```
-Marks your current position as the waypoint. The marker immediately appears on your actionbar.
+In 2D mode, the second coordinate is Z, and Y defaults to 64.
 
-#### Set Marker at Specific Coordinates
+#### Set Marker - 3D Mode (X, Y, Z coordinates)
 ```
-/function heading_marker:help_coordinates
-```
-Shows clickable commands to set exact coordinates:
-1. Set X: `/scoreboard players set @s hm.x <value>`
-2. Set Y: `/scoreboard players set @s hm.y <value>`
-3. Set Z: `/scoreboard players set @s hm.z <value>`
-4. Activate: `/function heading_marker:set_marker_at`
-
-**Example - Set marker at X=1000, Y=64, Z=-500:**
-```
-/scoreboard players set @s hm.x 1000
-/scoreboard players set @s hm.y 64
-/scoreboard players set @s hm.z -500
-/function heading_marker:set_marker_at
+/scoreboard players set @s hm.input.x 1000
+/scoreboard players set @s hm.input.y 64
+/scoreboard players set @s hm.input.z -500
+/function heading_marker:marker_set
 ```
 
-#### Change Marker Color
+#### Set Marker with Specific Color
 ```
-/function heading_marker:set_color_red
-/function heading_marker:set_color_blue
-/function heading_marker:set_color_green
-/function heading_marker:set_color_yellow
-/function heading_marker:set_color_purple
+/scoreboard players set @s hm.input.x 1000
+/scoreboard players set @s hm.input.y 64
+/scoreboard players set @s hm.input.z -500
+/scoreboard players set @s hm.input.color 2  # 0=red, 1=blue, 2=green, 3=yellow, 4=purple
+/function heading_marker:marker_set
 ```
+If color is not specified, the system automatically cycles to the next available color.
 
-#### Clear Marker
+#### Remove Marker
 ```
-/function heading_marker:clear_marker
+/scoreboard players set @s hm.input.color 1  # Specify which color to remove
+/function heading_marker:marker_remove
 ```
-Removes the waypoint marker from your HUD.
-
-#### Get Help
-```
-/function heading_marker:add_marker
-```
-Shows all available commands and usage instructions.
+Color is **required** for removal.
 
 ### How the HUD Works
 
-When a marker is active, you'll see on your actionbar:
+When markers are active, you'll see on your actionbar:
 ```
-🔴 Waypoint: 1000 64 -500 | Distance²: 245820
+🔴245820 🔵180500 🟢0 🟡5420 🟣980000
 ```
 
-- **🔴** - Colored icon (changes based on your color selection)
-- **Waypoint: X Y Z** - The target coordinates
-- **Distance²** - Squared distance to target (lower = closer)
+- **🔴🔵🟢🟡🟣** - Colored emoji icons for each active marker
+- **Numbers** - Distance² to each waypoint (lower = closer)
+- **Inactive markers** - Don't appear in the display
 
 The display updates automatically 20 times per second as you move!
 
 ### Advanced Usage
 
-#### Multiple Waypoints (Per Player)
+#### Multiple Waypoints Simultaneously
 
-Each player can have one active marker at a time. To track multiple locations:
-- Take note of coordinates before clearing
-- Switch between waypoints as needed
-- Or share coordinates with teammates
+You can have up to 5 markers active at once (one per color):
+- 🔴 **Red** (0) - Home/Base
+- 🔵 **Blue** (1) - Mines/Resources
+- 🟢 **Green** (2) - Farms
+- 🟡 **Yellow** (3) - Villages/Trading
+- 🟣 **Purple** (4) - Nether Portals/End Portals
+
+All markers are shown together on your HUD, allowing you to track multiple important locations at once!
+
+#### Color Auto-Cycling
+
+If you don't specify a color when setting a marker, the system:
+1. Finds the next unused color
+2. If all colors are used, cycles through in order (red → blue → green → yellow → purple → red)
+3. Automatically assigns that color to your new marker
+
+#### Persistence Between Sessions
+
+Your markers are automatically saved and will be restored when you:
+- Rejoin the world
+- Restart the server
+- Reload the data pack
+
+No need to manually save - it happens automatically!
 
 #### Understanding Distance²
 

@@ -6,18 +6,16 @@
 #   /function heading_marker:set {x:1000, y:64, z:-500, color:2}     # 3D with color
 #
 # Colors: 0=red, 1=blue, 2=green, 3=yellow, 4=purple
-# If color not specified, auto-cycles to next available
+# Color -1 means auto-cycle to next available
 
-# Store macro parameters to scoreboards
+# Store macro parameters to scoreboards (with defaults)
 $scoreboard players set @s hm.input.x $(x)
+$scoreboard players set @s hm.input.y $(y)
 $scoreboard players set @s hm.input.z $(z)
-
-# Set y if provided, otherwise default to 64
-$execute unless data storage heading_marker:temp {has_y:1b} run scoreboard players set @s hm.input.y 64
-$execute if data storage heading_marker:temp {has_y:1b} run scoreboard players set @s hm.input.y $(y)
-
-# Set color if provided (using default value fallback)
 $scoreboard players set @s hm.input.color $(color)
 
-# Process the marker
+# Default y to 64 if not in valid range (handling optional parameter)
+execute unless score @s hm.input.y matches -2048..2048 run scoreboard players set @s hm.input.y 64
+
+# Process the marker (no need for 2D/3D split anymore - all params are set)
 function heading_marker:internal/set_marker_3d

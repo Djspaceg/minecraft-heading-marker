@@ -52,8 +52,9 @@ scoreboard objectives add hm.input.color dummy "Input Color"
 # Next color tracking for auto-cycling
 scoreboard objectives add hm.nextcolor dummy "Next Color"
 
-# Display welcome message
-tellraw @a ["",{"text":"[Heading Marker] ","color":"gold","bold":true},{"text":"Data pack loaded! Use ","color":"yellow"},{"text":"/function heading_marker:marker_set","color":"aqua"},{"text":" to add waypoint markers.","color":"yellow"}]
+# Display welcome message with help command
+tellraw @a ["",{"text":"[Heading Marker] ","color":"gold","bold":true},{"text":"Data pack loaded!","color":"yellow"}]
+tellraw @a ["",{"text":"Type ","color":"gray"},{"text":"/function heading_marker:help","color":"aqua","clickEvent":{"action":"suggest_command","value":"/function heading_marker:help"},"hoverEvent":{"action":"show_text","contents":"Click to run help command"}},{"text":" for commands and examples","color":"gray"}]
 
 # Load saved markers from storage
 function heading_marker:load_markers

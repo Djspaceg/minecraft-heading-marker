@@ -54,7 +54,6 @@ scoreboard objectives add hm.nextcolor dummy "Next Color"
 
 # Player join tracking for persistence
 scoreboard objectives add hm.loaded dummy "Markers Loaded"
-scoreboard objectives add hm.joined minecraft.custom:minecraft.leave_game "Leave Tracker"
 
 # Display welcome message with help command
 tellraw @a ["",{"text":"[Heading Marker] ","color":"gold","bold":true},{"text":"Data pack loaded!","color":"yellow"}]

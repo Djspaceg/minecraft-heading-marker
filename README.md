@@ -84,13 +84,13 @@ Each dimension maintains its own independent set of markers.
 ### Data Pack Installation
 
 1. Download or clone this repository
-2. Copy the `datapack` folder to your Minecraft world's `datapacks` directory:
+2. Copy the `heading-marker` folder to your Minecraft world's `datapacks` directory:
    - Windows: `%appdata%\.minecraft\saves\[YourWorldName]\datapacks\`
    - Mac/Linux: `~/.minecraft/saves/[YourWorldName]/datapacks/`
-3. Rename the folder to `heading-marker` (optional but recommended)
+3. The final path should be: `saves/[YourWorldName]/datapacks/heading-marker/pack.mcmeta`
 4. Load or reload your world
 5. Run `/reload` in-game to activate the data pack
-6. You should see a welcome message confirming the data pack loaded
+6. You should see a welcome message: "Heading Marker loaded! Use /function heading_marker:help for commands"
 
 ### Resource Pack (Optional Custom Sprites)
 
@@ -259,7 +259,7 @@ The system is 100% vanilla Minecraft - it works on any server running the data p
 
 ### Data Pack Structure
 ```
-datapack/
+heading-marker/                              # Main data pack folder (goes in datapacks/)
 ├── pack.mcmeta                              # Data pack metadata (format 48)
 └── data/
     ├── heading_marker/
@@ -290,8 +290,9 @@ datapack/
     │           ├── set_marker_3d.mcfunction
     │           ├── show_actionbar.mcfunction
     │           ├── show_multi.mcfunction
-    │           ├── save_player.mcfunction
-    │           └── load_player.mcfunction
+    │           ├── save_player_uuid.mcfunction
+    │           ├── load_player_uuid.mcfunction
+    │           └── ... (dimension-aware helpers)
     └── minecraft/
         └── tags/
             └── functions/

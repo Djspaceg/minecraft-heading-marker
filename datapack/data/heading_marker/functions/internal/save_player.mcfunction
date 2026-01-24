@@ -1,6 +1,10 @@
 # Internal: Save Player Markers
 # Save this player's markers to storage using their UUID
 
+# Note: This is a simplified persistence implementation
+# For full multiplayer support, player-specific storage would be needed
+# Current implementation saves to shared storage (works for single-player and small servers where one player logs out at a time)
+
 # Get player UUID
 data modify storage heading_marker:save temp_uuid set from entity @s UUID
 
@@ -33,6 +37,3 @@ execute if score @s hm.purple.active matches 1 run data modify storage heading_m
 execute if score @s hm.purple.active matches 1 store result storage heading_marker:save purple.x int 1 run scoreboard players get @s hm.purple.x
 execute if score @s hm.purple.active matches 1 store result storage heading_marker:save purple.y int 1 run scoreboard players get @s hm.purple.y
 execute if score @s hm.purple.active matches 1 store result storage heading_marker:save purple.z int 1 run scoreboard players get @s hm.purple.z
-
-# Note: Actual per-player persistence would require storing data with player UUID as key
-# This is a simplified version that works for single-player or small servers

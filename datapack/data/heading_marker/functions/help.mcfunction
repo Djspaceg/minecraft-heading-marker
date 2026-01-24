@@ -8,9 +8,10 @@ tellraw @s ""
 
 # Set marker commands
 tellraw @s ["",{"text":"SET MARKER:","color":"aqua","bold":true}]
-tellraw @s ["",{"text":"• 2D Mode (Y=64): ","color":"gray"},{"text":"/function heading_marker:set {x:1000, z:-500}","color":"yellow","clickEvent":{"action":"suggest_command","value":"/function heading_marker:set {x:1000, z:-500}"},"hoverEvent":{"action":"show_text","contents":"Click to copy"}}]
+tellraw @s ["",{"text":"• 2D Mode (Y=64): ","color":"gray"},{"text":"/function heading_marker:set_2d {x:1000, z:-500}","color":"yellow","clickEvent":{"action":"suggest_command","value":"/function heading_marker:set_2d {x:1000, z:-500}"},"hoverEvent":{"action":"show_text","contents":"Click to copy"}}]
 tellraw @s ["",{"text":"• 3D Mode: ","color":"gray"},{"text":"/function heading_marker:set {x:1000, y:64, z:-500}","color":"yellow","clickEvent":{"action":"suggest_command","value":"/function heading_marker:set {x:1000, y:64, z:-500}"},"hoverEvent":{"action":"show_text","contents":"Click to copy"}}]
-tellraw @s ["",{"text":"• With Color: ","color":"gray"},{"text":"/function heading_marker:set {x:1000, z:-500, color:2}","color":"yellow","clickEvent":{"action":"suggest_command","value":"/function heading_marker:set {x:1000, z:-500, color:2}"},"hoverEvent":{"action":"show_text","contents":"Click to copy"}}]
+tellraw @s ["",{"text":"• 2D With Color: ","color":"gray"},{"text":"/function heading_marker:set_2d_color {x:1000, z:-500, color:2}","color":"yellow","clickEvent":{"action":"suggest_command","value":"/function heading_marker:set_2d_color {x:1000, z:-500, color:2}"},"hoverEvent":{"action":"show_text","contents":"Click to copy"}}]
+tellraw @s ["",{"text":"• 3D With Color: ","color":"gray"},{"text":"/function heading_marker:set_3d_color {x:1000, y:64, z:-500, color:2}","color":"yellow","clickEvent":{"action":"suggest_command","value":"/function heading_marker:set_3d_color {x:1000, y:64, z:-500, color:2}"},"hoverEvent":{"action":"show_text","contents":"Click to copy"}}]
 tellraw @s ""
 
 # Remove marker command

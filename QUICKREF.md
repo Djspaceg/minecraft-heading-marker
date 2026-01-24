@@ -17,7 +17,7 @@ Shows all commands with clickable examples!
 
 ### Set Marker (2D - Y defaults to 64)
 ```
-/function heading_marker:set {x:1000, z:-500}
+/function heading_marker:set_2d {x:1000, z:-500}
 ```
 
 ### Set Marker (3D)
@@ -27,7 +27,8 @@ Shows all commands with clickable examples!
 
 ### Set Marker with Specific Color
 ```
-/function heading_marker:set {x:1000, y:64, z:-500, color:2}
+/function heading_marker:set_2d_color {x:1000, z:-500, color:0}      # 2D with color
+/function heading_marker:set_3d_color {x:1000, y:64, z:-500, color:2}  # 3D with color
 ```
 Colors: `0=red, 1=blue, 2=green, 3=yellow, 4=purple`
 

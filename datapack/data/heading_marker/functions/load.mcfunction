@@ -55,6 +55,10 @@ scoreboard objectives add hm.nextcolor dummy "Next Color"
 # Player join tracking for persistence
 scoreboard objectives add hm.loaded dummy "Markers Loaded"
 
+# Dimension tracking (overworld=0, nether=-1, end=1)
+scoreboard objectives add hm.dimension dummy "Current Dimension"
+scoreboard objectives add hm.prev_dim dummy "Previous Dimension"
+
 # Display welcome message with help command
 tellraw @a ["",{"text":"[Heading Marker] ","color":"gold","bold":true},{"text":"Data pack loaded!","color":"yellow"}]
 tellraw @a ["",{"text":"Type ","color":"gray"},{"text":"/function heading_marker:help","color":"aqua","clickEvent":{"action":"suggest_command","value":"/function heading_marker:help"},"hoverEvent":{"action":"show_text","contents":"Click to run help command"}},{"text":" for commands and examples","color":"gray"}]

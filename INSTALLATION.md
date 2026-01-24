@@ -25,9 +25,9 @@ This guide will walk you through installing the Heading Marker data pack and res
    - If it doesn't exist, create it
 
 4. **Install the data pack:**
-   - Copy the entire `heading_marker` folder from this repository
+   - Copy the entire `headingmarker` folder from this repository
    - Paste it into your world's `datapacks` folder
-   - The final path should be: `saves/[YourWorldName]/datapacks/heading_marker/`
+   - The final path should be: `saves/[YourWorldName]/datapacks/headingmarker/`
 
 5. **Activate the data pack:**
    - If the world is already open, type `/reload` in chat
@@ -46,7 +46,7 @@ The resource pack is optional but provides custom icons for your waypoint marker
 2. **Install the resource pack:**
    - Copy the entire `resourcepack` folder from this repository
    - Paste it into your `resourcepacks` folder
-   - Optionally, rename it to `heading_marker-resources` for clarity
+   - Optionally, rename it to `headingmarker-resources` for clarity
 
 3. **Activate the resource pack:**
    - Open Minecraft
@@ -60,7 +60,7 @@ The resource pack is optional but provides custom icons for your waypoint marker
 To verify the installation was successful:
 
 1. Join your world
-2. Type `/function heading_marker:help` in chat
+2. Type `/function headingmarker:help` in chat
 3. You should see help information and instructions for using Heading Marker
 
 If you see the help message, congratulations! The data pack is installed correctly.
@@ -72,9 +72,9 @@ If you see the help message, congratulations! The data pack is installed correct
 **Problem:** No welcome message appears when joining the world
 
 **Solutions:**
-- Make sure the `heading_marker` folder is inside `[YourWorldName]/datapacks/`
-- Check that `pack.mcmeta` is directly inside the data pack folder: `datapacks/heading_marker/pack.mcmeta`
-- The folder structure should be: `datapacks/heading_marker/data/heading_marker/functions/...`
+- Make sure the `headingmarker` folder is inside `[YourWorldName]/datapacks/`
+- Check that `pack.mcmeta` is directly inside the data pack folder: `datapacks/headingmarker/pack.mcmeta`
+- The folder structure should be: `datapacks/headingmarker/data/headingmarker/functions/...`
 - Verify your Minecraft version is 1.21 or later (requires macro support from 1.20.2+)
 - Try running `/reload` in-game
 - Check for error messages in the chat or game output log
@@ -132,7 +132,7 @@ Alternatively, you could create a command block system to allow non-op players t
 ### Removing the Data Pack
 
 1. Navigate to your world's `datapacks` folder
-2. Delete the `heading_marker` folder
+2. Delete the `headingmarker` folder
 3. Run `/reload` in-game or restart the world
 
 ### Removing the Resource Pack
@@ -152,3 +152,5 @@ If you encounter issues not covered here:
 - Verify file permissions allow Minecraft to read the files
 
 Happy navigating with Heading Marker! 🧭
+
+

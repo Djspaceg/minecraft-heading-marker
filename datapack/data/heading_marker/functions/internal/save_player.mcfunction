@@ -1,9 +1,10 @@
 # Internal: Save Player Markers
 # Save this player's markers to storage
 
-# Note: This implementation uses shared storage (not UUID-keyed)
-# Works for single-player and small servers, but only saves the last player's state
-# For true multiplayer persistence, would need UUID-keyed storage
+# NOTE: This uses single-player storage (not UUID-keyed for multiplayer)
+# In multiplayer, only the last player's markers are saved
+# This is a known limitation due to complexity of UUID-based storage without macros in load
+# For multiplayer servers, markers persist in scoreboards during the session
 
 # Save red marker (including clearing if inactive)
 execute if score @s hm.red.active matches 1 run data modify storage heading_marker:save red.active set value 1b

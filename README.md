@@ -1,18 +1,19 @@
 # Heading Marker
 
-A Minecraft Java Edition data pack that displays multiple custom waypoint markers on your HUD (actionbar) using slash commands. Track up to 5 waypoints simultaneously with colored icons and real-time distance tracking!
+A Minecraft Java Edition data pack that displays multiple custom waypoint markers on your HUD (actionbar) using slash commands. Track up to 5 waypoints per dimension with colored icons and real-time distance tracking!
 
 ## Features
 
-- 🎯 **Multiple HUD Markers** - Track up to 5 waypoints at once (one per color)
+- 🎯 **Multiple HUD Markers** - Track up to 5 waypoints per dimension (15 total across all dimensions)
+- 🌍 **Per-Dimension Markers** - Separate marker sets for Overworld, Nether, and End
 - 📍 **Coordinate-Based** - Enter 2D (X, Z) or 3D (X, Y, Z) coordinates via commands
 - 🎨 **5 Color Options** - 🔴 Red, 🔵 Blue, 🟢 Green, 🟡 Yellow, 🟣 Purple
-- 📏 **Distance Tracking** - See real-time distance² to all active waypoints
-- 💾 **Persistence** - Markers saved and restored between gameplay sessions (UUID-based per-player storage for multiplayer servers)
+- 📏 **Distance Tracking** - See real-time distance² to all active waypoints in current dimension
+- 💾 **Full Persistence** - Markers saved and restored between gameplay sessions with UUID-based per-player per-dimension storage
 - 🔄 **Auto-Color Cycling** - Automatically assigns next available color
 - ⚡ **Instant Updates** - All markers update every tick (20 times per second)
-- 👥 **Per-Player Markers** - Each player has their own set of 5 markers with UUID-based persistence for multiplayer servers
-- 🌍 **All Dimensions Supported** - Use markers in Overworld, Nether, and End (distance tracking is per-dimension; markers in other dimensions won't show distance)
+- 👥 **Per-Player Markers** - Each player has their own set of markers (5 per dimension) with UUID-based persistence for multiplayer servers
+- 🚪 **Dimension-Aware** - Automatically saves/loads correct markers when changing dimensions
 - 💡 **Built-in Help** - In-game help command with clickable examples and tab-completion
 
 ## Quick Start
@@ -55,6 +56,28 @@ When markers are active, you'll see:
 🔴245820 🔵180500 🟢0
 ```
 (Shows emoji icon and distance² for each active marker)
+
+### Per-Dimension Markers
+
+Markers are **dimension-specific**:
+- **Overworld**: 5 markers (one per color)
+- **Nether**: 5 markers (one per color)
+- **End**: 5 markers (one per color)
+
+When you change dimensions:
+- Your current dimension's markers are automatically saved
+- The new dimension's markers are automatically loaded
+- You'll see a message: "Switched to [Dimension] markers"
+
+This means you can have up to **15 total markers** (5 per dimension × 3 dimensions)!
+
+**Example:**
+1. In Overworld: Set red marker at spawn (0, 64, 0)
+2. Go to Nether: Set red marker at your portal (-100, 70, 50)
+3. Return to Overworld: You'll see your spawn marker again
+4. Go back to Nether: You'll see your portal marker again
+
+Each dimension maintains its own independent set of markers.
 
 ## Installation
 

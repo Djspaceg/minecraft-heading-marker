@@ -6,6 +6,13 @@
 2. Run `/reload` in-game
 3. Use commands to set markers - they'll appear on your actionbar!
 
+## Get Help In-Game
+
+```
+/function heading_marker:help
+```
+Shows all commands with clickable examples!
+
 ## Commands
 
 ### Set Marker (2D - Y defaults to 64)
@@ -28,6 +35,21 @@ Colors: `0=red, 1=blue, 2=green, 3=yellow, 4=purple`
 ```
 /function heading_marker:remove {color:1}
 ```
+
+## Example Functions
+
+Quick examples you can run and modify:
+```
+/function heading_marker:examples/home     # Red marker for home
+/function heading_marker:examples/mine     # Blue marker for mine
+/function heading_marker:examples/farm     # Green marker for farm
+/function heading_marker:examples/village  # Yellow marker for village
+/function heading_marker:examples/portal   # Purple marker for portal
+```
+
+## Tab-Completion
+
+Press Tab after typing `/function heading_marker:` to see all available commands!
 
 ## HUD Display
 

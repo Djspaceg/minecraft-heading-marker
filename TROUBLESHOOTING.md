@@ -48,6 +48,24 @@ Before diving into specific issues, verify:
 /datapack list
 ```
 
+### "Unknown function" Errors
+
+**Symptoms:**
+
+- Running `/function headingmarker:help` says "Unknown function".
+- The pack appears in `/datapack list` but commands fail.
+
+**Causes & Solutions:**
+
+1. **Duplicate Datapacks / Namespace Conflict**
+   - If you have another folder (like `hm_test` or an old backup) in `datapacks/` that also uses the `headingmarker` namespace (i.e. has `data/headingmarker`), Minecraft may attempt to merge them.
+   - If the old pack has broken code, it can crash the loading of the _new_ pack.
+   - **Fix:** Delete any old or duplicate folders from the `datapacks/` directory.
+
+2. **Incompatible Pack Format**
+   - If the `pack_format` in `pack.mcmeta` is newer than your game version, the game may disable the functions.
+   - **Fix:** Ensure `pack.mcmeta` uses a compatible format (e.g., 48 for 1.21-1.21.1).
+
 You should see `headingmarker` in the enabled list.
 
 ### Data Pack Shows as Incompatible
@@ -266,6 +284,16 @@ You should see `headingmarker` in the enabled list.
 
 ## Debugging Commands
 
+### Confirm load tag executed (quick test)
+
+1. Remove any duplicate packs from your world:
+   - Delete `saves/[YourWorld]/datapacks/heading_marker` and `heading-marker` if present; keep only `headingmarker`.
+2. Reload and watch chat (or `logs/latest.log`):
+   - Run `/reload`.
+   - Look for this exact debug message in chat or the log: **`[Heading Marker DEBUG] pack: headingmarker commit 8508315 loaded`** or the token **`HM-8508315-LOAD`**.
+3. Test the function directly:
+   - Run `/function headingmarker:debug_loaded` — it should print `debug token: HM-8508315-LOAD`.
+
 ### Check if data pack is loaded
 
 ```
@@ -390,4 +418,3 @@ If none of these solutions work:
 ---
 
 **Need more help?** Check the main README.md or INSTALLATION.md files!
-

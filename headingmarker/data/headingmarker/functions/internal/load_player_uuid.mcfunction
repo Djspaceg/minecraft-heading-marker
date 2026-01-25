@@ -1,9 +1,9 @@
-# Internal: Load Player Markers with UUID
-# Uses UUID-based storage for proper multiplayer persistence
+# Internal: Load Player Markers with ID
+# Uses ID-based storage for proper multiplayer persistence
 # Loads markers for current dimension
 
-# Store UUID and call macro
-data modify storage headingmarker:temp uuid set from entity @s UUID
+# Store ID and call macro
+execute store result storage headingmarker:temp id int 1 run scoreboard players get @s hm.uid
 function headingmarker:internal/load_dimension_macro with storage headingmarker:temp
 
 

@@ -6,6 +6,9 @@
 execute as @a unless score @s hm.loaded matches 1 run function headingmarker:internal/load_player_uuid
 execute as @a unless score @s hm.loaded matches 1 run scoreboard players set @s hm.loaded 1
 
+# Assign unique IDs to new players
+execute as @a unless score @s hm.uid matches 1.. run function headingmarker:internal/assign_id
+
 # Track current dimension for each player (overworld=0, nether=-1, end=1)
 execute as @a[predicate=!headingmarker:in_overworld,predicate=!headingmarker:in_nether,predicate=!headingmarker:in_end] in minecraft:overworld run scoreboard players set @s hm.dimension 0
 execute as @a[predicate=headingmarker:in_overworld] run scoreboard players set @s hm.dimension 0

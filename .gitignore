@@ -41,6 +41,7 @@ Thumbs.db
 build/
 dist/
 out/
+run/
 
 # Gradle files
 .gradle/

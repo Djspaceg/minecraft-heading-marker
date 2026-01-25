@@ -1,108 +1,151 @@
 package com.djspaceg.headingmarker;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.djspaceg.headingmarker.Waypoint;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.util.math.Vec3i;
+import net.minecraft.world.waypoint.EntityTickProgress;
+import net.minecraft.world.waypoint.TrackedWaypoint;
+import net.minecraft.world.waypoint.Waypoint;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+// Helper class to store both waypoint and position
+class ClientMarker {
+    public final TrackedWaypoint waypoint;
+    public final Vec3i pos;
+    public ClientMarker(TrackedWaypoint waypoint, Vec3i pos) {
+        this.waypoint = waypoint;
+        this.pos = pos;
+    }
+}
 
 public class HeadingMarkerClient implements ClientModInitializer {
-    public static final Logger LOGGER = LoggerFactory.getLogger("headingmarker-client");
+    public static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger("headingmarker-client");
     
-    private static final Map<String, Waypoint> clientWaypoints = new HashMap<>();
+    // Client-side waypoint storage: color -> ClientMarker
+    private static final Map<String, ClientMarker> clientWaypoints = new HashMap<>();
 
     @Override
     public void onInitializeClient() {
-        LOGGER.info("Initializing Heading Marker Client...");
+        LOGGER.info("Initializing Heading Marker Client (Custom Networking + Vanilla Waypoint Math)...");
         
-        ClientPlayNetworking.registerGlobalReceiver(WaypointSyncPayload.ID, (payload, context) -> {
+        // Register networking receiver
+        ClientPlayNetworking.registerGlobalReceiver(HeadingMarkerMod.WaypointSyncPayload.ID, (payload, context) -> {
             context.client().execute(() -> {
-                clientWaypoints.clear();
-                clientWaypoints.putAll(payload.waypoints());
+                if (payload.remove()) {
+                    clientWaypoints.remove(payload.color());
+                    LOGGER.info("Removed waypoint: {}", payload.color());
+                } else {
+                    // Create TrackedWaypoint for client-side tracking
+                    UUID playerUuid = context.player().getUuid();
+                    Waypoint.Config config = new Waypoint.Config();
+                    config.color = java.util.Optional.of(payload.colorInt());
+                    Vec3i pos = new Vec3i(payload.x(), payload.y(), payload.z());
+                    TrackedWaypoint waypoint = TrackedWaypoint.ofPos(playerUuid, config, pos);
+                    clientWaypoints.put(payload.color(), new ClientMarker(waypoint, pos));
+                    LOGGER.info("Received waypoint: color={}, pos=({},{},{})", payload.color(), payload.x(), payload.y(), payload.z());
+                }
             });
         });
     }
     
     /**
      * Called by ExperienceBarMixin to render waypoint markers.
-     * This is invoked during the ExperienceBar's renderAddons phase,
-     * ensuring markers are drawn exactly where vanilla player indicators appear.
+     * Uses vanilla ClientWaypointHandler and TrackedWaypoint.getRelativeYaw() for proper integration.
      */
     public static void renderWaypointMarkers(DrawContext context, RenderTickCounter tickCounter) {
         MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null) return;
+        if (client.player == null || client.world == null) return;
+        
+        // Early exit if no waypoints
         if (clientWaypoints.isEmpty()) return;
+        
+        // ...existing code...
         
         int screenWidth = context.getScaledWindowWidth();
         int screenHeight = context.getScaledWindowHeight();
         int cx = screenWidth / 2;
-        
-        // XP bar is at bottom of screen, typically at height - 32 (above hotbar)
-        // Player indicators appear at height - 39 (just above XP bar)
-        int xpBarY = screenHeight - 32;
-        int indicatorY = screenHeight - 39;
-        
-        float playerYaw = client.player.getYaw() % 360;
-        if (playerYaw < 0) playerYaw += 360;
-        
+        // Shift marker down to sit directly on the XP bar (vanilla bar is at y = screenHeight - 32)
+        int indicatorY = screenHeight - 32; // Sits on top of XP bar
         // XP bar width is 182 pixels (vanilla size)
         int barHalfWidth = 91; // 182 / 2
         float maxAngle = 90.0f; // Show markers within 90 degrees left/right
-        float pixelsPerDegree = barHalfWidth / maxAngle;
+        
+        // Create EntityTickProgress implementation for waypoint calculations
+        EntityTickProgress tickProgress = new EntityTickProgress() {
+            @Override
+            public float getTickProgress(net.minecraft.entity.Entity entity) {
+                // Return 1.0f for smooth rendering - tickCounter field access varies by Yarn version
+                return 1.0f;
+            }
+        };
+        
+        // Create YawProvider for camera yaw
+        TrackedWaypoint.YawProvider yawProvider = new TrackedWaypoint.YawProvider() {
+            @Override
+            public float getCameraYaw() {
+                return client.player.getYaw();
+            }
+            
+            @Override
+            public net.minecraft.util.math.Vec3d getCameraPos() {
+                return client.player.getEyePos();
+            }
+        };
+        
+        // Iterate over our client-side waypoints
+        for (ClientMarker marker : clientWaypoints.values()) {
+            TrackedWaypoint waypoint = marker.waypoint;
+            Vec3i pos = marker.pos;
+            // Use vanilla's yaw calculation - this handles all the math for us!
+            double relativeYaw = waypoint.getRelativeYaw(client.world, yawProvider, tickProgress);
 
-        for (Map.Entry<String, Waypoint> entry : clientWaypoints.entrySet()) {
-            String colorName = entry.getKey();
-            Waypoint wp = entry.getValue();
-            
-            if (!wp.active) continue;
-            
-            if (client.world == null || 
-                !client.world.getRegistryKey().getValue().toString().equals(wp.dimension)) {
-                 continue;
+            // Calculate distance to marker (horizontal only)
+            double dx = pos.getX() + 0.5 - client.player.getX();
+            double dz = pos.getZ() + 0.5 - client.player.getZ();
+            double dist = Math.sqrt(dx * dx + dz * dz);
+
+            // Scale: full at 128, 50% at 384, 25% at 1024+
+            float scale;
+            if (dist <= 128) {
+                scale = 1.0f;
+            } else if (dist <= 384) {
+                scale = 1.0f - 0.5f * (float)((dist - 128) / 256.0);
+            } else if (dist <= 1024) {
+                scale = 0.5f - 0.25f * (float)((dist - 384) / 640.0);
+            } else {
+                scale = 0.25f;
             }
-            
-            double dX = wp.x - client.player.getX();
-            double dZ = wp.z - client.player.getZ();
-            
-            double angleRad = Math.atan2(dZ, dX);
-            double angleDeg = Math.toDegrees(angleRad) - 90; 
-            
-            double diff = angleDeg - playerYaw;
-            while (diff < -180) diff += 360;
-            while (diff > 180) diff -= 360;
-            
-            // Show markers within 180 degree view (full bar width)
-            if (Math.abs(diff) <= maxAngle) {
-                float xOffset = (float) (diff * pixelsPerDegree);
-                int renderX = (int) (cx + xOffset) - 3; // Center 6px marker
-                
-                int colorInt = getColorInt(colorName);
-                
-                // Draw marker on XP bar (small vertical bar, similar to player indicators)
-                context.fill(renderX, indicatorY, renderX + 6, indicatorY + 8, colorInt | 0xFF000000);
+            // Clamp
+            if (scale < 0.18f) scale = 0.18f;
+
+            // Convert yaw to screen position
+            // relativeYaw is in degrees, where 0 = straight ahead, -90 = left, +90 = right
+            if (Math.abs(relativeYaw) <= maxAngle) {
+                float pixelsPerDegree = barHalfWidth / maxAngle;
+                float xOffset = (float) relativeYaw * pixelsPerDegree;
+                // Marker size (square): 8px at full scale
+                int markerSize = Math.round(8 * scale);
+                if (markerSize < 3) markerSize = 3;
+                int renderX = (int) (cx + xOffset) - markerSize / 2;
+                int renderY = indicatorY - markerSize / 2;
+
+                // Get custom color from waypoint config
+                int colorInt = waypoint.getConfig().color.orElse(0xFFFFFF);
+
+                // Draw marker as a square
+                context.fill(renderX, renderY, renderX + markerSize, renderY + markerSize, colorInt | 0xFF000000);
                 // Add slight shadow/outline for visibility
-                context.fill(renderX - 1, indicatorY - 1, renderX + 7, indicatorY, 0xFF000000);
-                context.fill(renderX - 1, indicatorY + 8, renderX + 7, indicatorY + 9, 0xFF000000);
+                context.fill(renderX - 1, renderY - 1, renderX + markerSize + 1, renderY, 0xFF000000);
+                context.fill(renderX - 1, renderY + markerSize, renderX + markerSize + 1, renderY + markerSize + 1, 0xFF000000);
             }
-        }
-    }
-    
-    private static int getColorInt(String color) {
-        switch (color.toLowerCase()) {
-            case "red": return 0xFF0000;
-            case "blue": return 0x5555FF;
-            case "green": return 0x55FF55;
-            case "yellow": return 0xFFFF55;
-            case "purple": return 0xFF55FF;
-            default: return 0xFFFFFF;
         }
     }
 }

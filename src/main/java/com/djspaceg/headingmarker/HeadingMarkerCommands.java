@@ -3,17 +3,22 @@ package com.djspaceg.headingmarker;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+
+import net.minecraft.text.Text;
+import net.minecraft.text.MutableText;
+import net.minecraft.util.Formatting;
+
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
+
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.command.CommandSource;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
 
 public class HeadingMarkerCommands {
     
@@ -94,8 +99,7 @@ public class HeadingMarkerCommands {
                 .then(CommandManager.argument("color", StringArgumentType.word())
                     .suggests((context, builder) -> {
                         return CommandSource.suggestMatching(
-                                HeadingMarkerState.getServerState(context.getSource().getServer())
-                                        .getWaypoints(context.getSource().getPlayer().getUuid()).keySet(),
+                                HeadingMarkerMod.getWaypoints(context.getSource().getPlayer().getUuid()).keySet(),
                                 builder);
                     })
                     .executes(context -> {
@@ -115,8 +119,7 @@ public class HeadingMarkerCommands {
     }
 
     private static String getNextAvailableColor(ServerPlayerEntity player) {
-        HeadingMarkerState state = HeadingMarkerState.getServerState(player.getEntityWorld().getServer());
-        Map<String, Waypoint> waypoints = state.getWaypoints(player.getUuid());
+        Map<String, ?> waypoints = HeadingMarkerMod.getWaypoints(player.getUuid());
         List<String> colors = Arrays.asList("red", "blue", "green", "yellow", "purple");
         for (String c : colors) {
             if (!waypoints.containsKey(c)) return c;
@@ -125,45 +128,29 @@ public class HeadingMarkerCommands {
     }
 
     private static int setWaypoint(MinecraftServer server, ServerPlayerEntity player, String color, double x, double y, double z) {
-        HeadingMarkerState state = HeadingMarkerState.getServerState(server);
-        Map<String, Waypoint> waypoints = state.getWaypoints(player.getUuid());
+        // Create vanilla TrackedWaypoint
+        HeadingMarkerMod.createWaypoint(player, color, x, y, z);
 
-        // Use player world
-        String dim = player.getEntityWorld().getRegistryKey().getValue().toString();
-        
-        Waypoint wp = new Waypoint(x, y, z, dim);
-        waypoints.put(color, wp);
-        state.markDirty();
-
-        player.sendMessage(Text.literal(color + " waypoint set to (" + x + ", " + y + ", " + z + ")").formatted(net.minecraft.util.Formatting.GREEN), false);
-        
-        // SYNC
-        HeadingMarkerMod.syncMarkerData(player);
+        MutableText message = MutableText.of(new net.minecraft.text.PlainTextContent.Literal(color + " waypoint set to (" + x + ", " + y + ", " + z + ")"));
+        player.sendMessage(message.formatted(Formatting.GREEN), false);
         
         return 1;
     }
 
     private static int removeWaypoint(MinecraftServer server, ServerPlayerEntity player, String color) {
-        HeadingMarkerState state = HeadingMarkerState.getServerState(server);
-        Map<String, Waypoint> waypoints = state.getWaypoints(player.getUuid());
-
-        if (waypoints.remove(color) != null) {
-            state.markDirty();
-            player.sendMessage(Text.literal(color + " waypoint removed").formatted(net.minecraft.util.Formatting.YELLOW), false);
-            
-            // SYNC
-            HeadingMarkerMod.syncMarkerData(player);
-            
+        if (HeadingMarkerMod.removeWaypoint(player, color)) {
+            MutableText message = MutableText.of(new net.minecraft.text.PlainTextContent.Literal(color + " waypoint removed"));
+            player.sendMessage(message.formatted(Formatting.YELLOW), false);
             return 1;
         } else {
-            player.sendMessage(Text.literal("No waypoint found for color: " + color).formatted(net.minecraft.util.Formatting.RED), false);
+            MutableText message = MutableText.of(new net.minecraft.text.PlainTextContent.Literal("No waypoint found for color: " + color));
+            player.sendMessage(message.formatted(Formatting.RED), false);
             return 0;
         }
     }
 
     private static int listWaypoints(MinecraftServer server, ServerPlayerEntity player) {
-        HeadingMarkerState state = HeadingMarkerState.getServerState(server);
-        Map<String, Waypoint> waypoints = state.getWaypoints(player.getUuid());
+        Map<String, ?> waypoints = HeadingMarkerMod.getWaypoints(player.getUuid());
 
         if (waypoints.isEmpty()) {
             player.sendMessage(Text.literal("You have no active waypoints.").formatted(net.minecraft.util.Formatting.YELLOW), false);
@@ -172,8 +159,7 @@ public class HeadingMarkerCommands {
 
         player.sendMessage(Text.literal("Active Waypoints:").formatted(net.minecraft.util.Formatting.GOLD), false);
         waypoints.forEach((colorName, wp) -> {
-            String msg = String.format(" - %s: %.1f, %.1f, %.1f (%s)", colorName, wp.x, wp.y, wp.z, wp.dimension);
-            player.sendMessage(Text.literal(msg).formatted(net.minecraft.util.Formatting.GRAY), false);
+            player.sendMessage(Text.literal(" - " + colorName + " waypoint").formatted(net.minecraft.util.Formatting.GRAY), false);
         });
         return waypoints.size();
     }

@@ -1,10 +1,8 @@
 package com.djspaceg.headingmarker;
 
 import java.util.Map;
-
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import main.java.com.djspaceg.headingmarker.WaypointSyncPayload;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;

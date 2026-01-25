@@ -1,6 +1,16 @@
 # Heading Marker - Initialization
 # This function runs when the data pack loads
 
+# DEBUG: Print load message immediately
+tellraw @a ["",{"text":"[Heading Marker DEBUG] ","color":"red","bold":true},{"text":"pack: headingmarker initialization started - ID System Active","color":"yellow"}]
+
+# Player ID system for storage safety
+scoreboard objectives add hm.uid dummy "Player ID"
+scoreboard objectives add hm.next_uid dummy "Next Player ID"
+
+# Initialize global ID counter if it doesn't exist
+execute unless score #global hm.next_uid matches 1.. run scoreboard players set #global hm.next_uid 0
+
 # Create scoreboards for tracking markers (5 markers per player, one per color)
 # Red marker (0)
 scoreboard objectives add hm.red.x dummy "Red Marker X"
@@ -60,10 +70,14 @@ scoreboard objectives add hm.dimension dummy "Current Dimension"
 scoreboard objectives add hm.prev_dim dummy "Previous Dimension"
 
 # Initialize dimension tracking for all online players
-execute as @a in minecraft:overworld run scoreboard players set @s hm.dimension 0
-execute as @a in minecraft:the_nether run scoreboard players set @s hm.dimension -1
-execute as @a in minecraft:the_end run scoreboard players set @s hm.dimension 1
+execute as @a[predicate=!headingmarker:in_overworld,predicate=!headingmarker:in_nether,predicate=!headingmarker:in_end] in minecraft:overworld run scoreboard players set @s hm.dimension 0
+execute as @a[predicate=headingmarker:in_overworld] run scoreboard players set @s hm.dimension 0
+execute as @a[predicate=headingmarker:in_nether] run scoreboard players set @s hm.dimension -1
+execute as @a[predicate=headingmarker:in_end] run scoreboard players set @s hm.dimension 1
 execute as @a run scoreboard players operation @s hm.prev_dim = @s hm.dimension
+
+# Assign IDs to any online players immediately
+execute as @a unless score @s hm.uid matches 1.. run function headingmarker:internal/assign_id
 
 # Display welcome message with help command
 tellraw @a ["",{"text":"[Heading Marker] ","color":"gold","bold":true},{"text":"Data pack loaded!","color":"yellow"}]

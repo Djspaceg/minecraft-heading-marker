@@ -3,13 +3,13 @@ package com.djspaceg.headingmarker;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.djspaceg.headingmarker.Waypoint;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderTickCounter;
@@ -29,25 +29,34 @@ public class HeadingMarkerClient implements ClientModInitializer {
                 clientWaypoints.putAll(payload.waypoints());
             });
         });
-        
-        HudRenderCallback.EVENT.register(this::renderHud);
     }
     
-    private void renderHud(DrawContext context, RenderTickCounter tickCounter) {
+    /**
+     * Called by ExperienceBarMixin to render waypoint markers.
+     * This is invoked during the ExperienceBar's renderAddons phase,
+     * ensuring markers are drawn exactly where vanilla player indicators appear.
+     */
+    public static void renderWaypointMarkers(DrawContext context, RenderTickCounter tickCounter) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
         if (clientWaypoints.isEmpty()) return;
         
-        int cx = context.getScaledWindowWidth() / 2;
-        int yPos = 10; // Top compass bar position
+        int screenWidth = context.getScaledWindowWidth();
+        int screenHeight = context.getScaledWindowHeight();
+        int cx = screenWidth / 2;
+        
+        // XP bar is at bottom of screen, typically at height - 32 (above hotbar)
+        // Player indicators appear at height - 39 (just above XP bar)
+        int xpBarY = screenHeight - 32;
+        int indicatorY = screenHeight - 39;
         
         float playerYaw = client.player.getYaw() % 360;
         if (playerYaw < 0) playerYaw += 360;
         
-        float fov = (float) client.options.getFov().getValue();
-        float halfFov = fov / 2.0f;
-        int barWidth = 200; 
-        float pixelsPerDegree = barWidth / fov;
+        // XP bar width is 182 pixels (vanilla size)
+        int barHalfWidth = 91; // 182 / 2
+        float maxAngle = 90.0f; // Show markers within 90 degrees left/right
+        float pixelsPerDegree = barHalfWidth / maxAngle;
 
         for (Map.Entry<String, Waypoint> entry : clientWaypoints.entrySet()) {
             String colorName = entry.getKey();
@@ -70,20 +79,23 @@ public class HeadingMarkerClient implements ClientModInitializer {
             while (diff < -180) diff += 360;
             while (diff > 180) diff -= 360;
             
-            if (diff >= -halfFov && diff <= halfFov) {
+            // Show markers within 180 degree view (full bar width)
+            if (Math.abs(diff) <= maxAngle) {
                 float xOffset = (float) (diff * pixelsPerDegree);
-                int renderX = (int) (cx + xOffset) - 2; // Center 4px wide bar
+                int renderX = (int) (cx + xOffset) - 3; // Center 6px marker
                 
                 int colorInt = getColorInt(colorName);
                 
-                // Draw a marker (Rectangle)
-                // x1, y1, x2, y2, color
-                context.fill(renderX, yPos, renderX + 4, yPos + 12, colorInt | 0xFF000000); 
+                // Draw marker on XP bar (small vertical bar, similar to player indicators)
+                context.fill(renderX, indicatorY, renderX + 6, indicatorY + 8, colorInt | 0xFF000000);
+                // Add slight shadow/outline for visibility
+                context.fill(renderX - 1, indicatorY - 1, renderX + 7, indicatorY, 0xFF000000);
+                context.fill(renderX - 1, indicatorY + 8, renderX + 7, indicatorY + 9, 0xFF000000);
             }
         }
     }
     
-    private int getColorInt(String color) {
+    private static int getColorInt(String color) {
         switch (color.toLowerCase()) {
             case "red": return 0xFF0000;
             case "blue": return 0x5555FF;

@@ -4,7 +4,9 @@
   "version": "${version}",
   "name": "Heading Marker",
   "description": "A fabric mod to display heading markers for players.",
-  "authors": ["Djspaceg"],
+  "authors": [
+    "Djspaceg"
+  ],
   "contact": {
     "homepage": "https://fabricmc.net/",
     "sources": "https://github.com/FabricMC/fabric-example-mod"
@@ -13,15 +15,22 @@
   "icon": "assets/headingmarker/icon.png",
   "environment": "*",
   "entrypoints": {
-    "main": ["com.djspaceg.headingmarker.HeadingMarkerMod"]
+    "main": [
+      "com.djspaceg.headingmarker.HeadingMarkerMod"
+    ],
+    "client": [
+      "com.djspaceg.headingmarker.HeadingMarkerClient"
+    ]
   },
-  "mixins": ["headingmarker.mixins.json"],
-	"depends": {
-		"fabricloader": ">=0.16.5",
-		"minecraft": ">=1.21.1",
-		"java": ">=21",
-		"fabric-api": "*"
-	},
+  "mixins": [
+    "headingmarker.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.5",
+    "minecraft": ">=1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
   "suggests": {
     "another-mod": "*"
   }

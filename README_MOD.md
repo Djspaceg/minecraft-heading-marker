@@ -20,15 +20,15 @@ This is a Fabric mod for Minecraft 1.21.1 that provides per-player waypoints and
 
 This project uses Gradle.
 
-1.  Open a terminal in this folder.
-2.  Run `./gradlew build` (Linux/Mac) or `gradlew build` (Windows).
-3.  The compiled `.jar` file will be in `build/libs/`.
+1. Open a terminal in this folder.
+2. Run `./gradlew build` (Linux/Mac) or `gradlew build` (Windows).
+3. The compiled `.jar` file will be in `build/libs/`.
 
 ## Installation
 
-1.  Install Fabric Loader for Minecraft 1.21.1.
-2.  Drop the `headingmarker-1.0.0.jar` into your `mods` folder.
-3.  Restart the game.
+1. Install Fabric Loader for Minecraft 1.21.1.
+2. Drop the `headingmarker-1.0.0.jar` into your `mods` folder.
+3. Restart the game.
 
 ## Legacy
 

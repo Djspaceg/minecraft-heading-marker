@@ -22,6 +22,9 @@ repositories {
 dependencies {
     implementation 'org.jetbrains:annotations:15.0'
 
+    // JUnit for unit testing command registration
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+
     // To change the versions see the gradle.properties file
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	mappings "net.fabricmc:yarn:${project.yarn_mappings}"
@@ -29,6 +32,11 @@ dependencies {
 
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+}
+
+// Configure test task
+tasks.named('test') {
+    useJUnitPlatform()
 }
 
 processResources {

@@ -415,6 +415,19 @@ If none of these solutions work:
 4. **Command blocks:** Set up command blocks for quick marker access
 5. **Coordinate sharing:** Share coordinates in team chat for coordination
 
+## Heading Marker QA Checklist
+
+1. /datapack list — confirm pack enabled
+2. /reload — reload functions
+3. /function headingmarker:help — show help (namespace must match files)
+4. /function headingmarker:save_markers and /function headingmarker:load_markers — force persistence ops
+5. /data get storage headingmarker:players — inspect saved data
+6. /scoreboard objectives setdisplay sidebar hm.red.active — verify marker active state
+7. /function headingmarker:set_red, :set_blue, etc. — test all color commands
+8. /function headingmarker:remove_all — test removal of all waypoints
+9. Check server/client latest.log for Unknown function headingmarker:... errors
+10. Always run load.mcfunction after naming changes to re-create scoreboards or update pack_format if necessary
+
 ---
 
 **Need more help?** Check the main README.md or INSTALLATION.md files!

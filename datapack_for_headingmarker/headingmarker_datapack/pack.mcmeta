@@ -1,7 +1,6 @@
 {
   "pack": {
-    "description": "Heading Marker - Add custom waypoint markers to your compass with slash commands",
-    "min_format": [94, 1],
-    "max_format": 100
+    "pack_format": 94,
+    "description": "Heading Marker Data Pack for Minecraft 1.21.11"
   }
 }

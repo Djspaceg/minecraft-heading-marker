@@ -1,72 +1,103 @@
 # Heading Marker
 
-A Minecraft Java Edition waypoint system that displays custom markers on your HUD using vanilla Minecraft's waypoint system. **Works with vanilla clients - no mods required on the client side!**
-
-## ✨ Key Features
-
-- 🎯 **Vanilla Client Support** - No client mods needed! Uses Minecraft 1.21.11+ native waypoint system
-- 🌍 **Server-Delivered** - Waypoints are sent from server to client over-the-wire
-- 🎨 **5 Color Options** - 🔴 Red, 🔵 Blue, 🟢 Green, 🟡 Yellow, 🟣 Purple
-- 📍 **Locator Bar Display** - Waypoints appear in your vanilla Locator Bar (above XP bar)
-- 💾 **Per-Player Tracking** - Each player has their own waypoints
-- 🔧 **Two Implementations** - Pure datapack OR optional Fabric mod for enhanced commands
-
-## Quick Start (Vanilla Clients)
-
-### Installation
-
-**For Servers:**
-1. Copy the `headingmarker/` folder to your world's `datapacks/` directory
-2. Run `/reload` in-game
-3. That's it! Vanilla clients can now use waypoints without any mods
-
-**Commands:**
-```mcfunction
-/function headingmarker:set_macro {x:1000,y:64,z:-500}
-/function headingmarker:set_here
-/function headingmarker:remove
-/function headingmarker:help
-```
-
-Waypoints will appear in your Locator Bar with distance indicators!
-
-## Optional: Fabric Mod (Enhanced Commands)
-
-For servers running Fabric, an optional mod provides shorter `/hm` commands:
-
-```
-/hm set <color>          # Set waypoint at your location
-/hm set <x> <y> <z>      # Set waypoint at coordinates
-/hm remove <color>       # Remove waypoint
-/hm list                 # List your waypoints
-/hm help                 # Show help
-```
-
-**Note:** The mod is server-side only. Vanilla clients work without it!
+A Minecraft Java Edition data pack that displays multiple custom waypoint markers on your HUD (actionbar) using slash commands. Track up to 5 waypoints per dimension with colored icons and real-time distance tracking!
 
 ## Features
 
-- 🎯 **Multiple HUD Markers** - Track up to 5 waypoints with colored icons
-- 🌍 **Vanilla Client Compatible** - Works without any client-side mods using Minecraft 1.21.11+ native waypoint system
-- 📍 **Locator Bar Display** - Waypoints appear in the vanilla Locator Bar (above XP bar) with distance indicators
+- 🎯 **Multiple HUD Markers** - Track up to 5 waypoints per dimension (15 total across all dimensions)
+- 🌍 **Per-Dimension Markers** - Separate marker sets for Overworld, Nether, and End
+- 📍 **Coordinate-Based** - Enter 2D (X, Z) or 3D (X, Y, Z) coordinates via commands
 - 🎨 **5 Color Options** - 🔴 Red, 🔵 Blue, 🟢 Green, 🟡 Yellow, 🟣 Purple
-- 💾 **Per-Player Markers** - Each player has their own set of waypoints
-- 🔄 **Auto-Persistence** - Waypoints persist across server restarts
-- ⚡ **Real-Time Updates** - Distance and direction update automatically
-- 🚀 **Two Options** - Use pure datapack for vanilla clients, or optional Fabric mod for enhanced commands
+- 📏 **Distance Tracking** - See real-time distance² to all active waypoints in current dimension
+- 💾 **Full Persistence** - Markers saved and restored between gameplay sessions with UUID-based per-player per-dimension storage
+- 🔄 **Auto-Color Cycling** - Automatically assigns next available color
+- ⚡ **Instant Updates** - All markers update every tick (20 times per second)
+- 👥 **Per-Player Markers** - Each player has their own set of markers (5 per dimension) with UUID-based persistence for multiplayer servers
+- 🚪 **Dimension-Aware** - Automatically saves/loads correct markers when changing dimensions
+- 💡 **Built-in Help** - In-game help command with clickable examples and tab-completion
 
-## How It Works
+## Quick Start
 
-This project uses Minecraft 1.21.11+'s **native waypoint system**:
+### Get Help In-Game
 
-1. Datapack creates invisible armor stands at waypoint locations
-2. Uses vanilla `/waypoint modify` command to make them trackable
-3. Server sends waypoint data to clients automatically
-4. Vanilla clients render waypoints in the Locator Bar - **no mods needed!**
+```
+/function headingmarker:help
+```
+
+Shows all commands with clickable examples that you can edit and use!
+
+### Set a Marker (2D - Y defaults to 64)
+
+```
+/function headingmarker:set_2d {x:1000, z:-500}
+```
+
+Result: `🔴 Red marker set at 1000 64 -500`
+
+### Set a Marker (3D with specific coordinates)
+
+```
+/function headingmarker:set {x:1000, y:64, z:-500}
+```
+
+Result: `🔵 Blue marker set at 1000 64 -500` (auto-cycled to next color)
+
+### Set with Specific Color
+
+```
+/function headingmarker:set_3d_color {x:1000, y:64, z:-500, color:2}
+```
+
+Result: `🟢 Green marker set at 1000 64 -500`
+
+Colors: `0=red, 1=blue, 2=green, 3=yellow, 4=purple`
+
+### Remove a Marker
+
+```
+/function headingmarker:remove {color:1}
+```
+
+Result: `🔵 Blue marker removed`
+
+### Actionbar Display
+
+When markers are active, you'll see:
+
+```
+🔴245820 🔵180500 🟢0
+```
+
+(Shows emoji icon and distance² for each active marker)
+
+### Per-Dimension Markers
+
+Markers are **dimension-specific**:
+
+- **Overworld**: 5 markers (one per color)
+- **Nether**: 5 markers (one per color)
+- **End**: 5 markers (one per color)
+
+When you change dimensions:
+
+- Your current dimension's markers are automatically saved
+- The new dimension's markers are automatically loaded
+- You'll see a message: "Switched to [Dimension] markers"
+
+This means you can have up to **15 total markers** (5 per dimension × 3 dimensions)!
+
+**Example:**
+
+1. In Overworld: Set red marker at spawn (0, 64, 0)
+2. Go to Nether: Set red marker at your portal (-100, 70, 50)
+3. Return to Overworld: You'll see your spawn marker again
+4. Go back to Nether: You'll see your portal marker again
+
+Each dimension maintains its own independent set of markers.
 
 ## Installation
 
-### Datapack Installation (Recommended for Vanilla Clients)
+### Data Pack Installation
 
 1. Download or clone this repository
 2. Copy the `headingmarker` folder to your Minecraft world's `datapacks` directory:
@@ -75,20 +106,7 @@ This project uses Minecraft 1.21.11+'s **native waypoint system**:
 3. The final path should be: `saves/[YourWorldName]/datapacks/headingmarker/pack.mcmeta`
 4. Load or reload your world
 5. Run `/reload` in-game to activate the data pack
-6. You should see a message: "Heading Marker loaded! Use /function headingmarker:set to create a waypoint."
-
-**Vanilla clients can now connect and use waypoints without any mods!**
-
-### Optional: Fabric Mod Installation (Enhanced Commands)
-
-If you want shorter `/hm` commands instead of `/function` commands:
-
-1. Install Fabric Loader for Minecraft 1.21.11 on the **server only**
-2. Drop the `headingmarker-1.0.x.jar` into your server's `mods` folder
-3. Restart the server
-4. Clients still don't need any mods!
-
-The mod provides `/hm` commands while vanilla clients work normally.
+6. You should see a welcome message: "Heading Marker loaded! Use /function headingmarker:help for commands"
 
 ### Resource Pack (Optional Custom Sprites)
 

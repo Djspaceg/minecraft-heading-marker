@@ -3,7 +3,7 @@
   "id": "headingmarker",
   "version": "${version}",
   "name": "Heading Marker",
-  "description": "A fabric mod to display heading markers for players.",
+  "description": "Server-side waypoint management mod. Provides /hm commands. Clients don't need this mod or Fabric API!",
   "authors": [
     "Djspaceg"
   ],
@@ -22,9 +22,7 @@
   "depends": {
     "fabricloader": ">=0.16.5",
     "minecraft": "1.21.11",
-    "java": ">=21"
-  },
-  "recommends": {
+    "java": ">=21",
     "fabric-api": "*"
   },
   "suggests": {

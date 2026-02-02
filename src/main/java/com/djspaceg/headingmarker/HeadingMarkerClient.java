@@ -1,15 +1,16 @@
 package com.djspaceg.headingmarker;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.Vec3i;
-import net.minecraft.world.waypoint.EntityTickProgress;
-import net.minecraft.world.waypoint.TrackedWaypoint;
-import net.minecraft.world.waypoint.Waypoint;
+import com.djspaceg.headingmarker.waypoint.EntityTickProgress;
+import com.djspaceg.headingmarker.waypoint.TrackedWaypoint;
+import com.djspaceg.headingmarker.waypoint.Waypoint;
 
 import org.slf4j.LoggerFactory;
 
@@ -153,6 +154,20 @@ public class HeadingMarkerClient implements ClientModInitializer {
                     LOGGER.info("Received waypoint: color={}, pos=({},{},{})", payload.color(), payload.x(), payload.y(), payload.z());
                 }
             });
+        });
+
+        // Register showDistance receiver
+        ClientPlayNetworking.registerGlobalReceiver(HeadingMarkerMod.ShowDistanceSyncPayload.ID, (payload, context) -> {
+            context.client().execute(() -> {
+                HeadingMarkerMod.setShowDistance(context.player().getUuid(), payload.show());
+                LOGGER.info("Received showDistance sync: {}", payload.show());
+            });
+        });
+
+        // Clear waypoints on disconnect
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            clientWaypoints.clear();
+            LOGGER.info("Cleared client waypoints on disconnect");
         });
     }
 }

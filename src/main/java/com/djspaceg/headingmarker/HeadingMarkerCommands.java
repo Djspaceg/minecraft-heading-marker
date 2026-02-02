@@ -43,7 +43,7 @@ public class HeadingMarkerCommands {
                             ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
                             String value = StringArgumentType.getString(context, "value");
                             boolean show = value.equalsIgnoreCase("yes") || value.equalsIgnoreCase("on") || value.equalsIgnoreCase("true");
-                            HeadingMarkerMod.setShowDistance(player.getUuid(), show);
+                            HeadingMarkerMod.setShowDistance(player, show);
                             player.sendMessage(Text.literal("Distance display above markers is now " + (show ? "enabled" : "disabled")).formatted(show ? Formatting.GREEN : Formatting.YELLOW), false);
                             return 1;
                         })

@@ -7,7 +7,8 @@ import com.google.gson.reflect.TypeToken;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.WorldSavePath;
-import net.minecraft.world.waypoint.TrackedWaypoint;
+import com.djspaceg.headingmarker.waypoint.TrackedWaypoint;
+import com.djspaceg.headingmarker.waypoint.Waypoint;
 
 import java.io.File;
 import java.io.FileReader;
@@ -68,7 +69,7 @@ public class WaypointStorage {
                         for (Map.Entry<?, ?> colorEntry : colorData.entrySet()) {
                             List<?> pos = (List<?>) colorEntry.getValue();
                             int x = ((Number) pos.get(0)).intValue(), y = ((Number) pos.get(1)).intValue(), z = ((Number) pos.get(2)).intValue();
-                            TrackedWaypoint wp = TrackedWaypoint.ofPos(uuid, null, new net.minecraft.util.math.Vec3i(x, y, z));
+                            TrackedWaypoint wp = TrackedWaypoint.ofPos(uuid, new Waypoint.Config(), new net.minecraft.util.math.Vec3i(x, y, z));
                             colorMap.put(colorEntry.getKey().toString(), new WaypointData(colorEntry.getKey().toString(), x, y, z, wp));
                         }
                         result.put(uuid, colorMap);

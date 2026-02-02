@@ -5,12 +5,7 @@ import com.djspaceg.headingmarker.storage.WaypointStorage;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
 import net.fabricmc.fabric.api.command.v2.ArgumentTypeRegistry;
 
 import net.minecraft.command.argument.serialize.ConstantArgumentSerializer;
@@ -27,13 +22,9 @@ import java.util.Map;
 import java.util.UUID;
 
 public class HeadingMarkerMod implements ModInitializer {
-    // Per-player showDistance toggle: UUID -> Boolean
-
     public static final String MOD_ID = "headingmarker";
     public static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
-    // Custom payload for syncing waypoints
-    public static final Identifier WAYPOINT_SYNC_ID = Identifier.of(MOD_ID, "waypoint_sync");
-    public static final Identifier SHOW_DISTANCE_SYNC_ID = Identifier.of(MOD_ID, "show_distance_sync");
+    
     static final Map<UUID, Boolean> playerShowDistance = new HashMap<>();
     private static final Map<UUID, Map<String, WaypointData>> playerWaypoints = new HashMap<>();
 
@@ -47,7 +38,7 @@ public class HeadingMarkerMod implements ModInitializer {
 
     public static void setShowDistance(ServerPlayerEntity player, boolean value) {
         playerShowDistance.put(player.getUuid(), value);
-        ServerPlayNetworking.send(player, new ShowDistanceSyncPayload(value));
+        LOGGER.info("Set showDistance={} for player={}", value, player.getName().getString());
     }
     // For non-player contexts (loading from disk)
     public static void setShowDistance(UUID playerUuid, boolean value) {
@@ -56,7 +47,7 @@ public class HeadingMarkerMod implements ModInitializer {
 
     /**
      * Create and track a waypoint for a player.
-     * Uses vanilla TrackedWaypoint system and WaypointS2CPacket.
+     * Server-side storage only. For rendering, use the datapack.
      */
     public static TrackedWaypoint createWaypoint(ServerPlayerEntity player, String color, double x, double y, double z) {
         UUID playerUuid = player.getUuid();
@@ -67,9 +58,7 @@ public class HeadingMarkerMod implements ModInitializer {
         TrackedWaypoint waypoint = TrackedWaypoint.ofPos(playerUuid, config, pos);
         WaypointData data = new WaypointData(color, pos.getX(), pos.getY(), pos.getZ(), waypoint);
         playerWaypoints.computeIfAbsent(playerUuid, k -> new HashMap<>()).put(color, data);
-        WaypointSyncPayload payload = new WaypointSyncPayload(color, pos.getX(), pos.getY(), pos.getZ(), getColorInt(color), false);
-        ServerPlayNetworking.send(player, payload);
-        LOGGER.info("Sent custom waypoint sync to client");
+        LOGGER.info("Waypoint stored server-side");
         return waypoint;
     }
 
@@ -81,8 +70,7 @@ public class HeadingMarkerMod implements ModInitializer {
         Map<String, WaypointData> waypoints = playerWaypoints.get(playerUuid);
         if (waypoints != null && waypoints.containsKey(color)) {
             waypoints.remove(color);
-            WaypointSyncPayload payload = new WaypointSyncPayload(color, 0, 0, 0, 0, true);
-            ServerPlayNetworking.send(player, payload);
+            LOGGER.info("Removed waypoint: color={}", color);
             return true;
         }
         return false;
@@ -114,11 +102,7 @@ public class HeadingMarkerMod implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        LOGGER.info("Heading Marker Mod 1.0.5 Initializing (Custom Networking + Vanilla Waypoint Math)...");
-
-        // Register custom payload
-        PayloadTypeRegistry.playS2C().register(WaypointSyncPayload.ID, WaypointSyncPayload.CODEC);
-        PayloadTypeRegistry.playS2C().register(ShowDistanceSyncPayload.ID, ShowDistanceSyncPayload.CODEC);
+        LOGGER.info("Heading Marker Mod 1.0.6 Initializing (Server-Only)...");
 
         // Register commands
         CommandRegistrationCallback.EVENT.register(HeadingMarkerCommands::register);
@@ -150,70 +134,17 @@ public class HeadingMarkerMod implements ModInitializer {
             LOGGER.info("Saved waypoints to disk");
         });
 
-        // Re-send waypoints to player on join; also run a final per-join command repair to ensure client receives full tree
+        // Run command repair on player join to ensure client receives full tree
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             try {
                 HeadingMarkerCommands.ensureRegistered(server.getCommandManager().getDispatcher());
             } catch (Throwable t) {
                 LOGGER.warn("Failed to repair /hm command tree on player join: {}", t.toString());
             }
-
-            UUID uuid = handler.player.getUuid();
-            Map<String, WaypointData> waypoints = playerWaypoints.get(uuid);
-            if (waypoints != null) {
-                for (WaypointData data : waypoints.values()) {
-                    WaypointSyncPayload payload = new WaypointSyncPayload(data.color, data.x, data.y, data.z, getColorInt(data.color), false);
-                    ServerPlayNetworking.send(handler.player, payload);
-                }
-            }
-            if (playerShowDistance.containsKey(uuid)) {
-                ServerPlayNetworking.send(handler.player, new ShowDistanceSyncPayload(playerShowDistance.get(uuid)));
-            }
         });
     }
 
-    public record WaypointSyncPayload(String color, int x, int y, int z, int colorInt,
-                                      boolean remove) implements CustomPayload {
-        public static final CustomPayload.Id<WaypointSyncPayload> ID = new CustomPayload.Id<>(WAYPOINT_SYNC_ID);
-        public static final PacketCodec<RegistryByteBuf, WaypointSyncPayload> CODEC = PacketCodec.of(
-                (value, buf) -> {
-                    buf.writeString(value.color);
-                    buf.writeInt(value.x);
-                    buf.writeInt(value.y);
-                    buf.writeInt(value.z);
-                    buf.writeInt(value.colorInt);
-                    buf.writeBoolean(value.remove);
-                },
-                buf -> new WaypointSyncPayload(
-                        buf.readString(),
-                        buf.readInt(),
-                        buf.readInt(),
-                        buf.readInt(),
-                        buf.readInt(),
-                        buf.readBoolean()
-                )
-        );
-
-        @Override
-        public CustomPayload.Id<? extends CustomPayload> getId() {
-            return ID;
-        }
-    }
-
-    public record ShowDistanceSyncPayload(boolean show) implements CustomPayload {
-        public static final CustomPayload.Id<ShowDistanceSyncPayload> ID = new CustomPayload.Id<>(SHOW_DISTANCE_SYNC_ID);
-        public static final PacketCodec<RegistryByteBuf, ShowDistanceSyncPayload> CODEC = PacketCodec.of(
-                (value, buf) -> buf.writeBoolean(value.show),
-                buf -> new ShowDistanceSyncPayload(buf.readBoolean())
-        );
-
-        @Override
-        public CustomPayload.Id<? extends CustomPayload> getId() {
-            return ID;
-        }
-    }
-
     // Per-player waypoint storage: UUID -> (color -> WaypointData)
-        public record WaypointData(String color, int x, int y, int z, TrackedWaypoint waypoint) {
+    public record WaypointData(String color, int x, int y, int z, TrackedWaypoint waypoint) {
     }
 }

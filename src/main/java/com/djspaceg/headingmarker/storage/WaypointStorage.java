@@ -70,7 +70,8 @@ public class WaypointStorage {
                             List<?> pos = (List<?>) colorEntry.getValue();
                             int x = ((Number) pos.get(0)).intValue(), y = ((Number) pos.get(1)).intValue(), z = ((Number) pos.get(2)).intValue();
                             TrackedWaypoint wp = TrackedWaypoint.ofPos(uuid, new Waypoint.Config(), new net.minecraft.util.math.Vec3i(x, y, z));
-                            colorMap.put(colorEntry.getKey().toString(), new WaypointData(colorEntry.getKey().toString(), x, y, z, wp));
+                            // Entity IDs don't persist, use -1 for loaded waypoints
+                            colorMap.put(colorEntry.getKey().toString(), new WaypointData(colorEntry.getKey().toString(), x, y, z, wp, -1));
                         }
                         result.put(uuid, colorMap);
                     }

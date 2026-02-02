@@ -11,11 +11,14 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.packet.CustomPayload;
+import net.fabricmc.fabric.api.command.v2.ArgumentTypeRegistry;
+
+import net.minecraft.command.argument.serialize.ConstantArgumentSerializer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3i;
-import net.minecraft.world.waypoint.TrackedWaypoint;
-import net.minecraft.world.waypoint.Waypoint;
+import com.djspaceg.headingmarker.waypoint.TrackedWaypoint;
+import com.djspaceg.headingmarker.waypoint.Waypoint;
 
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +33,7 @@ public class HeadingMarkerMod implements ModInitializer {
     public static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
     // Custom payload for syncing waypoints
     public static final Identifier WAYPOINT_SYNC_ID = Identifier.of(MOD_ID, "waypoint_sync");
+    public static final Identifier SHOW_DISTANCE_SYNC_ID = Identifier.of(MOD_ID, "show_distance_sync");
     static final Map<UUID, Boolean> playerShowDistance = new HashMap<>();
     private static final Map<UUID, Map<String, WaypointData>> playerWaypoints = new HashMap<>();
 
@@ -41,6 +45,11 @@ public class HeadingMarkerMod implements ModInitializer {
         return playerShowDistance.getOrDefault(playerUuid, false);
     }
 
+    public static void setShowDistance(ServerPlayerEntity player, boolean value) {
+        playerShowDistance.put(player.getUuid(), value);
+        ServerPlayNetworking.send(player, new ShowDistanceSyncPayload(value));
+    }
+    // For non-player contexts (loading from disk)
     public static void setShowDistance(UUID playerUuid, boolean value) {
         playerShowDistance.put(playerUuid, value);
     }
@@ -109,42 +118,14 @@ public class HeadingMarkerMod implements ModInitializer {
 
         // Register custom payload
         PayloadTypeRegistry.playS2C().register(WaypointSyncPayload.ID, WaypointSyncPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(ShowDistanceSyncPayload.ID, ShowDistanceSyncPayload.CODEC);
 
         // Register commands
         CommandRegistrationCallback.EVENT.register(HeadingMarkerCommands::register);
 
-        // Attempt to register custom ColorArgumentType for command serialization so clients can receive it
-        try {
-            Class<?> argumentTypesClass = Class.forName("net.minecraft.command.argument.ArgumentTypes");
-            Class<?> serializerIface = Class.forName("net.minecraft.command.argument.serialize.ArgumentSerializer");
-
-            java.lang.reflect.Method registerMethod = argumentTypesClass.getMethod("register", net.minecraft.util.Identifier.class, Class.class, serializerIface);
-
-            Object serializerProxy = java.lang.reflect.Proxy.newProxyInstance(
-                    serializerIface.getClassLoader(),
-                    new Class[]{serializerIface},
-                    (proxy, method, args) -> {
-                        String name = method.getName();
-                        // Methods may be named "write", "read", "toJson" depending on mapping
-                        if (name.equals("write")) {
-                            // (arg, buf) -> no-op
-                            return null;
-                        } else if (name.equals("read")) {
-                            // (buf) -> new ColorArgumentType()
-                            return ColorArgumentType.color();
-                        } else if (name.equals("toJson") || name.equals("toJsonObject")) {
-                            // (arg, json) -> no-op
-                            return null;
-                        }
-                        return null;
-                    }
-            );
-
-            registerMethod.invoke(null, Identifier.of(MOD_ID, "color"), ColorArgumentType.class, serializerProxy);
-            LOGGER.info("Registered ColorArgumentType for command serialization");
-        } catch (Throwable t) {
-            LOGGER.warn("Could not register ColorArgumentType serializer; falling back to runtime-validated strings: {}", t.toString());
-        }
+        // Register custom ColorArgumentType directly
+        ArgumentTypeRegistry.registerArgumentType(Identifier.of(MOD_ID, "color"), ColorArgumentType.class, ConstantArgumentSerializer.of(ColorArgumentType::color));
+        LOGGER.info("Registered ColorArgumentType for command serialization");
 
         // Load waypoints on server start
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
@@ -185,6 +166,9 @@ public class HeadingMarkerMod implements ModInitializer {
                     ServerPlayNetworking.send(handler.player, payload);
                 }
             }
+            if (playerShowDistance.containsKey(uuid)) {
+                ServerPlayNetworking.send(handler.player, new ShowDistanceSyncPayload(playerShowDistance.get(uuid)));
+            }
         });
     }
 
@@ -208,6 +192,19 @@ public class HeadingMarkerMod implements ModInitializer {
                         buf.readInt(),
                         buf.readBoolean()
                 )
+        );
+
+        @Override
+        public CustomPayload.Id<? extends CustomPayload> getId() {
+            return ID;
+        }
+    }
+
+    public record ShowDistanceSyncPayload(boolean show) implements CustomPayload {
+        public static final CustomPayload.Id<ShowDistanceSyncPayload> ID = new CustomPayload.Id<>(SHOW_DISTANCE_SYNC_ID);
+        public static final PacketCodec<RegistryByteBuf, ShowDistanceSyncPayload> CODEC = PacketCodec.of(
+                (value, buf) -> buf.writeBoolean(value.show),
+                buf -> new ShowDistanceSyncPayload(buf.readBoolean())
         );
 
         @Override

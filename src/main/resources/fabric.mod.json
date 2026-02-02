@@ -19,9 +19,6 @@
       "com.djspaceg.headingmarker.HeadingMarkerMod"
     ]
   },
-  "mixins": [
-    "headingmarker.mixins.json"
-  ],
   "depends": {
     "fabricloader": ">=0.16.5",
     "minecraft": "1.21.11",

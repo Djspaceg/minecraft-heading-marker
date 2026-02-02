@@ -13,13 +13,10 @@
   },
   "license": "CC0-1.0",
   "icon": "assets/headingmarker/icon.png",
-  "environment": "*",
+  "environment": "server",
   "entrypoints": {
     "main": [
       "com.djspaceg.headingmarker.HeadingMarkerMod"
-    ],
-    "client": [
-      "com.djspaceg.headingmarker.HeadingMarkerClient"
     ]
   },
   "mixins": [
@@ -28,7 +25,9 @@
   "depends": {
     "fabricloader": ">=0.16.5",
     "minecraft": "1.21.11",
-    "java": ">=21",
+    "java": ">=21"
+  },
+  "recommends": {
     "fabric-api": "*"
   },
   "suggests": {

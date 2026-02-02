@@ -1,13 +1,13 @@
 # Installation Guide
 
-This guide covers installation of Heading Marker for vanilla clients (no mods required) and optional Fabric mod installation for servers.
+This guide will walk you through installing the Heading Marker data pack and resource pack for Minecraft Java Edition.
 
-## For Vanilla Clients (Recommended)
+## Prerequisites
 
-### Prerequisites
+- Minecraft Java Edition 1.21 or later
+- A Minecraft world (singleplayer or multiplayer with operator permissions)
 
-- Minecraft Java Edition 1.21.11 or later
-- A Minecraft world (singleplayer or multiplayer server)
+## Step-by-Step Installation
 
 ### Installing the Data Pack
 
@@ -32,25 +32,7 @@ This guide covers installation of Heading Marker for vanilla clients (no mods re
 5. **Activate the data pack:**
    - If the world is already open, type `/reload` in chat
    - If the world is closed, simply open it
-   - You should see a message in chat confirming the data pack loaded
-
-**Vanilla clients can now use waypoints without any client-side mods!**
-
-## For Multiplayer Servers
-
-### Server Installation (Vanilla or Fabric)
-
-1. **For Vanilla Servers:**
-   - Copy the `headingmarker` folder to your server's world `datapacks` folder
-   - Run `/reload` on the server
-   - Clients need NO mods!
-
-2. **For Fabric Servers (Optional - Enhanced Commands):**
-   - Install Fabric Loader on the server
-   - Copy the mod JAR to the server's `mods` folder
-   - Copy the `headingmarker` datapack to the `datapacks` folder (recommended)
-   - Restart the server
-   - Clients still need NO mods!
+   - You should see a welcome message in chat confirming the data pack loaded
 
 ### Installing the Resource Pack (Optional)
 

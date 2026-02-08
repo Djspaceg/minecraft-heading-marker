@@ -132,24 +132,14 @@ public class HeadingMarkerCommands {
         com.mojang.brigadier.tree.CommandNode<ServerCommandSource> root = dispatcher.getRoot();
         java.util.Optional<com.mojang.brigadier.tree.CommandNode<ServerCommandSource>> existing = root.getChildren().stream().filter(n -> "hm".equals(n.getName())).findFirst();
         if (existing.isPresent()) {
-            HeadingMarkerMod.LOGGER.info("/hm already present, merging missing subcommands");
-            com.mojang.brigadier.tree.CommandNode<ServerCommandSource> hmNode = existing.get();
-
-            // For each expected node, add if missing
-            java.util.List<String> names = Arrays.asList("help", "list", "remove", "set");
-            java.util.List<com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource>> builders = Arrays.asList(helpNode(), listNode(), removeNode(), setNode());
-            for (int i = 0; i < names.size(); i++) {
-                String name = names.get(i);
-                com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> b = builders.get(i);
-                if (hmNode.getChild(name) == null) {
-                    hmNode.addChild(b.build());
-                    HeadingMarkerMod.LOGGER.info("Added missing /hm child: {}", name);
-                }
-            }
-            return;
+            HeadingMarkerMod.LOGGER.info("/hm already present, need to replace with full command tree");
+            // Remove existing /hm command - we need to re-register with executor
+            root.getChildren().removeIf(n -> "hm".equals(n.getName()));
+            HeadingMarkerMod.LOGGER.info("Removed existing /hm command, will re-register");
+            // Fall through to register the complete tree below
         }
 
-        // Otherwise register whole tree
+        // Register complete /hm command tree with default executor
         dispatcher.register(CommandManager.literal("hm")
                 .executes(context -> {
                     // Default: show help when /hm is called without subcommand

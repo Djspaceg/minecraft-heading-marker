@@ -151,6 +151,12 @@ public class HeadingMarkerCommands {
 
         // Otherwise register whole tree
         dispatcher.register(CommandManager.literal("hm")
+                .executes(context -> {
+                    // Default: show help when /hm is called without subcommand
+                    ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
+                    sendHelpMessage(player);
+                    return 1;
+                })
                 .then(helpNode())
                 .then(listNode())
                 .then(removeNode())

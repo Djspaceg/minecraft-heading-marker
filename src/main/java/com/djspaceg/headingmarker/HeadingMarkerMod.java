@@ -5,6 +5,7 @@ import com.djspaceg.headingmarker.storage.WaypointStorage;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.command.v2.ArgumentTypeRegistry;
 
@@ -21,6 +22,13 @@ import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.entity.Entity;
+import net.minecraft.scoreboard.Scoreboard;
+import net.minecraft.scoreboard.ScoreboardObjective;
+import net.minecraft.scoreboard.ScoreboardCriterion;
+import net.minecraft.scoreboard.ScoreAccess;
+import net.minecraft.text.MutableText;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import com.djspaceg.headingmarker.waypoint.TrackedWaypoint;
 import com.djspaceg.headingmarker.waypoint.Waypoint;
 
@@ -29,30 +37,14 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 public class HeadingMarkerMod implements ModInitializer {
     public static final String MOD_ID = "headingmarker";
     public static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
     
-    static final Map<UUID, Boolean> playerShowDistance = new HashMap<>();
     private static final Map<UUID, Map<String, WaypointData>> playerWaypoints = new HashMap<>();
-
-    public static Map<UUID, Boolean> getPlayerShowDistanceMap() {
-        return playerShowDistance;
-    }
-
-    public static boolean getShowDistance(UUID playerUuid) {
-        return playerShowDistance.getOrDefault(playerUuid, false);
-    }
-
-    public static void setShowDistance(ServerPlayerEntity player, boolean value) {
-        playerShowDistance.put(player.getUuid(), value);
-        LOGGER.info("Set showDistance={} for player={}", value, player.getName().getString());
-    }
-    // For non-player contexts (loading from disk)
-    public static void setShowDistance(UUID playerUuid, boolean value) {
-        playerShowDistance.put(playerUuid, value);
-    }
 
     /**
      * Create and track a waypoint for a player using vanilla waypoint system.
@@ -201,6 +193,86 @@ public class HeadingMarkerMod implements ModInitializer {
         }
     }
 
+    private static String getEmojiForColor(String color) {
+        switch (color.toLowerCase()) {
+            case "red":
+                return "🔴";
+            case "blue":
+                return "🔵";
+            case "green":
+                return "🟢";
+            case "yellow":
+                return "🟡";
+            case "purple":
+                return "🟣";
+            default:
+                return "⚪";
+        }
+    }
+
+    private static Formatting getFormattingForColor(String color) {
+        switch (color.toLowerCase()) {
+            case "red":
+                return Formatting.RED;
+            case "blue":
+                return Formatting.BLUE;
+            case "green":
+                return Formatting.GREEN;
+            case "yellow":
+                return Formatting.YELLOW;
+            case "purple":
+                return Formatting.LIGHT_PURPLE;
+            default:
+                return Formatting.WHITE;
+        }
+    }
+
+    /**
+     * Display distances to waypoints on the player's actionbar.
+     */
+    private static void displayDistances(ServerPlayerEntity player) {
+        // Get player's current position
+        Vec3d playerPos = player.getPos();
+        
+        // Get waypoints for this player
+        Map<String, WaypointData> waypoints = playerWaypoints.get(player.getUuid());
+        
+        if (waypoints == null || waypoints.isEmpty()) {
+            // No waypoints - clear actionbar
+            player.sendMessage(Text.literal(""), true); // true = actionbar
+            return;
+        }
+        
+        // Build actionbar text with distances
+        MutableText actionbarText = Text.literal("");
+        boolean first = true;
+        
+        for (Map.Entry<String, WaypointData> entry : waypoints.entrySet()) {
+            WaypointData waypoint = entry.getValue();
+            
+            // Calculate distance in meters (blocks)
+            double dx = playerPos.x - waypoint.x();
+            double dy = playerPos.y - waypoint.y();
+            double dz = playerPos.z - waypoint.z();
+            double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            int distanceMeters = (int) Math.round(distance);
+            
+            // Add spacing between waypoints
+            if (!first) {
+                actionbarText.append(Text.literal("  "));
+            }
+            first = false;
+            
+            // Add colored emoji and distance
+            String emoji = getEmojiForColor(waypoint.color());
+            actionbarText.append(Text.literal(emoji + " " + distanceMeters + "m")
+                .formatted(getFormattingForColor(waypoint.color())));
+        }
+        
+        // Send to actionbar (true = actionbar, not chat)
+        player.sendMessage(actionbarText, true);
+    }
+
     @Override
     public void onInitialize() {
         LOGGER.info("Heading Marker Mod 1.0.6 Initializing (Server-Only)...");
@@ -211,6 +283,33 @@ public class HeadingMarkerMod implements ModInitializer {
         // Register custom ColorArgumentType directly
         ArgumentTypeRegistry.registerArgumentType(Identifier.of(MOD_ID, "color"), ColorArgumentType.class, ConstantArgumentSerializer.of(ColorArgumentType::color));
         LOGGER.info("Registered ColorArgumentType for command serialization");
+
+        // Setup scoreboard objectives for distance display on server start
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            Scoreboard scoreboard = server.getScoreboard();
+            
+            // Create trigger objective for toggling distance display
+            ScoreboardObjective triggerObj = scoreboard.getObjective("hm.distance");
+            if (triggerObj == null) {
+                scoreboard.addObjective("hm.distance", 
+                    ScoreboardCriterion.TRIGGER, 
+                    Text.literal("Toggle Distance Display"),
+                    ScoreboardCriterion.RenderType.INTEGER,
+                    false, null);
+                LOGGER.info("Created hm.distance trigger objective");
+            }
+            
+            // Create state objective for tracking distance display state
+            ScoreboardObjective stateObj = scoreboard.getObjective("hm.show_distance");
+            if (stateObj == null) {
+                scoreboard.addObjective("hm.show_distance",
+                    ScoreboardCriterion.DUMMY,
+                    Text.literal("Show Distance State"),
+                    ScoreboardCriterion.RenderType.INTEGER,
+                    false, null);
+                LOGGER.info("Created hm.show_distance state objective");
+            }
+        });
 
         // Load waypoints on server start
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
@@ -245,6 +344,61 @@ public class HeadingMarkerMod implements ModInitializer {
             
             // Recreate waypoint entities for this player
             recreateWaypointEntities(handler.player);
+            
+            // Enable trigger for this player
+            Scoreboard scoreboard = server.getScoreboard();
+            ScoreboardObjective triggerObj = scoreboard.getObjective("hm.distance");
+            if (triggerObj != null) {
+                ScoreAccess scoreAccess = scoreboard.getPlayerScore(handler.player, triggerObj);
+                scoreAccess.unlock(); // Enable the trigger for this player
+            }
+        });
+
+        // Server tick handler for distance display and trigger detection
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            Scoreboard scoreboard = server.getScoreboard();
+            ScoreboardObjective triggerObj = scoreboard.getObjective("hm.distance");
+            ScoreboardObjective stateObj = scoreboard.getObjective("hm.show_distance");
+            
+            if (triggerObj == null || stateObj == null) {
+                return; // Objectives not created yet
+            }
+            
+            for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+                // Check if player triggered hm.distance
+                ScoreAccess triggerScore = scoreboard.getPlayerScore(player, triggerObj);
+                
+                if (triggerScore.getScore() > 0) {
+                    // Player triggered the command - toggle their state
+                    ScoreAccess stateScore = scoreboard.getPlayerScore(player, stateObj);
+                    
+                    int currentState = stateScore.getScore();
+                    int newState = (currentState == 0) ? 1 : 0; // Toggle 0->1 or 1->0
+                    stateScore.setScore(newState);
+                    
+                    // Send confirmation message
+                    if (newState == 1) {
+                        player.sendMessage(Text.literal("Distance display enabled")
+                            .formatted(Formatting.GREEN), false);
+                    } else {
+                        player.sendMessage(Text.literal("Distance display disabled")
+                            .formatted(Formatting.YELLOW), false);
+                    }
+                    
+                    // Reset trigger (ready for next use)
+                    triggerScore.setScore(0);
+                    
+                    // Re-enable trigger for this player
+                    triggerScore.unlock();
+                }
+                
+                // Update distance display for players who have it enabled
+                ScoreAccess stateScore = scoreboard.getPlayerScore(player, stateObj);
+                if (stateScore.getScore() == 1) {
+                    // Distance display is enabled for this player
+                    displayDistances(player);
+                }
+            }
         });
     }
 

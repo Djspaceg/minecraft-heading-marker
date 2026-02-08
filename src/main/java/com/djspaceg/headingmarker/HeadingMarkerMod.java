@@ -5,30 +5,18 @@ import com.djspaceg.headingmarker.storage.WaypointStorage;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.RegistryByteBuf;
+import net.minecraft.network.codec.PacketCodec;
+import net.minecraft.network.packet.CustomPayload;
 import net.fabricmc.fabric.api.command.v2.ArgumentTypeRegistry;
 
 import net.minecraft.command.argument.serialize.ConstantArgumentSerializer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3i;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.entity.attribute.EntityAttributeInstance;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.entity.Entity;
-import net.minecraft.scoreboard.Scoreboard;
-import net.minecraft.scoreboard.ScoreboardObjective;
-import net.minecraft.scoreboard.ScoreboardCriterion;
-import net.minecraft.scoreboard.ScoreAccess;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
 import com.djspaceg.headingmarker.waypoint.TrackedWaypoint;
 import com.djspaceg.headingmarker.waypoint.Waypoint;
 
@@ -37,113 +25,52 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.ArrayList;
-import java.util.List;
 
 public class HeadingMarkerMod implements ModInitializer {
+    // Per-player showDistance toggle: UUID -> Boolean
+
     public static final String MOD_ID = "headingmarker";
     public static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
-    
+    // Custom payload for syncing waypoints
+    public static final Identifier WAYPOINT_SYNC_ID = Identifier.of(MOD_ID, "waypoint_sync");
+    public static final Identifier SHOW_DISTANCE_SYNC_ID = Identifier.of(MOD_ID, "show_distance_sync");
+    static final Map<UUID, Boolean> playerShowDistance = new HashMap<>();
     private static final Map<UUID, Map<String, WaypointData>> playerWaypoints = new HashMap<>();
-    private static final Map<UUID, String> lastDistanceText = new HashMap<>(); // Cache for change detection
-    private static int tickCounter = 0;
-    private static final int DISTANCE_UPDATE_INTERVAL = 5; // Update every 5 ticks (4 times per second)
+
+    public static Map<UUID, Boolean> getPlayerShowDistanceMap() {
+        return playerShowDistance;
+    }
+
+    public static boolean getShowDistance(UUID playerUuid) {
+        return playerShowDistance.getOrDefault(playerUuid, false);
+    }
+
+    public static void setShowDistance(ServerPlayerEntity player, boolean value) {
+        playerShowDistance.put(player.getUuid(), value);
+        ServerPlayNetworking.send(player, new ShowDistanceSyncPayload(value));
+    }
+    // For non-player contexts (loading from disk)
+    public static void setShowDistance(UUID playerUuid, boolean value) {
+        playerShowDistance.put(playerUuid, value);
+    }
 
     /**
-     * Create and track a waypoint for a player using vanilla waypoint system.
-     * Creates an invisible armor stand entity with waypoint_transmit_range attribute.
+     * Create and track a waypoint for a player.
+     * Uses vanilla TrackedWaypoint system and WaypointS2CPacket.
      */
     public static TrackedWaypoint createWaypoint(ServerPlayerEntity player, String color, double x, double y, double z) {
         UUID playerUuid = player.getUuid();
         LOGGER.info("Creating waypoint: color={}, pos=({},{},{}), player={}", color, x, y, z, player.getName().getString());
-        
-        // Store waypoint data for persistence
         Waypoint.Config config = new Waypoint.Config();
         config.color = java.util.Optional.of(getColorInt(color));
         Vec3i pos = new Vec3i((int) x, (int) y, (int) z);
         TrackedWaypoint waypoint = TrackedWaypoint.ofPos(playerUuid, config, pos);
-        
-        // Remove existing waypoint entity if present
-        removeWaypointEntity(player, color);
-        
-        // Create armor stand entity for vanilla waypoint rendering
-        ServerWorld world = player.getServerWorld();
-        ArmorStandEntity armorStand = new ArmorStandEntity(EntityType.ARMOR_STAND, world);
-        armorStand.setPosition(x, y, z);
-        armorStand.setInvisible(true);
-        armorStand.setInvulnerable(true);
-        armorStand.setNoGravity(true);
-        armorStand.setSilent(true);
-        armorStand.setMarker(true);
-        armorStand.setCustomName(net.minecraft.text.Text.literal(color + " waypoint"));
-        
-        // Make armor stand persistent so it works for distant waypoints
-        // Entity must persist in unloaded chunks for waypoint_transmission_range to work
-        // Cleanup handlers ensure no duplicates on disconnect/startup
-        armorStand.setPersistent(true);
-        
-        // Add NBT tag to identify this as a heading marker waypoint
-        var nbt = armorStand.writeNbt(new net.minecraft.nbt.NbtCompound());
-        nbt.putString("HeadingMarkerOwner", playerUuid.toString());
-        nbt.putString("HeadingMarkerColor", color);
-        nbt.putBoolean("HeadingMarkerWaypoint", true);
-        armorStand.readNbt(nbt);
-        
-        // Try to set waypoint_transmit_range attribute
-        // This makes vanilla clients render the waypoint in the Locator Bar
-        try {
-            // Look for vanilla waypoint transmission range attribute
-            Identifier waypointRangeId = Identifier.of("minecraft", "waypoint_transmission_range");
-            RegistryKey<net.minecraft.entity.attribute.EntityAttribute> attributeKey = 
-                RegistryKey.of(RegistryKeys.ATTRIBUTE, waypointRangeId);
-            
-            // Try to get the attribute from registry
-            var registry = world.getRegistryManager().getOrThrow(RegistryKeys.ATTRIBUTE);
-            var attribute = registry.get(waypointRangeId);
-            
-            if (attribute != null) {
-                EntityAttributeInstance instance = armorStand.getAttributes().getCustomInstance(attribute);
-                if (instance != null) {
-                    instance.setBaseValue(999999.0);
-                    LOGGER.info("Set waypoint_transmission_range attribute");
-                }
-            } else {
-                LOGGER.warn("waypoint_transmission_range attribute not found in registry");
-            }
-        } catch (Exception e) {
-            LOGGER.warn("Could not set waypoint attribute: {}", e.getMessage());
-        }
-        
-        // Spawn the entity
-        world.spawnEntity(armorStand);
-        
-        // Store reference to entity for later removal
-        WaypointData data = new WaypointData(color, pos.getX(), pos.getY(), pos.getZ(), waypoint, armorStand.getId());
+        WaypointData data = new WaypointData(color, pos.getX(), pos.getY(), pos.getZ(), waypoint);
         playerWaypoints.computeIfAbsent(playerUuid, k -> new HashMap<>()).put(color, data);
-        
-        LOGGER.info("Created waypoint entity at ({},{},{})", x, y, z);
+        WaypointSyncPayload payload = new WaypointSyncPayload(color, pos.getX(), pos.getY(), pos.getZ(), getColorInt(color), false);
+        ServerPlayNetworking.send(player, payload);
+        LOGGER.info("Sent custom waypoint sync to client");
         return waypoint;
-    }
-    
-    /**
-     * Remove waypoint entity from the world.
-     * Note: Each dimension tracks waypoints separately (red in overworld ≠ red in nether).
-     */
-    private static void removeWaypointEntity(ServerPlayerEntity player, String color) {
-        UUID playerUuid = player.getUuid();
-        Map<String, WaypointData> waypoints = playerWaypoints.get(playerUuid);
-        if (waypoints != null && waypoints.containsKey(color)) {
-            WaypointData data = waypoints.get(color);
-            if (data.entityId != -1) {
-                // Only check player's current world since dimensions track separately
-                ServerWorld world = player.getServerWorld();
-                Entity entity = world.getEntityById(data.entityId);
-                if (entity instanceof ArmorStandEntity) {
-                    entity.discard();
-                    LOGGER.info("Removed waypoint entity for color {}", color);
-                }
-            }
-        }
     }
 
     /**
@@ -153,64 +80,12 @@ public class HeadingMarkerMod implements ModInitializer {
         UUID playerUuid = player.getUuid();
         Map<String, WaypointData> waypoints = playerWaypoints.get(playerUuid);
         if (waypoints != null && waypoints.containsKey(color)) {
-            // Remove the entity first
-            removeWaypointEntity(player, color);
-            // Remove from storage
             waypoints.remove(color);
-            LOGGER.info("Removed waypoint: color={}", color);
+            WaypointSyncPayload payload = new WaypointSyncPayload(color, 0, 0, 0, 0, true);
+            ServerPlayNetworking.send(player, payload);
             return true;
         }
         return false;
-    }
-
-    /**
-     * Remove all waypoint entities for a player across all worlds.
-     * Called when player disconnects to clean up their markers.
-     */
-    private static void removeAllPlayerWaypointEntities(ServerPlayerEntity player) {
-        UUID playerUuid = player.getUuid();
-        Map<String, WaypointData> waypoints = playerWaypoints.get(playerUuid);
-        
-        if (waypoints == null || waypoints.isEmpty()) {
-            return;
-        }
-        
-        int removedCount = 0;
-        
-        // Method 1: Remove by entity ID (fastest if loaded)
-        for (Map.Entry<String, WaypointData> entry : waypoints.entrySet()) {
-            WaypointData data = entry.getValue();
-            if (data.entityId != -1) {
-                ServerWorld world = player.getServerWorld();
-                Entity entity = world.getEntityById(data.entityId);
-                if (entity instanceof ArmorStandEntity) {
-                    entity.discard();
-                    removedCount++;
-                }
-            }
-        }
-        
-        // Method 2: Scan for any remaining entities with player's UUID in NBT
-        // This catches entities that might not have been tracked by ID
-        for (ServerWorld world : player.getServer().getWorlds()) {
-            for (Entity entity : world.iterateEntities()) {
-                if (entity instanceof ArmorStandEntity armorStand) {
-                    var nbt = armorStand.writeNbt(new net.minecraft.nbt.NbtCompound());
-                    if (nbt.contains("HeadingMarkerOwner")) {
-                        String ownerUuid = nbt.getString("HeadingMarkerOwner");
-                        if (playerUuid.toString().equals(ownerUuid)) {
-                            armorStand.discard();
-                            removedCount++;
-                        }
-                    }
-                }
-            }
-        }
-        
-        if (removedCount > 0) {
-            LOGGER.info("Cleaned up {} waypoint entities for disconnecting player {}", 
-                removedCount, player.getName().getString());
-        }
     }
 
     /**
@@ -218,29 +93,6 @@ public class HeadingMarkerMod implements ModInitializer {
      */
     public static Map<String, WaypointData> getWaypoints(UUID playerUuid) {
         return playerWaypoints.getOrDefault(playerUuid, new HashMap<>());
-    }
-    
-    /**
-     * Recreate waypoint entities for a player (called on join).
-     */
-    public static void recreateWaypointEntities(ServerPlayerEntity player) {
-        UUID playerUuid = player.getUuid();
-        Map<String, WaypointData> waypoints = playerWaypoints.get(playerUuid);
-        if (waypoints == null || waypoints.isEmpty()) return;
-        
-        LOGGER.info("Recreating {} waypoint entities for player {}", waypoints.size(), player.getName().getString());
-        
-        for (Map.Entry<String, WaypointData> entry : waypoints.entrySet()) {
-            String color = entry.getKey();
-            WaypointData data = entry.getValue();
-            
-            // Recreate the waypoint entity
-            try {
-                createWaypoint(player, color, data.x(), data.y(), data.z());
-            } catch (Exception e) {
-                LOGGER.error("Failed to recreate waypoint entity for color {}: {}", color, e.getMessage());
-            }
-        }
     }
 
     private static int getColorInt(String color) {
@@ -260,165 +112,13 @@ public class HeadingMarkerMod implements ModInitializer {
         }
     }
 
-    private static String getEmojiForColor(String color) {
-        switch (color.toLowerCase()) {
-            case "red":
-                return "🔴";
-            case "blue":
-                return "🔵";
-            case "green":
-                return "🟢";
-            case "yellow":
-                return "🟡";
-            case "purple":
-                return "🟣";
-            default:
-                return "⚪";
-        }
-    }
-
-    private static Formatting getFormattingForColor(String color) {
-        switch (color.toLowerCase()) {
-            case "red":
-                return Formatting.RED;
-            case "blue":
-                return Formatting.BLUE;
-            case "green":
-                return Formatting.GREEN;
-            case "yellow":
-                return Formatting.YELLOW;
-            case "purple":
-                return Formatting.LIGHT_PURPLE;
-            default:
-                return Formatting.WHITE;
-        }
-    }
-
-    /**
-     * Display distances to waypoints on the player's actionbar.
-     * Only sends update if the text has changed since last update.
-     */
-    private static void displayDistances(ServerPlayerEntity player) {
-        // Get player's current position
-        Vec3d playerPos = player.getPos();
-        
-        // Get waypoints for this player
-        Map<String, WaypointData> waypoints = playerWaypoints.get(player.getUuid());
-        
-        String newDistanceText;
-        if (waypoints == null || waypoints.isEmpty()) {
-            newDistanceText = ""; // Empty string for no waypoints
-        } else {
-            // Build actionbar text with distances
-            StringBuilder textBuilder = new StringBuilder();
-            boolean first = true;
-            
-            for (Map.Entry<String, WaypointData> entry : waypoints.entrySet()) {
-                WaypointData waypoint = entry.getValue();
-                
-                // Calculate distance in meters (blocks)
-                double dx = playerPos.x - waypoint.x();
-                double dy = playerPos.y - waypoint.y();
-                double dz = playerPos.z - waypoint.z();
-                double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                int distanceMeters = (int) Math.round(distance);
-                
-                // Add spacing between waypoints
-                if (!first) {
-                    textBuilder.append("  ");
-                }
-                first = false;
-                
-                // Add colored emoji and distance
-                String emoji = getEmojiForColor(waypoint.color());
-                textBuilder.append(emoji).append(" ").append(distanceMeters).append("m");
-            }
-            
-            newDistanceText = textBuilder.toString();
-        }
-        
-        // Only send update if text has changed
-        UUID playerUuid = player.getUuid();
-        String lastText = lastDistanceText.get(playerUuid);
-        
-        if (!newDistanceText.equals(lastText)) {
-            // Text changed - send update
-            if (newDistanceText.isEmpty()) {
-                // No waypoints - clear actionbar
-                player.sendMessage(Text.literal(""), true);
-            } else {
-                // Build formatted text from the string
-                MutableText actionbarText = Text.literal("");
-                boolean first = true;
-                
-                for (Map.Entry<String, WaypointData> entry : waypoints.entrySet()) {
-                    WaypointData waypoint = entry.getValue();
-                    
-                    // Calculate distance again for formatting
-                    double dx = playerPos.x - waypoint.x();
-                    double dy = playerPos.y - waypoint.y();
-                    double dz = playerPos.z - waypoint.z();
-                    double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                    int distanceMeters = (int) Math.round(distance);
-                    
-                    if (!first) {
-                        actionbarText.append(Text.literal("  "));
-                    }
-                    first = false;
-                    
-                    String emoji = getEmojiForColor(waypoint.color());
-                    actionbarText.append(Text.literal(emoji + " " + distanceMeters + "m")
-                        .formatted(getFormattingForColor(waypoint.color())));
-                }
-                
-                player.sendMessage(actionbarText, true);
-            }
-            
-            // Update cache
-            lastDistanceText.put(playerUuid, newDistanceText);
-        }
-    }
-
-    /**
-     * Clean up orphaned waypoint armor stand entities on server start.
-     * Uses multiple detection methods to ensure all waypoint entities are removed.
-     */
-    private static void cleanupOrphanedWaypointEntities(net.minecraft.server.MinecraftServer server) {
-        int cleanedCount = 0;
-        for (ServerWorld world : server.getWorlds()) {
-            for (Entity entity : world.iterateEntities()) {
-                if (entity instanceof ArmorStandEntity armorStand) {
-                    boolean isWaypoint = false;
-                    
-                    // Method 1: Check NBT tag (most reliable)
-                    var nbt = armorStand.writeNbt(new net.minecraft.nbt.NbtCompound());
-                    if (nbt.contains("HeadingMarkerWaypoint") && nbt.getBoolean("HeadingMarkerWaypoint")) {
-                        isWaypoint = true;
-                    }
-                    
-                    // Method 2: Check custom name (fallback for entities without NBT tag)
-                    if (!isWaypoint && armorStand.hasCustomName()) {
-                        String name = armorStand.getCustomName().getString();
-                        if (name.endsWith(" waypoint")) {
-                            isWaypoint = true;
-                        }
-                    }
-                    
-                    if (isWaypoint) {
-                        armorStand.discard();
-                        cleanedCount++;
-                    }
-                }
-            }
-        }
-        if (cleanedCount > 0) {
-            LOGGER.info("Cleaned up {} orphaned waypoint entities from previous session", cleanedCount);
-        }
-    }
-
     @Override
     public void onInitialize() {
-        LOGGER.info("Heading Marker Mod 1.0.6 Initializing (Server-Only)...");
+        LOGGER.info("Heading Marker Mod 1.0.5 Initializing (Custom Networking + Vanilla Waypoint Math)...");
+
+        // Register custom payload
+        PayloadTypeRegistry.playS2C().register(WaypointSyncPayload.ID, WaypointSyncPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(ShowDistanceSyncPayload.ID, ShowDistanceSyncPayload.CODEC);
 
         // Register commands
         CommandRegistrationCallback.EVENT.register(HeadingMarkerCommands::register);
@@ -427,38 +127,8 @@ public class HeadingMarkerMod implements ModInitializer {
         ArgumentTypeRegistry.registerArgumentType(Identifier.of(MOD_ID, "color"), ColorArgumentType.class, ConstantArgumentSerializer.of(ColorArgumentType::color));
         LOGGER.info("Registered ColorArgumentType for command serialization");
 
-        // Setup scoreboard objectives for distance display on server start
+        // Load waypoints on server start
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-            Scoreboard scoreboard = server.getScoreboard();
-            
-            // Create trigger objective for toggling distance display
-            ScoreboardObjective triggerObj = scoreboard.getObjective("hm.distance");
-            if (triggerObj == null) {
-                scoreboard.addObjective("hm.distance", 
-                    ScoreboardCriterion.TRIGGER, 
-                    Text.literal("Toggle Distance Display"),
-                    ScoreboardCriterion.RenderType.INTEGER,
-                    false, null);
-                LOGGER.info("Created hm.distance trigger objective");
-            }
-            
-            // Create state objective for tracking distance display state
-            ScoreboardObjective stateObj = scoreboard.getObjective("hm.show_distance");
-            if (stateObj == null) {
-                scoreboard.addObjective("hm.show_distance",
-                    ScoreboardCriterion.DUMMY,
-                    Text.literal("Show Distance State"),
-                    ScoreboardCriterion.RenderType.INTEGER,
-                    false, null);
-                LOGGER.info("Created hm.show_distance state objective");
-            }
-        });
-
-        // Load waypoints on server start and cleanup old waypoint entities
-        ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-            // Clean up any orphaned waypoint entities from previous sessions
-            cleanupOrphanedWaypointEntities(server);
-            
             playerWaypoints.clear();
             playerWaypoints.putAll(WaypointStorage.load(server));
             LOGGER.info("Loaded waypoints from disk: {} players", playerWaypoints.size());
@@ -480,98 +150,70 @@ public class HeadingMarkerMod implements ModInitializer {
             LOGGER.info("Saved waypoints to disk");
         });
 
-        // Clean up waypoint entities when player disconnects
-        // This also fires automatically on server stop/restart
-        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-            ServerPlayerEntity player = handler.player;
-            removeAllPlayerWaypointEntities(player);
-            
-            // Clear distance display cache for this player
-            lastDistanceText.remove(player.getUuid());
-            
-            LOGGER.info("Cleaned up waypoint entities for disconnecting player: {}", 
-                player.getName().getString());
-        });
-
-        // Run command repair and recreate waypoint entities on player join
+        // Re-send waypoints to player on join; also run a final per-join command repair to ensure client receives full tree
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             try {
                 HeadingMarkerCommands.ensureRegistered(server.getCommandManager().getDispatcher());
             } catch (Throwable t) {
                 LOGGER.warn("Failed to repair /hm command tree on player join: {}", t.toString());
             }
-            
-            // Recreate waypoint entities for this player
-            recreateWaypointEntities(handler.player);
-            
-            // Enable trigger for this player
-            Scoreboard scoreboard = server.getScoreboard();
-            ScoreboardObjective triggerObj = scoreboard.getObjective("hm.distance");
-            if (triggerObj != null) {
-                ScoreAccess scoreAccess = scoreboard.getPlayerScore(handler.player, triggerObj);
-                scoreAccess.unlock(); // Enable the trigger for this player
-            }
-        });
 
-        // Server tick handler for distance display and trigger detection
-        ServerTickEvents.END_SERVER_TICK.register(server -> {
-            Scoreboard scoreboard = server.getScoreboard();
-            ScoreboardObjective triggerObj = scoreboard.getObjective("hm.distance");
-            ScoreboardObjective stateObj = scoreboard.getObjective("hm.show_distance");
-            
-            if (triggerObj == null || stateObj == null) {
-                return; // Objectives not created yet
+            UUID uuid = handler.player.getUuid();
+            Map<String, WaypointData> waypoints = playerWaypoints.get(uuid);
+            if (waypoints != null) {
+                for (WaypointData data : waypoints.values()) {
+                    WaypointSyncPayload payload = new WaypointSyncPayload(data.color, data.x, data.y, data.z, getColorInt(data.color), false);
+                    ServerPlayNetworking.send(handler.player, payload);
+                }
             }
-            
-            // Increment tick counter for distance update throttling
-            tickCounter++;
-            boolean shouldUpdateDistances = (tickCounter % DISTANCE_UPDATE_INTERVAL == 0);
-            
-            for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-                // Check if player triggered hm.distance
-                ScoreAccess triggerScore = scoreboard.getPlayerScore(player, triggerObj);
-                
-                if (triggerScore.getScore() > 0) {
-                    // Player triggered the command - toggle their state
-                    ScoreAccess stateScore = scoreboard.getPlayerScore(player, stateObj);
-                    
-                    int currentState = stateScore.getScore();
-                    int newState = (currentState == 0) ? 1 : 0; // Toggle 0->1 or 1->0
-                    stateScore.setScore(newState);
-                    
-                    // Send confirmation message
-                    if (newState == 1) {
-                        player.sendMessage(Text.literal("Distance display enabled")
-                            .formatted(Formatting.GREEN), false);
-                    } else {
-                        player.sendMessage(Text.literal("Distance display disabled")
-                            .formatted(Formatting.YELLOW), false);
-                        // Clear any existing distance text from the actionbar
-                        player.sendMessage(Text.empty(), true);
-                        // Clear the cache for this player
-                        lastDistanceText.remove(player.getUuid());
-                    }
-                    
-                    // Reset trigger (ready for next use)
-                    triggerScore.setScore(0);
-                    
-                    // Re-enable trigger for this player
-                    triggerScore.unlock();
-                }
-                
-                // Update distance display for players who have it enabled (throttled)
-                if (shouldUpdateDistances) {
-                    ScoreAccess stateScore = scoreboard.getPlayerScore(player, stateObj);
-                    if (stateScore.getScore() == 1) {
-                        // Distance display is enabled for this player
-                        displayDistances(player);
-                    }
-                }
+            if (playerShowDistance.containsKey(uuid)) {
+                ServerPlayNetworking.send(handler.player, new ShowDistanceSyncPayload(playerShowDistance.get(uuid)));
             }
         });
     }
 
+    public record WaypointSyncPayload(String color, int x, int y, int z, int colorInt,
+                                      boolean remove) implements CustomPayload {
+        public static final CustomPayload.Id<WaypointSyncPayload> ID = new CustomPayload.Id<>(WAYPOINT_SYNC_ID);
+        public static final PacketCodec<RegistryByteBuf, WaypointSyncPayload> CODEC = PacketCodec.of(
+                (value, buf) -> {
+                    buf.writeString(value.color);
+                    buf.writeInt(value.x);
+                    buf.writeInt(value.y);
+                    buf.writeInt(value.z);
+                    buf.writeInt(value.colorInt);
+                    buf.writeBoolean(value.remove);
+                },
+                buf -> new WaypointSyncPayload(
+                        buf.readString(),
+                        buf.readInt(),
+                        buf.readInt(),
+                        buf.readInt(),
+                        buf.readInt(),
+                        buf.readBoolean()
+                )
+        );
+
+        @Override
+        public CustomPayload.Id<? extends CustomPayload> getId() {
+            return ID;
+        }
+    }
+
+    public record ShowDistanceSyncPayload(boolean show) implements CustomPayload {
+        public static final CustomPayload.Id<ShowDistanceSyncPayload> ID = new CustomPayload.Id<>(SHOW_DISTANCE_SYNC_ID);
+        public static final PacketCodec<RegistryByteBuf, ShowDistanceSyncPayload> CODEC = PacketCodec.of(
+                (value, buf) -> buf.writeBoolean(value.show),
+                buf -> new ShowDistanceSyncPayload(buf.readBoolean())
+        );
+
+        @Override
+        public CustomPayload.Id<? extends CustomPayload> getId() {
+            return ID;
+        }
+    }
+
     // Per-player waypoint storage: UUID -> (color -> WaypointData)
-    public record WaypointData(String color, int x, int y, int z, TrackedWaypoint waypoint, int entityId) {
+        public record WaypointData(String color, int x, int y, int z, TrackedWaypoint waypoint) {
     }
 }

@@ -1,9 +1,16 @@
 pluginManagement {
-	repositories {
-		maven {
-			name = 'Fabric'
-			url = 'https://maven.fabricmc.net/'
-		}
-		gradlePluginPortal()
-	}
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+        maven { url = 'https://maven.fabricmc.net/' }
+    }
 }
+
+dependencyResolutionManagement {
+    versionCatalogs {
+        libs {
+        }
+    }
+}
+
+rootProject.name = 'minecraft-heading-marker'

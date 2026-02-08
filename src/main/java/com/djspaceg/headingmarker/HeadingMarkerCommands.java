@@ -20,7 +20,7 @@ import java.util.Map;
 
 public class HeadingMarkerCommands {
 
-    public static final List<String> EXPECTED_SUBCOMMANDS = Arrays.asList("help", "showdistance", "list", "remove", "set");
+    public static final List<String> EXPECTED_SUBCOMMANDS = Arrays.asList("help", "list", "remove", "set");
 
     // Helpers to build individual subcommand nodes so we can merge them into an existing /hm node safely
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> helpNode() {
@@ -29,25 +29,6 @@ public class HeadingMarkerCommands {
             sendHelpMessage(player);
             return 1;
         });
-    }
-
-    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> showDistanceNode() {
-        return CommandManager.literal("showdistance")
-                .then(CommandManager.argument("value", StringArgumentType.word())
-                        .suggests((context, builder) -> {
-                            builder.suggest("yes");
-                            builder.suggest("no");
-                            return builder.buildFuture();
-                        })
-                        .executes(context -> {
-                            ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
-                            String value = StringArgumentType.getString(context, "value");
-                            boolean show = value.equalsIgnoreCase("yes") || value.equalsIgnoreCase("on") || value.equalsIgnoreCase("true");
-                            HeadingMarkerMod.setShowDistance(player, show);
-                            player.sendMessage(Text.literal("Distance display above markers is now " + (show ? "enabled" : "disabled")).formatted(show ? Formatting.GREEN : Formatting.YELLOW), false);
-                            return 1;
-                        })
-                );
     }
 
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> listNode() {
@@ -155,8 +136,8 @@ public class HeadingMarkerCommands {
             com.mojang.brigadier.tree.CommandNode<ServerCommandSource> hmNode = existing.get();
 
             // For each expected node, add if missing
-            java.util.List<String> names = Arrays.asList("help", "showdistance", "list", "remove", "set");
-            java.util.List<com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource>> builders = Arrays.asList(helpNode(), showDistanceNode(), listNode(), removeNode(), setNode());
+            java.util.List<String> names = Arrays.asList("help", "list", "remove", "set");
+            java.util.List<com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource>> builders = Arrays.asList(helpNode(), listNode(), removeNode(), setNode());
             for (int i = 0; i < names.size(); i++) {
                 String name = names.get(i);
                 com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> b = builders.get(i);
@@ -171,14 +152,13 @@ public class HeadingMarkerCommands {
         // Otherwise register whole tree
         dispatcher.register(CommandManager.literal("hm")
                 .then(helpNode())
-                .then(showDistanceNode())
                 .then(listNode())
                 .then(removeNode())
                 .then(setNode())
         );
 
         // Post-registration sanity check: verify required literal children are present
-        List<String> expected = Arrays.asList("help", "showdistance", "list", "remove", "set");
+        List<String> expected = Arrays.asList("help", "list", "remove", "set");
         java.util.Set<String> present = dispatcher.getRoot().getChildren().stream()
                 .filter(n -> "hm".equals(n.getName()))
                 .flatMap(n -> n.getChildren().stream())
@@ -259,9 +239,9 @@ public class HeadingMarkerCommands {
         player.sendMessage(Text.literal("• /hm remove <color>  ").formatted(Formatting.YELLOW).append(Text.literal("- Remove marker by color").formatted(Formatting.GRAY)), false);
         player.sendMessage(Text.literal(""), false);
 
-        // Show distance toggle
+        // Distance display toggle
         player.sendMessage(Text.literal("DISTANCE DISPLAY:").formatted(Formatting.AQUA, Formatting.BOLD), false);
-        player.sendMessage(Text.literal("• /hm showdistance yes|no  ").formatted(Formatting.YELLOW).append(Text.literal("- Toggle distance display above markers").formatted(Formatting.GRAY)), false);
+        player.sendMessage(Text.literal("• /trigger hm.distance  ").formatted(Formatting.YELLOW).append(Text.literal("- Toggle distance display on actionbar").formatted(Formatting.GRAY)), false);
         player.sendMessage(Text.literal(""), false);
 
         // Color reference

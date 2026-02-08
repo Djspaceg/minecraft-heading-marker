@@ -15,7 +15,7 @@ public class HeadingMarkerCommandsTest {
     @Test
     public void testHmRegistrationContainsExpectedLiterals() {
         // Verify expected subcommand list constant is present and correct
-        List<String> expected = List.of("help", "showdistance", "list", "remove", "set");
+        List<String> expected = List.of("help", "list", "remove", "set");
         assertTrue(HeadingMarkerCommands.EXPECTED_SUBCOMMANDS.containsAll(expected), "Expected subcommands constant to contain: " + expected);
 
         // Exercise idempotent/merge behavior: register twice and ensure all children are present

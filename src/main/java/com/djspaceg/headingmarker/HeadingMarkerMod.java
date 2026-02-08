@@ -45,6 +45,8 @@ public class HeadingMarkerMod implements ModInitializer {
     public static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
     
     private static final Map<UUID, Map<String, WaypointData>> playerWaypoints = new HashMap<>();
+    private static int tickCounter = 0;
+    private static final int DISTANCE_UPDATE_INTERVAL = 5; // Update every 5 ticks (4 times per second)
 
     /**
      * Create and track a waypoint for a player using vanilla waypoint system.
@@ -277,6 +279,29 @@ public class HeadingMarkerMod implements ModInitializer {
         player.sendMessage(actionbarText, true);
     }
 
+    /**
+     * Clean up orphaned waypoint armor stand entities on server start.
+     * This prevents duplicate waypoints after restart.
+     */
+    private static void cleanupOrphanedWaypointEntities(net.minecraft.server.MinecraftServer server) {
+        int cleanedCount = 0;
+        for (ServerWorld world : server.getWorlds()) {
+            for (Entity entity : world.iterateEntities()) {
+                if (entity instanceof ArmorStandEntity armorStand) {
+                    // Check if this is a waypoint entity (has custom name ending with "waypoint")
+                    if (armorStand.hasCustomName() && 
+                        armorStand.getCustomName().getString().endsWith(" waypoint")) {
+                        armorStand.discard();
+                        cleanedCount++;
+                    }
+                }
+            }
+        }
+        if (cleanedCount > 0) {
+            LOGGER.info("Cleaned up {} orphaned waypoint entities from previous session", cleanedCount);
+        }
+    }
+
     @Override
     public void onInitialize() {
         LOGGER.info("Heading Marker Mod 1.0.6 Initializing (Server-Only)...");
@@ -315,8 +340,11 @@ public class HeadingMarkerMod implements ModInitializer {
             }
         });
 
-        // Load waypoints on server start
+        // Load waypoints on server start and cleanup old waypoint entities
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            // Clean up any orphaned waypoint entities from previous sessions
+            cleanupOrphanedWaypointEntities(server);
+            
             playerWaypoints.clear();
             playerWaypoints.putAll(WaypointStorage.load(server));
             LOGGER.info("Loaded waypoints from disk: {} players", playerWaypoints.size());
@@ -368,6 +396,10 @@ public class HeadingMarkerMod implements ModInitializer {
                 return; // Objectives not created yet
             }
             
+            // Increment tick counter for distance update throttling
+            tickCounter++;
+            boolean shouldUpdateDistances = (tickCounter % DISTANCE_UPDATE_INTERVAL == 0);
+            
             for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
                 // Check if player triggered hm.distance
                 ScoreAccess triggerScore = scoreboard.getPlayerScore(player, triggerObj);
@@ -400,11 +432,13 @@ public class HeadingMarkerMod implements ModInitializer {
                     triggerScore.unlock();
                 }
                 
-                // Update distance display for players who have it enabled
-                ScoreAccess stateScore = scoreboard.getPlayerScore(player, stateObj);
-                if (stateScore.getScore() == 1) {
-                    // Distance display is enabled for this player
-                    displayDistances(player);
+                // Update distance display for players who have it enabled (throttled)
+                if (shouldUpdateDistances) {
+                    ScoreAccess stateScore = scoreboard.getPlayerScore(player, stateObj);
+                    if (stateScore.getScore() == 1) {
+                        // Distance display is enabled for this player
+                        displayDistances(player);
+                    }
                 }
             }
         });

@@ -20,6 +20,13 @@ import net.minecraft.util.math.Vec3i;
 import com.djspaceg.headingmarker.waypoint.TrackedWaypoint;
 import com.djspaceg.headingmarker.waypoint.Waypoint;
 
+import net.minecraft.entity.attribute.ClampedEntityAttribute;
+import net.minecraft.entity.attribute.EntityAttribute;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.Registry;
+import net.fabricmc.fabric.api.entity.event.v1.EntityAttributeModificationEvents;
+import net.minecraft.entity.EntityType;
+
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;

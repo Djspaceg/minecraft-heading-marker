@@ -82,21 +82,31 @@ jar {
 }
 
 // Helpful development tasks
-task copyJarToMods(type: Copy) {
-	dependsOn remapJar
-	from remapJar
-	into file('run/mods')
-	doLast {
-		println "Copied ${remapJar.archiveFileName.get()} to run/mods/"
-	}
+tasks.register('copyJarToMods', Copy) {
+    dependsOn remapJar
+    from remapJar
+    into file('run/mods')
+    doLast {
+        println "Copied ${remapJar.archiveFileName.get()} to run/mods/"
+    }
 }
 
-task cleanBuildCache {
-	group = 'build'
-	description = 'Clean Gradle and Loom caches'
-	doLast {
-		delete file('.gradle/loom-cache')
-		delete file('build')
-		println 'Cleaned build and Loom caches'
-	}
+tasks.register('cleanBuildCache') {
+    group = 'build'
+    description = 'Clean Gradle and Loom caches'
+    doLast {
+        delete file('.gradle/loom-cache')
+        delete file('build')
+        println 'Cleaned build and Loom caches'
+    }
+}
+
+tasks.register('deployDevelopmentDatapack', Copy) {
+    group = "build"
+    description = "Deploys the datapack to the development server world"
+    from("datapack_for_headingmarker/headingmarker_datapack")
+    into("C:/Users/braks/curseforge/minecraft/Instances/Minecraft/saves/Dev World/datapacks/headingmarker_datapack")
+    doLast {
+        println "Copied datapack to C:/Users/braks/curseforge/minecraft/Instances/Minecraft/saves/Dev World/datapacks/headingmarker_datapack"
+    }
 }

@@ -1,15 +1,26 @@
-# Apply waypoint color (red for single marker)
-waypoint modify @s color 16711680
+# Apply waypoint settings (Color & Range)
+# Macro Args: $(color_int)
 
-# Set transmission range (how far it can be detected from)
-attribute @s minecraft:waypoint.transmission_range base set 999999
-attribute @s waypoint_transmission_range base set 999999
-attribute @s minecraft:waypoint_transmission_range base set 999999
+# 1. Set Transmission Range (unlimited) - DO THIS FIRST
+# A. NBT Injection (Try 1.21+ 'id' format first, then legacy 'Name')
+data modify entity @s Attributes append value {id:"minecraft:waypoint.transmission_range",base:6000000.0d}
+data modify entity @s Attributes append value {id:"waypoint_transmission_range",base:6000000.0d}
+data modify entity @s Attributes append value {id:"minecraft:waypoint_transmission_range",base:6000000.0d}
+data modify entity @s Attributes append value {id:"generic.waypoint_transmission_range",base:6000000.0d}
+# Control check with max_health using proper 1.21 format
+data modify entity @s Attributes append value {id:"minecraft:generic.max_health",base:20.0d}
 
-# Fallback: if attribute is not registered, ensure the Attributes NBT entries exist so the client can read them
-data modify entity @s Attributes append value {Name:"minecraft:waypoint.transmission_range",Base:999999}
-data modify entity @s Attributes append value {Name:"waypoint_transmission_range",Base:999999}
-data modify entity @s Attributes append value {Name:"minecraft:waypoint_transmission_range",Base:999999}
+# Legacy Fallback (just in case)
+data modify entity @s Attributes append value {Name:"minecraft:waypoint.transmission_range",Base:6000000.0d}
+data modify entity @s Attributes append value {Name:"waypoint_transmission_range",Base:6000000.0d}
 
-# Remove the "new" tag so it won't be configured again
+# B. Safe Command Injection - REMOVED
+
+# 2. Apply Visual Color (Commented out temporarily to debug crash)
+# $waypoint modify @s color $(color_int)
+
+# Debug
+tellraw @a[distance=..10] {"text":"Applied settings to waypoint (Attributes+Color) - FINISHED","color":"gray","italic":true}
+
+# 3. Cleanup
 tag @s remove hm.waypoint.new

@@ -27,3 +27,6 @@ scoreboard objectives add hm.nextcolor dummy
 # Announce successful load
 tellraw @a {"text":"Heading Marker loaded! Use /function headingmarker:set to create a waypoint.","color":"green"}
 tellraw @a {"text":"Waypoints will appear in your Locator Bar!","color":"gray","italic":true}
+
+# Re-initialize existing markers (restore attributes/waypoint data)
+function headingmarker:internal/reinit_markers

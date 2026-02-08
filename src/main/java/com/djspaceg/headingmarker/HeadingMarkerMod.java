@@ -77,6 +77,17 @@ public class HeadingMarkerMod implements ModInitializer {
         armorStand.setMarker(true);
         armorStand.setCustomName(net.minecraft.text.Text.literal(color + " waypoint"));
         
+        // Make armor stand non-persistent (won't save to disk with chunks)
+        // This helps prevent duplicate entities after restart
+        armorStand.setPersistent(false);
+        
+        // Add NBT tag to identify this as a heading marker waypoint
+        var nbt = armorStand.writeNbt(new net.minecraft.nbt.NbtCompound());
+        nbt.putString("HeadingMarkerOwner", playerUuid.toString());
+        nbt.putString("HeadingMarkerColor", color);
+        nbt.putBoolean("HeadingMarkerWaypoint", true);
+        armorStand.readNbt(nbt);
+        
         // Try to set waypoint_transmit_range attribute
         // This makes vanilla clients render the waypoint in the Locator Bar
         try {
@@ -149,6 +160,56 @@ public class HeadingMarkerMod implements ModInitializer {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Remove all waypoint entities for a player across all worlds.
+     * Called when player disconnects to clean up their markers.
+     */
+    private static void removeAllPlayerWaypointEntities(ServerPlayerEntity player) {
+        UUID playerUuid = player.getUuid();
+        Map<String, WaypointData> waypoints = playerWaypoints.get(playerUuid);
+        
+        if (waypoints == null || waypoints.isEmpty()) {
+            return;
+        }
+        
+        int removedCount = 0;
+        
+        // Method 1: Remove by entity ID (fastest if loaded)
+        for (Map.Entry<String, WaypointData> entry : waypoints.entrySet()) {
+            WaypointData data = entry.getValue();
+            if (data.entityId != -1) {
+                ServerWorld world = player.getServerWorld();
+                Entity entity = world.getEntityById(data.entityId);
+                if (entity instanceof ArmorStandEntity) {
+                    entity.discard();
+                    removedCount++;
+                }
+            }
+        }
+        
+        // Method 2: Scan for any remaining entities with player's UUID in NBT
+        // This catches entities that might not have been tracked by ID
+        for (ServerWorld world : player.getServer().getWorlds()) {
+            for (Entity entity : world.iterateEntities()) {
+                if (entity instanceof ArmorStandEntity armorStand) {
+                    var nbt = armorStand.writeNbt(new net.minecraft.nbt.NbtCompound());
+                    if (nbt.contains("HeadingMarkerOwner")) {
+                        String ownerUuid = nbt.getString("HeadingMarkerOwner");
+                        if (playerUuid.toString().equals(ownerUuid)) {
+                            armorStand.discard();
+                            removedCount++;
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (removedCount > 0) {
+            LOGGER.info("Cleaned up {} waypoint entities for disconnecting player {}", 
+                removedCount, player.getName().getString());
+        }
     }
 
     /**
@@ -319,16 +380,30 @@ public class HeadingMarkerMod implements ModInitializer {
 
     /**
      * Clean up orphaned waypoint armor stand entities on server start.
-     * This prevents duplicate waypoints after restart.
+     * Uses multiple detection methods to ensure all waypoint entities are removed.
      */
     private static void cleanupOrphanedWaypointEntities(net.minecraft.server.MinecraftServer server) {
         int cleanedCount = 0;
         for (ServerWorld world : server.getWorlds()) {
             for (Entity entity : world.iterateEntities()) {
                 if (entity instanceof ArmorStandEntity armorStand) {
-                    // Check if this is a waypoint entity (has custom name ending with "waypoint")
-                    if (armorStand.hasCustomName() && 
-                        armorStand.getCustomName().getString().endsWith(" waypoint")) {
+                    boolean isWaypoint = false;
+                    
+                    // Method 1: Check NBT tag (most reliable)
+                    var nbt = armorStand.writeNbt(new net.minecraft.nbt.NbtCompound());
+                    if (nbt.contains("HeadingMarkerWaypoint") && nbt.getBoolean("HeadingMarkerWaypoint")) {
+                        isWaypoint = true;
+                    }
+                    
+                    // Method 2: Check custom name (fallback for entities without NBT tag)
+                    if (!isWaypoint && armorStand.hasCustomName()) {
+                        String name = armorStand.getCustomName().getString();
+                        if (name.endsWith(" waypoint")) {
+                            isWaypoint = true;
+                        }
+                    }
+                    
+                    if (isWaypoint) {
                         armorStand.discard();
                         cleanedCount++;
                     }
@@ -402,6 +477,19 @@ public class HeadingMarkerMod implements ModInitializer {
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
             WaypointStorage.save(server, playerWaypoints);
             LOGGER.info("Saved waypoints to disk");
+        });
+
+        // Clean up waypoint entities when player disconnects
+        // This also fires automatically on server stop/restart
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            ServerPlayerEntity player = handler.player;
+            removeAllPlayerWaypointEntities(player);
+            
+            // Clear distance display cache for this player
+            lastDistanceText.remove(player.getUuid());
+            
+            LOGGER.info("Cleaned up waypoint entities for disconnecting player: {}", 
+                player.getName().getString());
         });
 
         // Run command repair and recreate waypoint entities on player join

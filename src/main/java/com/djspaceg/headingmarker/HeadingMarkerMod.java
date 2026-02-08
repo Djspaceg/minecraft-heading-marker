@@ -77,9 +77,10 @@ public class HeadingMarkerMod implements ModInitializer {
         armorStand.setMarker(true);
         armorStand.setCustomName(net.minecraft.text.Text.literal(color + " waypoint"));
         
-        // Make armor stand non-persistent (won't save to disk with chunks)
-        // This helps prevent duplicate entities after restart
-        armorStand.setPersistent(false);
+        // Make armor stand persistent so it works for distant waypoints
+        // Entity must persist in unloaded chunks for waypoint_transmission_range to work
+        // Cleanup handlers ensure no duplicates on disconnect/startup
+        armorStand.setPersistent(true);
         
         // Add NBT tag to identify this as a heading marker waypoint
         var nbt = armorStand.writeNbt(new net.minecraft.nbt.NbtCompound());

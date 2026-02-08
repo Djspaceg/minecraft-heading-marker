@@ -38,12 +38,18 @@ The mod now uses Minecraft 1.21.11's native waypoint system by creating armor st
 - ❌ `WaypointSyncPayload` - Custom networking
 - ❌ `ShowDistanceSyncPayload` - Custom networking
 - ❌ All custom client-server networking code
+- ❌ `/hm showdistance` command (non-functional)
+- ❌ Old `playerShowDistance` HashMap and methods
 
 ### What Was Added
 - ✅ Armor stand entity creation with waypoint attributes
 - ✅ `recreateWaypointEntities()` for player join
 - ✅ Entity ID tracking for cleanup
 - ✅ Vanilla waypoint attribute registration
+- ✅ Trigger-based distance display system (`/trigger hm.distance`)
+- ✅ Scoreboard objectives for distance toggle state
+- ✅ Server tick handler for real-time distance updates
+- ✅ Actionbar distance display with colored text
 
 ### What Remains
 - ✅ Server-side command system (`/hm` commands)
@@ -56,8 +62,35 @@ The mod now uses Minecraft 1.21.11's native waypoint system by creating armor st
 - Install mod on Fabric server only
 - Vanilla clients can connect without any mods
 - `/hm` commands work normally
+- `/trigger hm.distance` for distance display toggle
 
 **For Players:**
+- Connect with vanilla Minecraft (1.21.11+)
+- See waypoints in Locator Bar automatically
+- Toggle distance display on actionbar with `/trigger hm.distance`
+- Distance shows as: `🔴 245m  🔵 180m  🟢 12m`
+- No client-side installation required
+
+## Distance Display Feature
+
+The distance display feature allows players to toggle real-time distance information on their actionbar.
+
+**How to use:**
+```
+/trigger hm.distance    # Toggle on/off
+```
+
+**When enabled:**
+- Shows distances to all waypoints on actionbar
+- Updates in real-time as player moves
+- Format: `🔴 245m  🔵 180m  🟢 12m` (colored by waypoint)
+- Calculates actual 3D distance (not distance²)
+
+**Technical implementation:**
+- Uses Minecraft's built-in scoreboard trigger system
+- No OP permissions required for players
+- State persists via scoreboard (survives server restart)
+- Server-side only - works for vanilla clients
 - Connect with vanilla Minecraft (1.21.11+)
 - See waypoints in Locator Bar automatically
 - No client-side installation required
@@ -106,6 +139,24 @@ Minecraft 1.20+ introduced built-in waypoint support:
 1. Set waypoint
 2. Run `/hm remove <color>`
 3. ✅ Expected: Waypoint disappears from Locator Bar
+
+### Test 5: Distance Display Toggle
+1. Run `/trigger hm.distance`
+2. ✅ Expected: Message "Distance display enabled"
+3. ✅ Expected: Actionbar shows distances (e.g., `🔴 245m  🔵 180m`)
+4. Run `/trigger hm.distance` again
+5. ✅ Expected: Message "Distance display disabled"
+6. ✅ Expected: Actionbar cleared
+
+### Test 6: Distance Updates
+1. Enable distance display
+2. Walk towards/away from waypoints
+3. ✅ Expected: Distances update in real-time on actionbar
+
+### Test 7: No OP Required
+1. Test as non-OP player
+2. Run `/trigger hm.distance`
+3. ✅ Expected: Works without operator permissions
 
 ## Advantages Over Previous Approach
 

@@ -45,6 +45,7 @@ public class HeadingMarkerMod implements ModInitializer {
     public static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
     
     private static final Map<UUID, Map<String, WaypointData>> playerWaypoints = new HashMap<>();
+    private static final Map<UUID, String> lastDistanceText = new HashMap<>(); // Cache for change detection
     private static int tickCounter = 0;
     private static final int DISTANCE_UPDATE_INTERVAL = 5; // Update every 5 ticks (4 times per second)
 
@@ -114,7 +115,7 @@ public class HeadingMarkerMod implements ModInitializer {
     
     /**
      * Remove waypoint entity from the world.
-     * Checks all worlds/dimensions since waypoint might be in a different dimension.
+     * Note: Each dimension tracks waypoints separately (red in overworld ≠ red in nether).
      */
     private static void removeWaypointEntity(ServerPlayerEntity player, String color) {
         UUID playerUuid = player.getUuid();
@@ -122,14 +123,12 @@ public class HeadingMarkerMod implements ModInitializer {
         if (waypoints != null && waypoints.containsKey(color)) {
             WaypointData data = waypoints.get(color);
             if (data.entityId != -1) {
-                // Check all worlds since waypoint might be in a different dimension
-                for (ServerWorld world : player.getServer().getWorlds()) {
-                    Entity entity = world.getEntityById(data.entityId);
-                    if (entity instanceof ArmorStandEntity) {
-                        entity.discard();
-                        LOGGER.info("Removed waypoint entity for color {} in dimension {}", color, world.getRegistryKey().getValue());
-                        break;
-                    }
+                // Only check player's current world since dimensions track separately
+                ServerWorld world = player.getServerWorld();
+                Entity entity = world.getEntityById(data.entityId);
+                if (entity instanceof ArmorStandEntity) {
+                    entity.discard();
+                    LOGGER.info("Removed waypoint entity for color {}", color);
                 }
             }
         }
@@ -235,6 +234,7 @@ public class HeadingMarkerMod implements ModInitializer {
 
     /**
      * Display distances to waypoints on the player's actionbar.
+     * Only sends update if the text has changed since last update.
      */
     private static void displayDistances(ServerPlayerEntity player) {
         // Get player's current position
@@ -243,40 +243,78 @@ public class HeadingMarkerMod implements ModInitializer {
         // Get waypoints for this player
         Map<String, WaypointData> waypoints = playerWaypoints.get(player.getUuid());
         
+        String newDistanceText;
         if (waypoints == null || waypoints.isEmpty()) {
-            // No waypoints - clear actionbar
-            player.sendMessage(Text.literal(""), true); // true = actionbar
-            return;
-        }
-        
-        // Build actionbar text with distances
-        MutableText actionbarText = Text.literal("");
-        boolean first = true;
-        
-        for (Map.Entry<String, WaypointData> entry : waypoints.entrySet()) {
-            WaypointData waypoint = entry.getValue();
+            newDistanceText = ""; // Empty string for no waypoints
+        } else {
+            // Build actionbar text with distances
+            StringBuilder textBuilder = new StringBuilder();
+            boolean first = true;
             
-            // Calculate distance in meters (blocks)
-            double dx = playerPos.x - waypoint.x();
-            double dy = playerPos.y - waypoint.y();
-            double dz = playerPos.z - waypoint.z();
-            double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            int distanceMeters = (int) Math.round(distance);
-            
-            // Add spacing between waypoints
-            if (!first) {
-                actionbarText.append(Text.literal("  "));
+            for (Map.Entry<String, WaypointData> entry : waypoints.entrySet()) {
+                WaypointData waypoint = entry.getValue();
+                
+                // Calculate distance in meters (blocks)
+                double dx = playerPos.x - waypoint.x();
+                double dy = playerPos.y - waypoint.y();
+                double dz = playerPos.z - waypoint.z();
+                double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                int distanceMeters = (int) Math.round(distance);
+                
+                // Add spacing between waypoints
+                if (!first) {
+                    textBuilder.append("  ");
+                }
+                first = false;
+                
+                // Add colored emoji and distance
+                String emoji = getEmojiForColor(waypoint.color());
+                textBuilder.append(emoji).append(" ").append(distanceMeters).append("m");
             }
-            first = false;
             
-            // Add colored emoji and distance
-            String emoji = getEmojiForColor(waypoint.color());
-            actionbarText.append(Text.literal(emoji + " " + distanceMeters + "m")
-                .formatted(getFormattingForColor(waypoint.color())));
+            newDistanceText = textBuilder.toString();
         }
         
-        // Send to actionbar (true = actionbar, not chat)
-        player.sendMessage(actionbarText, true);
+        // Only send update if text has changed
+        UUID playerUuid = player.getUuid();
+        String lastText = lastDistanceText.get(playerUuid);
+        
+        if (!newDistanceText.equals(lastText)) {
+            // Text changed - send update
+            if (newDistanceText.isEmpty()) {
+                // No waypoints - clear actionbar
+                player.sendMessage(Text.literal(""), true);
+            } else {
+                // Build formatted text from the string
+                MutableText actionbarText = Text.literal("");
+                boolean first = true;
+                
+                for (Map.Entry<String, WaypointData> entry : waypoints.entrySet()) {
+                    WaypointData waypoint = entry.getValue();
+                    
+                    // Calculate distance again for formatting
+                    double dx = playerPos.x - waypoint.x();
+                    double dy = playerPos.y - waypoint.y();
+                    double dz = playerPos.z - waypoint.z();
+                    double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                    int distanceMeters = (int) Math.round(distance);
+                    
+                    if (!first) {
+                        actionbarText.append(Text.literal("  "));
+                    }
+                    first = false;
+                    
+                    String emoji = getEmojiForColor(waypoint.color());
+                    actionbarText.append(Text.literal(emoji + " " + distanceMeters + "m")
+                        .formatted(getFormattingForColor(waypoint.color())));
+                }
+                
+                player.sendMessage(actionbarText, true);
+            }
+            
+            // Update cache
+            lastDistanceText.put(playerUuid, newDistanceText);
+        }
     }
 
     /**
@@ -421,8 +459,8 @@ public class HeadingMarkerMod implements ModInitializer {
                             .formatted(Formatting.YELLOW), false);
                         // Clear any existing distance text from the actionbar
                         player.sendMessage(Text.empty(), true);
-                        // Clear any existing distance text from the actionbar
-                        player.sendMessage(Text.empty(), true);
+                        // Clear the cache for this player
+                        lastDistanceText.remove(player.getUuid());
                     }
                     
                     // Reset trigger (ready for next use)

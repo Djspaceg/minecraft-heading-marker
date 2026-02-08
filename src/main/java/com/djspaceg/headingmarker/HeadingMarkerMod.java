@@ -389,6 +389,8 @@ public class HeadingMarkerMod implements ModInitializer {
                             .formatted(Formatting.YELLOW), false);
                         // Clear any existing distance text from the actionbar
                         player.sendMessage(Text.empty(), true);
+                        // Clear any existing distance text from the actionbar
+                        player.sendMessage(Text.empty(), true);
                     }
                     
                     // Reset trigger (ready for next use)

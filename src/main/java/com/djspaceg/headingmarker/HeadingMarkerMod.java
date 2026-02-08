@@ -112,6 +112,7 @@ public class HeadingMarkerMod implements ModInitializer {
     
     /**
      * Remove waypoint entity from the world.
+     * Checks all worlds/dimensions since waypoint might be in a different dimension.
      */
     private static void removeWaypointEntity(ServerPlayerEntity player, String color) {
         UUID playerUuid = player.getUuid();
@@ -119,11 +120,14 @@ public class HeadingMarkerMod implements ModInitializer {
         if (waypoints != null && waypoints.containsKey(color)) {
             WaypointData data = waypoints.get(color);
             if (data.entityId != -1) {
-                ServerWorld world = player.getServerWorld();
-                Entity entity = world.getEntityById(data.entityId);
-                if (entity instanceof ArmorStandEntity) {
-                    entity.discard();
-                    LOGGER.info("Removed waypoint entity for color {}", color);
+                // Check all worlds since waypoint might be in a different dimension
+                for (ServerWorld world : player.getServer().getWorlds()) {
+                    Entity entity = world.getEntityById(data.entityId);
+                    if (entity instanceof ArmorStandEntity) {
+                        entity.discard();
+                        LOGGER.info("Removed waypoint entity for color {} in dimension {}", color, world.getRegistryKey().getValue());
+                        break;
+                    }
                 }
             }
         }
@@ -383,6 +387,8 @@ public class HeadingMarkerMod implements ModInitializer {
                     } else {
                         player.sendMessage(Text.literal("Distance display disabled")
                             .formatted(Formatting.YELLOW), false);
+                        // Clear any existing distance text from the actionbar
+                        player.sendMessage(Text.empty(), true);
                     }
                     
                     // Reset trigger (ready for next use)

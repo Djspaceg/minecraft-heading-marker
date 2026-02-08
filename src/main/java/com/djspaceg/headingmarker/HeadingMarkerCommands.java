@@ -20,7 +20,7 @@ import java.util.Map;
 
 public class HeadingMarkerCommands {
 
-    public static final List<String> EXPECTED_SUBCOMMANDS = Arrays.asList("help", "list", "remove", "set");
+    public static final List<String> EXPECTED_SUBCOMMANDS = Arrays.asList("help", "list", "remove", "set", "showdistance");
 
     // Helpers to build individual subcommand nodes so we can merge them into an existing /hm node safely
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> helpNode() {

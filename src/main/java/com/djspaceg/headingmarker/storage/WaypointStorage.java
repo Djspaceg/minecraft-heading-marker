@@ -25,7 +25,7 @@ public class WaypointStorage {
 
     public static void save(MinecraftServer server, Map<UUID, Map<String, WaypointData>> playerWaypoints) {
         File file = getFile(server);
-        // Save both waypoints and showDistance toggle
+        // Save waypoints
         Map<String, Object> root = new HashMap<>();
         Map<String, Map<String, int[]>> waypointsPart = new HashMap<>();
         for (var entry : playerWaypoints.entrySet()) {
@@ -38,12 +38,6 @@ public class WaypointStorage {
             waypointsPart.put(uuid, colorMap);
         }
         root.put("waypoints", waypointsPart);
-        // Save showDistance toggles
-        Map<String, Boolean> showDistancePart = new HashMap<>();
-        for (Map.Entry<UUID, Boolean> entry : HeadingMarkerMod.getPlayerShowDistanceMap().entrySet()) {
-            showDistancePart.put(entry.getKey().toString(), entry.getValue());
-        }
-        root.put("showDistance", showDistancePart);
         try (FileWriter writer = new FileWriter(file)) {
             GSON.toJson(root, writer);
         } catch (IOException e) {
@@ -76,14 +70,8 @@ public class WaypointStorage {
                         result.put(uuid, colorMap);
                     }
                 }
-                // Load showDistance toggles
-                Object showDistanceObj = root.get("showDistance");
-                if (showDistanceObj instanceof Map<?, ?> showDistanceMap) {
-                    HeadingMarkerMod.getPlayerShowDistanceMap().clear();
-                    for (Map.Entry<?, ?> entry : showDistanceMap.entrySet()) {
-                        HeadingMarkerMod.getPlayerShowDistanceMap().put(UUID.fromString(entry.getKey().toString()), Boolean.TRUE.equals(entry.getValue()));
-                    }
-                }
+                // Note: showDistance is now managed via scoreboard system (hm.show_distance objective)
+                // Legacy showDistance data from old saves is ignored
             }
         } catch (IOException e) {
             HeadingMarkerMod.LOGGER.error("Failed to load waypoints", e);

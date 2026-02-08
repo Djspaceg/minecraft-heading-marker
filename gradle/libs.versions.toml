@@ -1,0 +1,15 @@
+[versions]
+annotations = "15.0"
+junitJupiter = "5.10.0"
+minecraft = "1.21.11"
+yarn = "1.21.11+build.3"
+fabricLoader = "0.18.2"
+fabricApi = "0.140.2+1.21.11"
+
+[libraries]
+annotations = { module = "org.jetbrains:annotations", version.ref = "annotations" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junitJupiter" }
+minecraft = { module = "com.mojang:minecraft", version.ref = "minecraft" }
+yarn = { module = "net.fabricmc:yarn", version.ref = "yarn" }
+fabric-loader = { module = "net.fabricmc:fabric-loader", version.ref = "fabricLoader" }
+fabric-api = { module = "net.fabricmc.fabric-api:fabric-api", version.ref = "fabricApi" }

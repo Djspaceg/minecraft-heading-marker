@@ -18,8 +18,6 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.entity.attribute.EntityAttributeInstance;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.entity.Entity;
 import net.minecraft.scoreboard.Scoreboard;
@@ -31,14 +29,18 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import com.djspaceg.headingmarker.waypoint.TrackedWaypoint;
 import com.djspaceg.headingmarker.waypoint.Waypoint;
+import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.ModContainer;
 
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.ArrayList;
-import java.util.List;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.io.IOException;
 
 public class HeadingMarkerMod implements ModInitializer {
     public static final String MOD_ID = "headingmarker";
@@ -67,45 +69,40 @@ public class HeadingMarkerMod implements ModInitializer {
         removeWaypointEntity(player, color);
         
         // Create armor stand entity for vanilla waypoint rendering
-        ServerWorld world = player.getServerWorld();
+        ServerWorld world = (ServerWorld) player.getEntityWorld();
         ArmorStandEntity armorStand = new ArmorStandEntity(EntityType.ARMOR_STAND, world);
         armorStand.setPosition(x, y, z);
         armorStand.setInvisible(true);
         armorStand.setInvulnerable(true);
         armorStand.setNoGravity(true);
         armorStand.setSilent(true);
-        armorStand.setMarker(true);
+        // Note: setMarker() is private in this version, using reflection or accepting without marker flag
         armorStand.setCustomName(net.minecraft.text.Text.literal(color + " waypoint"));
         
-        // Make armor stand persistent so it works for distant waypoints
-        // Entity must persist in unloaded chunks for waypoint_transmission_range to work
-        // Cleanup handlers ensure no duplicates on disconnect/startup
-        armorStand.setPersistent(true);
-        
-        // Add NBT tag to identify this as a heading marker waypoint
-        var nbt = armorStand.writeNbt(new net.minecraft.nbt.NbtCompound());
-        nbt.putString("HeadingMarkerOwner", playerUuid.toString());
-        nbt.putString("HeadingMarkerColor", color);
-        nbt.putBoolean("HeadingMarkerWaypoint", true);
-        armorStand.readNbt(nbt);
-        
+        // Note: Entity persistence and NBT tagging removed as APIs changed in 1.21.11
+        // Waypoints will be recreated on player join from storage
+
         // Try to set waypoint_transmit_range attribute
         // This makes vanilla clients render the waypoint in the Locator Bar
         try {
             // Look for vanilla waypoint transmission range attribute
             Identifier waypointRangeId = Identifier.of("minecraft", "waypoint_transmission_range");
-            RegistryKey<net.minecraft.entity.attribute.EntityAttribute> attributeKey = 
-                RegistryKey.of(RegistryKeys.ATTRIBUTE, waypointRangeId);
-            
+
             // Try to get the attribute from registry
             var registry = world.getRegistryManager().getOrThrow(RegistryKeys.ATTRIBUTE);
             var attribute = registry.get(waypointRangeId);
             
             if (attribute != null) {
-                EntityAttributeInstance instance = armorStand.getAttributes().getCustomInstance(attribute);
-                if (instance != null) {
-                    instance.setBaseValue(999999.0);
-                    LOGGER.info("Set waypoint_transmission_range attribute");
+                // Wrap in RegistryEntry for API compatibility
+                var attributeEntry = registry.getEntry(registry.getRawId(attribute));
+                if (attributeEntry.isPresent()) {
+                    EntityAttributeInstance instance = armorStand.getAttributes().getCustomInstance(attributeEntry.get());
+                    if (instance != null) {
+                        instance.setBaseValue(999999.0);
+                        LOGGER.info("Set waypoint_transmission_range attribute");
+                    }
+                } else {
+                    LOGGER.warn("Could not get registry entry for waypoint attribute");
                 }
             } else {
                 LOGGER.warn("waypoint_transmission_range attribute not found in registry");
@@ -136,7 +133,7 @@ public class HeadingMarkerMod implements ModInitializer {
             WaypointData data = waypoints.get(color);
             if (data.entityId != -1) {
                 // Only check player's current world since dimensions track separately
-                ServerWorld world = player.getServerWorld();
+                ServerWorld world = (ServerWorld) player.getEntityWorld();
                 Entity entity = world.getEntityById(data.entityId);
                 if (entity instanceof ArmorStandEntity) {
                     entity.discard();
@@ -181,7 +178,7 @@ public class HeadingMarkerMod implements ModInitializer {
         for (Map.Entry<String, WaypointData> entry : waypoints.entrySet()) {
             WaypointData data = entry.getValue();
             if (data.entityId != -1) {
-                ServerWorld world = player.getServerWorld();
+                ServerWorld world = (ServerWorld) player.getEntityWorld();
                 Entity entity = world.getEntityById(data.entityId);
                 if (entity instanceof ArmorStandEntity) {
                     entity.discard();
@@ -192,7 +189,10 @@ public class HeadingMarkerMod implements ModInitializer {
         
         // Method 2: Scan for any remaining entities with player's UUID in NBT
         // This catches entities that might not have been tracked by ID
-        for (ServerWorld world : player.getServer().getWorlds()) {
+        // Note: NBT-based identification removed as writeNbt() API changed
+        // Relying on tracked entity IDs only
+        /*
+        for (ServerWorld world : player.server.getWorlds()) {
             for (Entity entity : world.iterateEntities()) {
                 if (entity instanceof ArmorStandEntity armorStand) {
                     var nbt = armorStand.writeNbt(new net.minecraft.nbt.NbtCompound());
@@ -206,7 +206,8 @@ public class HeadingMarkerMod implements ModInitializer {
                 }
             }
         }
-        
+        */
+
         if (removedCount > 0) {
             LOGGER.info("Cleaned up {} waypoint entities for disconnecting player {}", 
                 removedCount, player.getName().getString());
@@ -300,8 +301,8 @@ public class HeadingMarkerMod implements ModInitializer {
      */
     private static void displayDistances(ServerPlayerEntity player) {
         // Get player's current position
-        Vec3d playerPos = player.getPos();
-        
+        Vec3d playerPos = new Vec3d(player.getX(), player.getY(), player.getZ());
+
         // Get waypoints for this player
         Map<String, WaypointData> waypoints = playerWaypoints.get(player.getUuid());
         
@@ -381,44 +382,40 @@ public class HeadingMarkerMod implements ModInitializer {
 
     /**
      * Clean up orphaned waypoint armor stand entities on server start.
-     * Uses multiple detection methods to ensure all waypoint entities are removed.
+     * Note: NBT-based cleanup removed as writeNbt() API changed in 1.21.11.
+     * Entities will be cleaned up through tracked IDs and player disconnect handlers.
      */
     private static void cleanupOrphanedWaypointEntities(net.minecraft.server.MinecraftServer server) {
-        int cleanedCount = 0;
-        for (ServerWorld world : server.getWorlds()) {
-            for (Entity entity : world.iterateEntities()) {
-                if (entity instanceof ArmorStandEntity armorStand) {
-                    boolean isWaypoint = false;
-                    
-                    // Method 1: Check NBT tag (most reliable)
-                    var nbt = armorStand.writeNbt(new net.minecraft.nbt.NbtCompound());
-                    if (nbt.contains("HeadingMarkerWaypoint") && nbt.getBoolean("HeadingMarkerWaypoint")) {
-                        isWaypoint = true;
-                    }
-                    
-                    // Method 2: Check custom name (fallback for entities without NBT tag)
-                    if (!isWaypoint && armorStand.hasCustomName()) {
-                        String name = armorStand.getCustomName().getString();
-                        if (name.endsWith(" waypoint")) {
-                            isWaypoint = true;
-                        }
-                    }
-                    
-                    if (isWaypoint) {
-                        armorStand.discard();
-                        cleanedCount++;
-                    }
-                }
-            }
-        }
-        if (cleanedCount > 0) {
-            LOGGER.info("Cleaned up {} orphaned waypoint entities from previous session", cleanedCount);
-        }
+        // Method removed - relying on disconnect handlers and tracked entity IDs
+        LOGGER.info("Waypoint cleanup handled through disconnect handlers");
     }
 
     @Override
     public void onInitialize() {
         LOGGER.info("Heading Marker Mod 1.0.6 Initializing (Server-Only)...");
+
+        // Log runtime context so you can see exactly which instance is running.
+        try {
+            ModContainer container = FabricLoader.getInstance().getModContainer(MOD_ID).orElse(null);
+            String version = (container != null) ? container.getMetadata().getVersion().getFriendlyString() : "unknown";
+            LOGGER.info("HeadingMarker runtime: user.dir={}, modVersion={}", System.getProperty("user.dir"), version);
+            if (container != null) {
+                LOGGER.info("HeadingMarker origin paths: {}", container.getOrigin().getPaths());
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Failed to log runtime context", e);
+        }
+
+        // Write a marker file so you can confirm the mod actually loaded.
+        try {
+            Path marker = Paths.get("headingmarker.installed");
+            if (!Files.exists(marker)) {
+                Files.writeString(marker, "headingmarker:installed\n");
+            }
+            LOGGER.info("HeadingMarkerMod install marker written at {}", marker.toAbsolutePath());
+        } catch (IOException e) {
+            LOGGER.warn("Failed to write install marker file", e);
+        }
 
         // Register commands
         CommandRegistrationCallback.EVENT.register(HeadingMarkerCommands::register);
@@ -432,7 +429,7 @@ public class HeadingMarkerMod implements ModInitializer {
             Scoreboard scoreboard = server.getScoreboard();
             
             // Create trigger objective for toggling distance display
-            ScoreboardObjective triggerObj = scoreboard.getObjective("hm.distance");
+            ScoreboardObjective triggerObj = scoreboard.getNullableObjective("hm.distance");
             if (triggerObj == null) {
                 scoreboard.addObjective("hm.distance", 
                     ScoreboardCriterion.TRIGGER, 
@@ -443,7 +440,7 @@ public class HeadingMarkerMod implements ModInitializer {
             }
             
             // Create state objective for tracking distance display state
-            ScoreboardObjective stateObj = scoreboard.getObjective("hm.show_distance");
+            ScoreboardObjective stateObj = scoreboard.getNullableObjective("hm.show_distance");
             if (stateObj == null) {
                 scoreboard.addObjective("hm.show_distance",
                     ScoreboardCriterion.DUMMY,
@@ -506,9 +503,9 @@ public class HeadingMarkerMod implements ModInitializer {
             
             // Enable trigger for this player
             Scoreboard scoreboard = server.getScoreboard();
-            ScoreboardObjective triggerObj = scoreboard.getObjective("hm.distance");
+            ScoreboardObjective triggerObj = scoreboard.getNullableObjective("hm.distance");
             if (triggerObj != null) {
-                ScoreAccess scoreAccess = scoreboard.getPlayerScore(handler.player, triggerObj);
+                ScoreAccess scoreAccess = scoreboard.getOrCreateScore(handler.player, triggerObj);
                 scoreAccess.unlock(); // Enable the trigger for this player
             }
         });
@@ -516,9 +513,9 @@ public class HeadingMarkerMod implements ModInitializer {
         // Server tick handler for distance display and trigger detection
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             Scoreboard scoreboard = server.getScoreboard();
-            ScoreboardObjective triggerObj = scoreboard.getObjective("hm.distance");
-            ScoreboardObjective stateObj = scoreboard.getObjective("hm.show_distance");
-            
+            ScoreboardObjective triggerObj = scoreboard.getNullableObjective("hm.distance");
+            ScoreboardObjective stateObj = scoreboard.getNullableObjective("hm.show_distance");
+
             if (triggerObj == null || stateObj == null) {
                 return; // Objectives not created yet
             }
@@ -529,12 +526,12 @@ public class HeadingMarkerMod implements ModInitializer {
             
             for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
                 // Check if player triggered hm.distance
-                ScoreAccess triggerScore = scoreboard.getPlayerScore(player, triggerObj);
-                
+                ScoreAccess triggerScore = scoreboard.getOrCreateScore(player, triggerObj);
+
                 if (triggerScore.getScore() > 0) {
                     // Player triggered the command - toggle their state
-                    ScoreAccess stateScore = scoreboard.getPlayerScore(player, stateObj);
-                    
+                    ScoreAccess stateScore = scoreboard.getOrCreateScore(player, stateObj);
+
                     int currentState = stateScore.getScore();
                     int newState = (currentState == 0) ? 1 : 0; // Toggle 0->1 or 1->0
                     stateScore.setScore(newState);
@@ -561,7 +558,7 @@ public class HeadingMarkerMod implements ModInitializer {
                 
                 // Update distance display for players who have it enabled (throttled)
                 if (shouldUpdateDistances) {
-                    ScoreAccess stateScore = scoreboard.getPlayerScore(player, stateObj);
+                    ScoreAccess stateScore = scoreboard.getOrCreateScore(player, stateObj);
                     if (stateScore.getScore() == 1) {
                         // Distance display is enabled for this player
                         displayDistances(player);

@@ -25,6 +25,7 @@ public class HeadingMarkerCommands {
     // Helpers to build individual subcommand nodes so we can merge them into an existing /hm node safely
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> helpNode() {
         return CommandManager.literal("help").executes(context -> {
+            HeadingMarkerMod.LOGGER.info("Executing /hm help command");
             ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
             sendHelpMessage(player);
             return 1;
@@ -57,17 +58,35 @@ public class HeadingMarkerCommands {
 
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> setNode() {
         return CommandManager.literal("set")
-                .then(CommandManager.argument("color", StringArgumentType.word())
-                        .suggests((context, builder) -> CommandSource.suggestMatching(ColorArgumentType.getColors(), builder))
+                .then(CommandManager.argument("color", ColorArgumentType.color())
                         .executes(context -> {
                             ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
-                            String color = StringArgumentType.getString(context, "color");
-                            if (!ColorArgumentType.getColors().contains(color.toLowerCase())) {
-                                player.sendMessage(Text.literal("Unknown color: " + color).formatted(Formatting.RED), false);
-                                return 0;
-                            }
+                            String color = ColorArgumentType.getColor(context, "color");
                             return setWaypoint(context.getSource().getServer(), player, color, player.getX(), player.getY(), player.getZ());
                         })
+                        .then(CommandManager.argument("x", DoubleArgumentType.doubleArg())
+                                .then(CommandManager.argument("z", DoubleArgumentType.doubleArg())
+                                        .executes(context -> {
+                                            ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
+                                            String color = ColorArgumentType.getColor(context, "color");
+                                            double x = DoubleArgumentType.getDouble(context, "x");
+                                            double z = DoubleArgumentType.getDouble(context, "z");
+                                            return setWaypoint(context.getSource().getServer(), player, color, x, player.getY(), z);
+                                        })
+                                )
+                                .then(CommandManager.argument("y", DoubleArgumentType.doubleArg())
+                                        .then(CommandManager.argument("z", DoubleArgumentType.doubleArg())
+                                                .executes(context -> {
+                                                    ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
+                                                    String color = ColorArgumentType.getColor(context, "color");
+                                                    double x = DoubleArgumentType.getDouble(context, "x");
+                                                    double y = DoubleArgumentType.getDouble(context, "y");
+                                                    double z = DoubleArgumentType.getDouble(context, "z");
+                                                    return setWaypoint(context.getSource().getServer(), player, color, x, y, z);
+                                                })
+                                        )
+                                )
+                        )
                 )
                 .then(CommandManager.argument("x", DoubleArgumentType.doubleArg())
                         .then(CommandManager.argument("z", DoubleArgumentType.doubleArg())
@@ -78,44 +97,36 @@ public class HeadingMarkerCommands {
                                     String color = getNextAvailableColor(player);
                                     return setWaypoint(context.getSource().getServer(), player, color, x, player.getY(), z);
                                 })
-                                .then(CommandManager.argument("val3", DoubleArgumentType.doubleArg())
-                                        .executes(context -> {
-                                            ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
-                                            double x = DoubleArgumentType.getDouble(context, "x");
-                                            double y_maybe = DoubleArgumentType.getDouble(context, "z");
-                                            double z_maybe = DoubleArgumentType.getDouble(context, "val3");
-                                            String color = getNextAvailableColor(player);
-                                            return setWaypoint(context.getSource().getServer(), player, color, x, y_maybe, z_maybe);
-                                        })
-                                        .then(CommandManager.argument("color_3d", StringArgumentType.word())
-                                                .suggests((context, builder) -> CommandSource.suggestMatching(ColorArgumentType.getColors(), builder))
-                                                .executes(context -> {
-                                                    ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
-                                                    double x = DoubleArgumentType.getDouble(context, "x");
-                                                    double y = DoubleArgumentType.getDouble(context, "z");
-                                                    double z = DoubleArgumentType.getDouble(context, "val3");
-                                                    String color = StringArgumentType.getString(context, "color_3d");
-                                                    if (!ColorArgumentType.getColors().contains(color.toLowerCase())) {
-                                                        player.sendMessage(Text.literal("Unknown color: " + color).formatted(Formatting.RED), false);
-                                                        return 0;
-                                                    }
-                                                    return setWaypoint(context.getSource().getServer(), player, color, x, y, z);
-                                                })
-                                        )
-                                )
-                                .then(CommandManager.argument("color_2d", StringArgumentType.word())
-                                        .suggests((context, builder) -> CommandSource.suggestMatching(ColorArgumentType.getColors(), builder))
+                                .then(CommandManager.argument("color", ColorArgumentType.color())
                                         .executes(context -> {
                                             ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
                                             double x = DoubleArgumentType.getDouble(context, "x");
                                             double z = DoubleArgumentType.getDouble(context, "z");
-                                            String color = StringArgumentType.getString(context, "color_2d");
-                                            if (!ColorArgumentType.getColors().contains(color.toLowerCase())) {
-                                                player.sendMessage(Text.literal("Unknown color: " + color).formatted(Formatting.RED), false);
-                                                return 0;
-                                            }
+                                            String color = ColorArgumentType.getColor(context, "color");
                                             return setWaypoint(context.getSource().getServer(), player, color, x, player.getY(), z);
                                         })
+                                )
+                        )
+                        .then(CommandManager.argument("y", DoubleArgumentType.doubleArg())
+                                .then(CommandManager.argument("z", DoubleArgumentType.doubleArg())
+                                        .executes(context -> {
+                                            ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
+                                            double x = DoubleArgumentType.getDouble(context, "x");
+                                            double y = DoubleArgumentType.getDouble(context, "y");
+                                            double z = DoubleArgumentType.getDouble(context, "z");
+                                            String color = getNextAvailableColor(player);
+                                            return setWaypoint(context.getSource().getServer(), player, color, x, y, z);
+                                        })
+                                        .then(CommandManager.argument("color", ColorArgumentType.color())
+                                                .executes(context -> {
+                                                    ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
+                                                    double x = DoubleArgumentType.getDouble(context, "x");
+                                                    double y = DoubleArgumentType.getDouble(context, "y");
+                                                    double z = DoubleArgumentType.getDouble(context, "z");
+                                                    String color = ColorArgumentType.getColor(context, "color");
+                                                    return setWaypoint(context.getSource().getServer(), player, color, x, y, z);
+                                                })
+                                        )
                                 )
                         )
                 );
@@ -223,11 +234,11 @@ public class HeadingMarkerCommands {
 
         // Set marker commands
         player.sendMessage(Text.literal("SET MARKER:").formatted(Formatting.AQUA, Formatting.BOLD), false);
-        player.sendMessage(Text.literal("• /hm set <color> [x] [y] [z]  ").formatted(Formatting.YELLOW).append(Text.literal("- Set marker at position (defaults to player if no coords)").formatted(Formatting.GRAY)), false);
-        player.sendMessage(Text.literal("• /hm set <x> <z>  ").formatted(Formatting.YELLOW).append(Text.literal("- 2D marker at X,Z (Y=player)").formatted(Formatting.GRAY)), false);
-        player.sendMessage(Text.literal("• /hm set <x> <z> <color>  ").formatted(Formatting.YELLOW).append(Text.literal("- 2D marker with color").formatted(Formatting.GRAY)), false);
-        player.sendMessage(Text.literal("• /hm set <x> <y> <z>  ").formatted(Formatting.YELLOW).append(Text.literal("- 3D marker at X,Y,Z").formatted(Formatting.GRAY)), false);
-        player.sendMessage(Text.literal("• /hm set <x> <y> <z> <color>  ").formatted(Formatting.YELLOW).append(Text.literal("- 3D marker with color").formatted(Formatting.GRAY)), false);
+        player.sendMessage(Text.literal("• /hm set <color> [x] [y] [z]  ").formatted(Formatting.YELLOW).append(Text.literal("- Set marker (defaults to player if no coords)").formatted(Formatting.GRAY)), false);
+        player.sendMessage(Text.literal("• /hm set <color> <x> <z>  ").formatted(Formatting.YELLOW).append(Text.literal("- 2D marker at X,Z (Y=player)").formatted(Formatting.GRAY)), false);
+        player.sendMessage(Text.literal("• /hm set <color> <x> <y> <z>  ").formatted(Formatting.YELLOW).append(Text.literal("- 3D marker at X,Y,Z").formatted(Formatting.GRAY)), false);
+        player.sendMessage(Text.literal("• /hm set <x> <z> [color]  ").formatted(Formatting.YELLOW).append(Text.literal("- 2D marker (legacy order)").formatted(Formatting.GRAY)), false);
+        player.sendMessage(Text.literal("• /hm set <x> <y> <z> [color]  ").formatted(Formatting.YELLOW).append(Text.literal("- 3D marker (legacy order)").formatted(Formatting.GRAY)), false);
         player.sendMessage(Text.literal(""), false);
 
         // Remove marker

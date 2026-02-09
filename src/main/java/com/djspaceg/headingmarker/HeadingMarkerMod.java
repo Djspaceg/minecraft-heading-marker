@@ -19,7 +19,6 @@ import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.entity.attribute.EntityAttributeInstance;
 import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.registry.RegistryKeys;
 import net.minecraft.entity.Entity;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.scoreboard.ScoreboardObjective;
@@ -56,7 +55,7 @@ public class HeadingMarkerMod implements ModInitializer {
      * Create and track a waypoint for a player using vanilla waypoint system.
      * Creates an invisible armor stand entity with waypoint_transmit_range attribute.
      */
-    public static TrackedWaypoint createWaypoint(ServerPlayerEntity player, String color, double x, double y, double z) {
+    public static void createWaypoint(ServerPlayerEntity player, String color, double x, double y, double z) {
         UUID playerUuid = player.getUuid();
         LOGGER.info("Creating waypoint: color={}, pos=({},{},{}), player={}", color, x, y, z, player.getName().getString());
         
@@ -86,7 +85,7 @@ public class HeadingMarkerMod implements ModInitializer {
         // Set waypoint transmit range attribute
         // This makes vanilla clients render the waypoint in the Locator Bar
         try {
-            EntityAttributeInstance waypointAttr = armorStand.getAttributeInstance(EntityAttributes.GENERIC_WAYPOINT_TRANSMIT_RANGE);
+            EntityAttributeInstance waypointAttr = armorStand.getAttributeInstance(EntityAttributes.WAYPOINT_TRANSMIT_RANGE);
             if (waypointAttr != null) {
                 waypointAttr.setBaseValue(999999.0);
                 LOGGER.info("Set waypoint transmit range to 999999 for {} waypoint", color);
@@ -105,7 +104,6 @@ public class HeadingMarkerMod implements ModInitializer {
         playerWaypoints.computeIfAbsent(playerUuid, k -> new HashMap<>()).put(color, data);
         
         LOGGER.info("Created waypoint entity at ({},{},{})", x, y, z);
-        return waypoint;
     }
     
     /**
@@ -231,54 +229,36 @@ public class HeadingMarkerMod implements ModInitializer {
     }
 
     private static int getColorInt(String color) {
-        switch (color.toLowerCase()) {
-            case "red":
-                return 0xFF0000;
-            case "blue":
-                return 0x5555FF;
-            case "green":
-                return 0x55FF55;
-            case "yellow":
-                return 0xFFFF55;
-            case "purple":
-                return 0xFF55FF;
-            default:
-                return 0xFFFFFF;
-        }
+        return switch (color.toLowerCase()) {
+            case "red" -> 0xFF0000;
+            case "blue" -> 0x5555FF;
+            case "green" -> 0x55FF55;
+            case "yellow" -> 0xFFFF55;
+            case "purple" -> 0xFF55FF;
+            default -> 0xFFFFFF;
+        };
     }
 
     private static String getEmojiForColor(String color) {
-        switch (color.toLowerCase()) {
-            case "red":
-                return "🔴";
-            case "blue":
-                return "🔵";
-            case "green":
-                return "🟢";
-            case "yellow":
-                return "🟡";
-            case "purple":
-                return "🟣";
-            default:
-                return "⚪";
-        }
+        return switch (color.toLowerCase()) {
+            case "red" -> "🔴";
+            case "blue" -> "🔵";
+            case "green" -> "🟢";
+            case "yellow" -> "🟡";
+            case "purple" -> "🟣";
+            default -> "⚪";
+        };
     }
 
     private static Formatting getFormattingForColor(String color) {
-        switch (color.toLowerCase()) {
-            case "red":
-                return Formatting.RED;
-            case "blue":
-                return Formatting.BLUE;
-            case "green":
-                return Formatting.GREEN;
-            case "yellow":
-                return Formatting.YELLOW;
-            case "purple":
-                return Formatting.LIGHT_PURPLE;
-            default:
-                return Formatting.WHITE;
-        }
+        return switch (color.toLowerCase()) {
+            case "red" -> Formatting.RED;
+            case "blue" -> Formatting.BLUE;
+            case "green" -> Formatting.GREEN;
+            case "yellow" -> Formatting.YELLOW;
+            case "purple" -> Formatting.LIGHT_PURPLE;
+            default -> Formatting.WHITE;
+        };
     }
 
     /**

@@ -211,7 +211,7 @@ public class HeadingMarkerCommands {
     }
 
     private static int listWaypoints(MinecraftServer server, ServerPlayerEntity player) {
-        Map<String, ?> waypoints = HeadingMarkerMod.getWaypoints(player.getUuid());
+        Map<String, HeadingMarkerMod.WaypointData> waypoints = HeadingMarkerMod.getWaypoints(player.getUuid());
 
         if (waypoints.isEmpty()) {
             player.sendMessage(Text.literal("You have no active waypoints.").formatted(net.minecraft.util.Formatting.YELLOW), false);
@@ -219,8 +219,9 @@ public class HeadingMarkerCommands {
         }
 
         player.sendMessage(Text.literal("Active Waypoints:").formatted(net.minecraft.util.Formatting.GOLD), false);
-        waypoints.forEach((colorName, wp) -> {
-            player.sendMessage(Text.literal(" - " + colorName + " waypoint").formatted(net.minecraft.util.Formatting.GRAY), false);
+        waypoints.forEach((colorName, data) -> {
+            String coords = String.format("(%d, %d, %d)", data.x(), data.y(), data.z());
+            player.sendMessage(Text.literal(" - " + colorName + " waypoint at " + coords).formatted(net.minecraft.util.Formatting.GRAY), false);
         });
         return waypoints.size();
     }

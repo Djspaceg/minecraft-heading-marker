@@ -101,16 +101,20 @@ public class HeadingMarkerMod implements ModInitializer {
         
         // Set the waypoint color using the /waypoint modify command
         // This ensures the waypoint appears in the correct color in the Locator Bar
-        try {
-            String waypointCommand = String.format("waypoint modify %s color %s", 
-                armorStand.getUuidAsString(), color.toLowerCase());
-            world.getServer().getCommandManager().executeWithPrefix(
-                world.getServer().getCommandSource().withSilent(), 
-                waypointCommand
-            );
-            LOGGER.info("Set waypoint color to {} for entity {}", color, armorStand.getUuidAsString());
-        } catch (Exception e) {
-            LOGGER.error("Failed to set waypoint color: {}", e.getMessage(), e);
+        if (world.getServer() != null) {
+            try {
+                String waypointCommand = String.format("waypoint modify %s color %s",
+                    armorStand.getUuidAsString(), color.toLowerCase());
+                var commandSource = world.getServer().getCommandSource().withSilent();
+                var dispatcher = world.getServer().getCommandManager().getDispatcher();
+                var parseResults = dispatcher.parse(waypointCommand, commandSource);
+                world.getServer().getCommandManager().execute(parseResults, waypointCommand);
+                LOGGER.info("Set waypoint color to {} for entity {}", color, armorStand.getUuidAsString());
+            } catch (Exception e) {
+                LOGGER.error("Failed to set waypoint color: {}", e.getMessage(), e);
+            }
+        } else {
+            LOGGER.warn("Could not set waypoint color: server is null");
         }
         
         // Store reference to entity for later removal

@@ -83,15 +83,15 @@ public class HeadingMarkerMod implements ModInitializer {
         // Note: Entity persistence and NBT tagging removed as APIs changed in 1.21.11
         // Waypoints will be recreated on player join from storage
 
-        // Set waypoint transmission range attribute
+        // Set waypoint transmit range attribute
         // This makes vanilla clients render the waypoint in the Locator Bar
         try {
-            EntityAttributeInstance waypointAttr = armorStand.getAttributeInstance(EntityAttributes.GENERIC_WAYPOINT_TRANSMISSION_RANGE);
+            EntityAttributeInstance waypointAttr = armorStand.getAttributeInstance(EntityAttributes.GENERIC_WAYPOINT_TRANSMIT_RANGE);
             if (waypointAttr != null) {
                 waypointAttr.setBaseValue(999999.0);
-                LOGGER.info("Set waypoint transmission range to 999999 for {} waypoint", color);
+                LOGGER.info("Set waypoint transmit range to 999999 for {} waypoint", color);
             } else {
-                LOGGER.warn("Armor stand doesn't have waypoint_transmission_range attribute");
+                LOGGER.warn("Armor stand doesn't have waypoint_transmit_range attribute");
             }
         } catch (Exception e) {
             LOGGER.error("Failed to set waypoint attribute: {}", e.getMessage(), e);

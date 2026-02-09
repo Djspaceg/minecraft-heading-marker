@@ -4,82 +4,70 @@ import com.djspaceg.headingmarker.HeadingMarkerMod;
 import com.djspaceg.headingmarker.HeadingMarkerMod.WaypointData;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.WorldSavePath;
 import com.djspaceg.headingmarker.waypoint.TrackedWaypoint;
 import com.djspaceg.headingmarker.waypoint.Waypoint;
 
-import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.lang.reflect.Type;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 public class WaypointStorage {
+
     private static final Gson GSON = new Gson();
-    private static final String FILE_NAME = "headingmarker_waypoints.json";
+    private static final Type WAYPOINT_MAP_TYPE = new TypeToken<Map<UUID, Map<String, WaypointData>>>() {}.getType();
 
-    public static void save(MinecraftServer server, Map<UUID, Map<String, WaypointData>> playerWaypoints) {
-        File file = getFile(server);
-        // Save waypoints
-        Map<String, Object> root = new HashMap<>();
-        Map<String, Map<String, int[]>> waypointsPart = new HashMap<>();
-        for (var entry : playerWaypoints.entrySet()) {
-            String uuid = entry.getKey().toString();
-            Map<String, int[]> colorMap = new HashMap<>();
-            for (var colorEntry : entry.getValue().entrySet()) {
-                WaypointData data = colorEntry.getValue();
-                colorMap.put(colorEntry.getKey(), new int[]{data.x(), data.y(), data.z()});
+    public static void saveWaypoints(Path storageDir, Map<UUID, Map<String, WaypointData>> playerWaypoints) {
+        for (Map.Entry<UUID, Map<String, WaypointData>> entry : playerWaypoints.entrySet()) {
+            UUID playerUuid = entry.getKey();
+            Map<String, WaypointData> waypoints = entry.getValue();
+            Path playerFile = storageDir.resolve(playerUuid.toString() + ".json");
+
+            try (FileWriter writer = new FileWriter(playerFile.toFile())) {
+                GSON.toJson(waypoints, writer);
+            } catch (IOException e) {
+                HeadingMarkerMod.LOGGER.error("Failed to save waypoints for player {}", playerUuid, e);
             }
-            waypointsPart.put(uuid, colorMap);
-        }
-        root.put("waypoints", waypointsPart);
-        try (FileWriter writer = new FileWriter(file)) {
-            GSON.toJson(root, writer);
-        } catch (IOException e) {
-            HeadingMarkerMod.LOGGER.error("Failed to save waypoints", e);
         }
     }
 
-    public static Map<UUID, Map<String, WaypointData>> load(MinecraftServer server) {
-        File file = getFile(server);
-        Map<UUID, Map<String, WaypointData>> result = new HashMap<>();
-        if (!file.exists()) return result;
-        try (FileReader reader = new FileReader(file)) {
-            Map<String, Object> root = GSON.fromJson(reader, new TypeToken<Map<String, Object>>() {
-            }.getType());
-            if (root != null) {
-                // Load waypoints
-                Object waypointsObj = root.get("waypoints");
-                if (waypointsObj instanceof Map<?, ?> data) {
-                    for (Map.Entry<?, ?> entry : data.entrySet()) {
-                        UUID uuid = UUID.fromString(entry.getKey().toString());
-                        Map<String, WaypointData> colorMap = new HashMap<>();
-                        Map<?, ?> colorData = (Map<?, ?>) entry.getValue();
-                        for (Map.Entry<?, ?> colorEntry : colorData.entrySet()) {
-                            List<?> pos = (List<?>) colorEntry.getValue();
-                            int x = ((Number) pos.get(0)).intValue(), y = ((Number) pos.get(1)).intValue(), z = ((Number) pos.get(2)).intValue();
-                            TrackedWaypoint wp = TrackedWaypoint.ofPos(uuid, new Waypoint.Config(), new net.minecraft.util.math.Vec3i(x, y, z));
-                            // Entity IDs don't persist, use -1 for loaded waypoints
-                            colorMap.put(colorEntry.getKey().toString(), new WaypointData(colorEntry.getKey().toString(), x, y, z, wp, -1));
-                        }
-                        result.put(uuid, colorMap);
+    public static Map<UUID, Map<String, WaypointData>> loadWaypoints(Path storageDir) {
+        Map<UUID, Map<String, WaypointData>> playerWaypoints = new HashMap<>();
+
+        try (var files = Files.list(storageDir)) {
+            files.filter(path -> path.toString().endsWith(".json")).forEach(path -> {
+                String fileName = path.getFileName().toString();
+                String uuidString = fileName.substring(0, fileName.length() - 5); // Remove .json extension
+
+                try {
+                    UUID playerUuid = UUID.fromString(uuidString);
+                    try (FileReader reader = new FileReader(path.toFile())) {
+                        Map<String, WaypointData> waypoints = GSON.fromJson(reader, new TypeToken<Map<String, WaypointData>>() {}.getType());
+
+                        // Re-create tracked waypoints and set entity IDs to -1 as they are not persistent.
+                        waypoints.forEach((color, data) -> {
+                            TrackedWaypoint wp = TrackedWaypoint.ofPos(playerUuid, new Waypoint.Config(), new net.minecraft.util.math.Vec3i((int)data.x(), (int)data.y(), (int)data.z()));
+                            waypoints.put(color, new WaypointData(data.color(), data.x(), data.y(), data.z(), wp, -1));
+                        });
+
+                        playerWaypoints.put(playerUuid, waypoints);
+                    } catch (IOException e) {
+                        HeadingMarkerMod.LOGGER.error("Failed to load waypoints from file: {}", path, e);
                     }
+                } catch (IllegalArgumentException e) {
+                    HeadingMarkerMod.LOGGER.warn("Invalid UUID in file name: {}", fileName);
                 }
-                // Note: showDistance is now managed via scoreboard system (hm.show_distance objective)
-                // Legacy showDistance data from old saves is ignored
-            }
+            });
         } catch (IOException e) {
-            HeadingMarkerMod.LOGGER.error("Failed to load waypoints", e);
+            HeadingMarkerMod.LOGGER.error("Failed to list waypoint files in storage directory.", e);
         }
-        return result;
-    }
 
-    private static File getFile(MinecraftServer server) {
-        return server.getSavePath(WorldSavePath.ROOT).resolve(FILE_NAME).toFile();
+        return playerWaypoints;
     }
 }

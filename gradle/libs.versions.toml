@@ -1,6 +1,6 @@
 [versions]
-annotations = "15.0"
-junitJupiter = "5.10.0"
+annotations = "26.0.2-1"
+junitJupiter = "5.11.4"
 minecraft = "1.21.11"
 yarn = "1.21.11+build.3"
 fabricLoader = "0.18.2"

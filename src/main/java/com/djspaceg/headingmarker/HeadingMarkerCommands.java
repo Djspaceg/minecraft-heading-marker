@@ -1,6 +1,7 @@
 package com.djspaceg.headingmarker;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.command.CommandSource;
@@ -19,6 +20,8 @@ import java.util.stream.Collectors;
 
 public class HeadingMarkerCommands {
 
+    private static final List<String> VALID_COLORS = Arrays.asList("red", "blue", "green", "yellow", "purple");
+
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess, CommandManager.RegistrationEnvironment environment) {
         LiteralCommandNode<ServerCommandSource> hmCommand = dispatcher.register(
                 CommandManager.literal("hm")
@@ -36,22 +39,23 @@ public class HeadingMarkerCommands {
                                 .executes(context -> listWaypoints(context.getSource().getPlayer()))
                         )
                         .then(CommandManager.literal("remove")
-                                .then(CommandManager.argument("color", ColorArgumentType.color())
+                                .then(CommandManager.argument("color", StringArgumentType.word())
                                         .suggests((context, builder) -> CommandSource.suggestMatching(HeadingMarkerMod.getWaypoints(context.getSource().getPlayer().getUuid()).keySet(), builder))
-                                        .executes(context -> removeWaypoint(context.getSource().getPlayer(), ColorArgumentType.getColor(context, "color")))
+                                        .executes(context -> removeWaypoint(context.getSource().getPlayer(), StringArgumentType.getString(context, "color")))
                                 )
                         )
                         .then(CommandManager.literal("set")
-                                .then(CommandManager.argument("color", ColorArgumentType.color())
+                                .then(CommandManager.argument("color", StringArgumentType.word())
+                                        .suggests((context, builder) -> CommandSource.suggestMatching(VALID_COLORS, builder))
                                         .executes(context -> {
                                             ServerPlayerEntity player = context.getSource().getPlayer();
-                                            return setWaypoint(player, ColorArgumentType.getColor(context, "color"), player.getX(), player.getY(), player.getZ());
+                                            return setWaypoint(player, StringArgumentType.getString(context, "color"), player.getX(), player.getY(), player.getZ());
                                         })
                                         .then(CommandManager.argument("pos", Vec3ArgumentType.vec3())
                                                 .executes(context -> {
                                                     ServerPlayerEntity player = context.getSource().getPlayer();
                                                     Vec3d pos = Vec3ArgumentType.getVec3(context, "pos");
-                                                    return setWaypoint(player, ColorArgumentType.getColor(context, "color"), pos.x, pos.y, pos.z);
+                                                    return setWaypoint(player, StringArgumentType.getString(context, "color"), pos.x, pos.y, pos.z);
                                                 })
                                         )
                                 )
@@ -62,8 +66,15 @@ public class HeadingMarkerCommands {
     }
 
     private static int setWaypoint(ServerPlayerEntity player, String color, double x, double y, double z) {
-        HeadingMarkerMod.createWaypoint(player, color, x, y, z);
-        player.sendMessage(Text.literal(color + " waypoint set to (" + (int)x + ", " + (int)y + ", " + (int)z + ")").formatted(Formatting.GREEN), false);
+        // Validate color since we're using StringArgumentType instead of ColorArgumentType
+        String lowerColor = color.toLowerCase();
+        if (!VALID_COLORS.contains(lowerColor)) {
+            player.sendMessage(Text.literal("Unknown color: " + color + ". Valid colors: " + String.join(", ", VALID_COLORS)).formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        HeadingMarkerMod.createWaypoint(player, lowerColor, x, y, z);
+        player.sendMessage(Text.literal(lowerColor + " waypoint set to (" + (int)x + ", " + (int)y + ", " + (int)z + ")").formatted(Formatting.GREEN), false);
         return 1;
     }
 

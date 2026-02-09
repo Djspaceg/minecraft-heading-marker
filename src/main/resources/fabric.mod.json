@@ -3,7 +3,7 @@
   "id": "headingmarker",
   "version": "${version}",
   "name": "Heading Marker",
-  "description": "Server-side waypoint management mod. Provides /hm commands. Clients don't need this mod or Fabric API!",
+  "description": "Waypoint management mod. Works server-side OR client-side (singleplayer). Optional on clients when connecting to servers with the mod installed.",
   "authors": [
     "Djspaceg"
   ],
@@ -14,9 +14,17 @@
   "license": "CC0-1.0",
   "icon": "assets/headingmarker/icon.png",
   "environment": "*",
+  "custom": {
+    "modmenu": {
+      "badges": [ "library" ]
+    }
+  },
   "entrypoints": {
     "main": [
       "com.djspaceg.headingmarker.HeadingMarkerMod"
+    ],
+    "client": [
+      "com.djspaceg.headingmarker.HeadingMarkerClientMod"
     ]
   },
   "depends": {

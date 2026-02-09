@@ -4,13 +4,11 @@ import com.djspaceg.headingmarker.storage.WaypointStorage;
 import com.djspaceg.headingmarker.waypoint.TrackedWaypoint;
 import com.djspaceg.headingmarker.waypoint.Waypoint;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.command.v2.ArgumentTypeRegistry;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.command.argument.serialize.ConstantArgumentSerializer;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.attribute.EntityAttributeInstance;
@@ -21,7 +19,6 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.Vec3i;
 import org.slf4j.LoggerFactory;
@@ -256,11 +253,9 @@ public class HeadingMarkerMod implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		ArgumentTypeRegistry.registerArgumentType(
-				Identifier.of(MOD_ID, "color"),
-				ColorArgumentType.class,
-				ConstantArgumentSerializer.of(ColorArgumentType::color)
-		);
+		// Note: Removed ArgumentTypeRegistry.registerArgumentType for ColorArgumentType
+		// to make this mod truly server-only. Using StringArgumentType instead.
+		// This allows vanilla clients to connect without the mod installed.
 
 		CommandRegistrationCallback.EVENT.register(HeadingMarkerCommands::register);
 

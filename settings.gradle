@@ -7,9 +7,11 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
-    versionCatalogs {
-        libs {
-        }
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
+    repositories {
+        mavenCentral()
+        maven { url = 'https://maven.fabricmc.net/' }
+        maven { url = 'https://libraries.minecraft.net/' }
     }
 }
 

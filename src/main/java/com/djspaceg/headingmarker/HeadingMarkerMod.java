@@ -18,6 +18,7 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.entity.attribute.EntityAttributeInstance;
+import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.entity.Entity;
 import net.minecraft.scoreboard.Scoreboard;
@@ -82,33 +83,18 @@ public class HeadingMarkerMod implements ModInitializer {
         // Note: Entity persistence and NBT tagging removed as APIs changed in 1.21.11
         // Waypoints will be recreated on player join from storage
 
-        // Try to set waypoint_transmit_range attribute
+        // Set waypoint transmission range attribute
         // This makes vanilla clients render the waypoint in the Locator Bar
         try {
-            // Look for vanilla waypoint transmission range attribute
-            Identifier waypointRangeId = Identifier.of("minecraft", "waypoint_transmission_range");
-
-            // Try to get the attribute from registry
-            var registry = world.getRegistryManager().getOrThrow(RegistryKeys.ATTRIBUTE);
-            var attribute = registry.get(waypointRangeId);
-            
-            if (attribute != null) {
-                // Wrap in RegistryEntry for API compatibility
-                var attributeEntry = registry.getEntry(registry.getRawId(attribute));
-                if (attributeEntry.isPresent()) {
-                    EntityAttributeInstance instance = armorStand.getAttributes().getCustomInstance(attributeEntry.get());
-                    if (instance != null) {
-                        instance.setBaseValue(999999.0);
-                        LOGGER.info("Set waypoint_transmission_range attribute");
-                    }
-                } else {
-                    LOGGER.warn("Could not get registry entry for waypoint attribute");
-                }
+            EntityAttributeInstance waypointAttr = armorStand.getAttributeInstance(EntityAttributes.GENERIC_WAYPOINT_TRANSMISSION_RANGE);
+            if (waypointAttr != null) {
+                waypointAttr.setBaseValue(999999.0);
+                LOGGER.info("Set waypoint transmission range to 999999 for {} waypoint", color);
             } else {
-                LOGGER.warn("waypoint_transmission_range attribute not found in registry");
+                LOGGER.warn("Armor stand doesn't have waypoint_transmission_range attribute");
             }
         } catch (Exception e) {
-            LOGGER.warn("Could not set waypoint attribute: {}", e.getMessage());
+            LOGGER.error("Failed to set waypoint attribute: {}", e.getMessage(), e);
         }
         
         // Spawn the entity

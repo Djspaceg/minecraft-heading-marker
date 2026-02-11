@@ -3,25 +3,54 @@ package com.djspaceg.headingmarker.storage;
 import com.djspaceg.headingmarker.HeadingMarkerMod;
 import com.djspaceg.headingmarker.HeadingMarkerMod.WaypointData;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.TypeAdapter;
 import com.google.gson.reflect.TypeToken;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
 import com.djspaceg.headingmarker.waypoint.TrackedWaypoint;
 import com.djspaceg.headingmarker.waypoint.Waypoint;
 
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 public class WaypointStorage {
 
-    private static final Gson GSON = new Gson();
-    private static final Type WAYPOINT_MAP_TYPE = new TypeToken<Map<UUID, Map<String, WaypointData>>>() {}.getType();
+    private static final Gson GSON = new GsonBuilder()
+            .registerTypeAdapter(Optional.class, new OptionalTypeAdapter<>())
+            .create();
+
+    /**
+     * Custom TypeAdapter for Optional to avoid Java module reflection issues
+     */
+    private static class OptionalTypeAdapter<T> extends TypeAdapter<Optional<T>> {
+        @Override
+        public void write(JsonWriter out, Optional<T> value) throws IOException {
+            if (value.isEmpty()) {
+                out.nullValue();
+            } else {
+                out.jsonValue(String.valueOf(value.get()));
+            }
+        }
+
+        @Override
+        public Optional<T> read(JsonReader in) throws IOException {
+            if (in.peek() == com.google.gson.stream.JsonToken.NULL) {
+                in.nextNull();
+                return Optional.empty();
+            }
+            @SuppressWarnings("unchecked")
+            T value = (T) Integer.valueOf(in.nextInt());
+            return Optional.of(value);
+        }
+    }
 
     public static void saveWaypoints(Path storageDir, Map<UUID, Map<String, WaypointData>> playerWaypoints) {
         for (Map.Entry<UUID, Map<String, WaypointData>> entry : playerWaypoints.entrySet()) {

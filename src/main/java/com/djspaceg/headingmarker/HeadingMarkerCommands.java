@@ -40,7 +40,11 @@ public class HeadingMarkerCommands {
                         )
                         .then(CommandManager.literal("remove")
                                 .then(CommandManager.argument("color", StringArgumentType.word())
-                                        .suggests((context, builder) -> CommandSource.suggestMatching(HeadingMarkerMod.getWaypoints(context.getSource().getPlayer().getUuid()).keySet(), builder))
+                                        .suggests((context, builder) -> {
+                                            ServerPlayerEntity player = context.getSource().getPlayer();
+                                            String dimension = HeadingMarkerMod.getDimensionKey(player.getEntityWorld().getRegistryKey());
+                                            return CommandSource.suggestMatching(HeadingMarkerMod.getWaypoints(player.getUuid(), dimension).keySet(), builder);
+                                        })
                                         .executes(context -> removeWaypoint(context.getSource().getPlayer(), StringArgumentType.getString(context, "color")))
                                 )
                         )
@@ -89,14 +93,15 @@ public class HeadingMarkerCommands {
     }
 
     private static int listWaypoints(ServerPlayerEntity player) {
-        Map<String, HeadingMarkerMod.WaypointData> waypoints = HeadingMarkerMod.getWaypoints(player.getUuid());
+        String dimension = HeadingMarkerMod.getDimensionKey(player.getEntityWorld().getRegistryKey());
+        Map<String, HeadingMarkerMod.WaypointData> waypoints = HeadingMarkerMod.getWaypoints(player.getUuid(), dimension);
 
         if (waypoints.isEmpty()) {
-            player.sendMessage(Text.literal("You have no active waypoints.").formatted(Formatting.YELLOW), false);
+            player.sendMessage(Text.literal("You have no active waypoints in " + dimension + ".").formatted(Formatting.YELLOW), false);
             return 0;
         }
 
-        player.sendMessage(Text.literal("Active Waypoints:").formatted(Formatting.GOLD), false);
+        player.sendMessage(Text.literal("Active Waypoints in " + dimension + ":").formatted(Formatting.GOLD), false);
         waypoints.forEach((color, data) -> {
             String coords = String.format("(%d, %d, %d)", (int)data.x(), (int)data.y(), (int)data.z());
             player.sendMessage(Text.literal(" - " + color + " waypoint at " + coords).formatted(Formatting.GRAY), false);

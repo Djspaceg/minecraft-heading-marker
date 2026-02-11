@@ -23,6 +23,9 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.Vec3i;
 import org.slf4j.LoggerFactory;
 
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.world.World;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,12 +37,26 @@ public class HeadingMarkerMod implements ModInitializer {
     public static final String MOD_ID = "headingmarker";
     public static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-    private static final Map<UUID, Map<String, WaypointData>> playerWaypoints = new HashMap<>();
+    // Map structure: PlayerUUID -> (DimensionKey -> (Color -> WaypointData))
+    // This supports 5 colors × 3 dimensions × per-player = up to 15 markers per player
+    private static final Map<UUID, Map<String, Map<String, WaypointData>>> playerWaypoints = new HashMap<>();
     private static final Map<UUID, String> lastDistanceText = new HashMap<>(); // Cache to prevent sending redundant action bar updates
     private static int tickCounter = 0;
     private static final int DISTANCE_UPDATE_INTERVAL = 5; // Update every 5 ticks (4 times per second)
 
-    public record WaypointData(String color, double x, double y, double z, TrackedWaypoint trackedWaypoint, int entityId) {}
+    // Dimension constants for easy reference
+    public static final String DIM_OVERWORLD = "overworld";
+    public static final String DIM_NETHER = "the_nether";
+    public static final String DIM_END = "the_end";
+
+    public record WaypointData(String color, String dimension, double x, double y, double z, TrackedWaypoint trackedWaypoint, int entityId) {}
+
+    /**
+     * Get the dimension key string from a World's registry key
+     */
+    public static String getDimensionKey(RegistryKey<World> worldKey) {
+        return worldKey.getValue().getPath(); // Returns "overworld", "the_nether", or "the_end"
+    }
 
     public enum WaypointColor {
         RED("red", 0xFF0000, "🔴", Formatting.RED),
@@ -77,11 +94,14 @@ public class HeadingMarkerMod implements ModInitializer {
     public static void createWaypoint(ServerPlayerEntity player, String colorName, double x, double y, double z) {
         UUID playerUuid = player.getUuid();
         WaypointColor color = WaypointColor.fromString(colorName);
-        LOGGER.info("Creating waypoint: color={}, pos=({},{},{}), player={}", color.name, x, y, z, player.getName().getString());
-
-        removeWaypointEntity(player, color.name);
-
         ServerWorld world = (ServerWorld) player.getEntityWorld();
+        String dimension = getDimensionKey(world.getRegistryKey());
+
+        LOGGER.info("Creating waypoint: color={}, dimension={}, pos=({},{},{}), player={}",
+                color.name, dimension, x, y, z, player.getName().getString());
+
+        removeWaypointEntity(player, color.name, dimension);
+
         ArmorStandEntity armorStand = spawnAndConfigureWaypointEntity(world, color, x, y, z);
         if (armorStand == null) {
             LOGGER.error("Aborting waypoint creation due to entity spawn failure.");
@@ -95,10 +115,13 @@ public class HeadingMarkerMod implements ModInitializer {
         config.color = java.util.Optional.of(color.colorInt);
         TrackedWaypoint trackedWaypoint = TrackedWaypoint.ofPos(playerUuid, config, pos);
 
-        WaypointData data = new WaypointData(color.name, pos.getX(), pos.getY(), pos.getZ(), trackedWaypoint, armorStand.getId());
-        playerWaypoints.computeIfAbsent(playerUuid, k -> new HashMap<>()).put(color.name, data);
+        WaypointData data = new WaypointData(color.name, dimension, pos.getX(), pos.getY(), pos.getZ(), trackedWaypoint, armorStand.getId());
+        playerWaypoints
+                .computeIfAbsent(playerUuid, k -> new HashMap<>())
+                .computeIfAbsent(dimension, k -> new HashMap<>())
+                .put(color.name, data);
 
-        LOGGER.info("Successfully created waypoint entity for color {} at ({},{},{})", color.name, x, y, z);
+        LOGGER.info("Successfully created waypoint entity for color {} in {} at ({},{},{})", color.name, dimension, x, y, z);
     }
 
     private static ArmorStandEntity spawnAndConfigureWaypointEntity(ServerWorld world, WaypointColor color, double x, double y, double z) {
@@ -148,26 +171,34 @@ public class HeadingMarkerMod implements ModInitializer {
 
     public static boolean removeWaypoint(ServerPlayerEntity player, String color) {
         UUID playerUuid = player.getUuid();
-        Map<String, WaypointData> waypoints = playerWaypoints.get(playerUuid);
-        if (waypoints != null && waypoints.containsKey(color)) {
-            removeWaypointEntity(player, color);
-            waypoints.remove(color);
-            LOGGER.info("Removed waypoint: color={}", color);
-            return true;
+        String dimension = getDimensionKey(player.getEntityWorld().getRegistryKey());
+
+        Map<String, Map<String, WaypointData>> dimensionWaypoints = playerWaypoints.get(playerUuid);
+        if (dimensionWaypoints != null) {
+            Map<String, WaypointData> waypoints = dimensionWaypoints.get(dimension);
+            if (waypoints != null && waypoints.containsKey(color)) {
+                removeWaypointEntity(player, color, dimension);
+                waypoints.remove(color);
+                LOGGER.info("Removed waypoint: color={}, dimension={}", color, dimension);
+                return true;
+            }
         }
         return false;
     }
 
-    private static void removeWaypointEntity(ServerPlayerEntity player, String color) {
-        Map<String, WaypointData> waypoints = playerWaypoints.get(player.getUuid());
-        if (waypoints != null && waypoints.containsKey(color)) {
-            WaypointData data = waypoints.get(color);
-            if (data.entityId != -1) {
-                ServerWorld world = (ServerWorld) player.getEntityWorld();
-                Entity entity = world.getEntityById(data.entityId);
-                if (entity instanceof ArmorStandEntity) {
-                    entity.discard();
-                    LOGGER.info("Removed waypoint entity for color {}", color);
+    private static void removeWaypointEntity(ServerPlayerEntity player, String color, String dimension) {
+        Map<String, Map<String, WaypointData>> dimensionWaypoints = playerWaypoints.get(player.getUuid());
+        if (dimensionWaypoints != null) {
+            Map<String, WaypointData> waypoints = dimensionWaypoints.get(dimension);
+            if (waypoints != null && waypoints.containsKey(color)) {
+                WaypointData data = waypoints.get(color);
+                if (data.entityId() != -1) {
+                    ServerWorld world = (ServerWorld) player.getEntityWorld();
+                    Entity entity = world.getEntityById(data.entityId());
+                    if (entity instanceof ArmorStandEntity) {
+                        entity.discard();
+                        LOGGER.info("Removed waypoint entity for color {} in {}", color, dimension);
+                    }
                 }
             }
         }
@@ -175,21 +206,30 @@ public class HeadingMarkerMod implements ModInitializer {
 
     private static void removeAllPlayerWaypointEntities(ServerPlayerEntity player) {
         UUID playerUuid = player.getUuid();
-        Map<String, WaypointData> waypoints = playerWaypoints.get(playerUuid);
+        Map<String, Map<String, WaypointData>> dimensionWaypoints = playerWaypoints.get(playerUuid);
 
-        if (waypoints == null || waypoints.isEmpty()) {
+        if (dimensionWaypoints == null || dimensionWaypoints.isEmpty()) {
             return;
         }
 
         int removedCount = 0;
-        ServerWorld world = (ServerWorld) player.getEntityWorld();
 
-        for (WaypointData data : waypoints.values()) {
-            if (data.entityId != -1) {
-                Entity entity = world.getEntityById(data.entityId);
-                if (entity instanceof ArmorStandEntity) {
-                    entity.discard();
-                    removedCount++;
+        // Remove entities from all dimensions the player has waypoints in
+        for (Map.Entry<String, Map<String, WaypointData>> dimEntry : dimensionWaypoints.entrySet()) {
+            String dimension = dimEntry.getKey();
+            Map<String, WaypointData> waypoints = dimEntry.getValue();
+
+            // Get the corresponding world for this dimension
+            ServerWorld world = getWorldForDimension(((ServerWorld) player.getEntityWorld()).getServer(), dimension);
+            if (world == null) continue;
+
+            for (WaypointData data : waypoints.values()) {
+                if (data.entityId() != -1) {
+                    Entity entity = world.getEntityById(data.entityId());
+                    if (entity instanceof ArmorStandEntity) {
+                        entity.discard();
+                        removedCount++;
+                    }
                 }
             }
         }
@@ -200,15 +240,50 @@ public class HeadingMarkerMod implements ModInitializer {
         }
     }
 
+    /**
+     * Get the ServerWorld for a given dimension key string
+     */
+    private static ServerWorld getWorldForDimension(net.minecraft.server.MinecraftServer server, String dimension) {
+        if (server == null) return null;
+        return switch (dimension) {
+            case DIM_OVERWORLD -> server.getWorld(World.OVERWORLD);
+            case DIM_NETHER -> server.getWorld(World.NETHER);
+            case DIM_END -> server.getWorld(World.END);
+            default -> null;
+        };
+    }
+
+    /**
+     * Get waypoints for a player in their current dimension
+     */
+    public static Map<String, WaypointData> getWaypoints(UUID playerUuid, String dimension) {
+        Map<String, Map<String, WaypointData>> dimensionWaypoints = playerWaypoints.getOrDefault(playerUuid, new HashMap<>());
+        return dimensionWaypoints.getOrDefault(dimension, new HashMap<>());
+    }
+
+    /**
+     * Get waypoints for a player in their current dimension (convenience method)
+     */
     public static Map<String, WaypointData> getWaypoints(UUID playerUuid) {
+        // Returns empty map - callers should use getWaypoints(UUID, String) with dimension
+        return new HashMap<>();
+    }
+
+    /**
+     * Get all waypoints for a player across all dimensions
+     */
+    public static Map<String, Map<String, WaypointData>> getAllWaypoints(UUID playerUuid) {
         return playerWaypoints.getOrDefault(playerUuid, new HashMap<>());
     }
 
     public static void recreateWaypointEntities(ServerPlayerEntity player) {
-        Map<String, WaypointData> waypoints = playerWaypoints.get(player.getUuid());
-        if (waypoints == null || waypoints.isEmpty()) return;
+        String dimension = getDimensionKey(player.getEntityWorld().getRegistryKey());
+        Map<String, WaypointData> waypoints = getWaypoints(player.getUuid(), dimension);
 
-        LOGGER.info("Recreating {} waypoint entities for player {}", waypoints.size(), player.getName().getString());
+        if (waypoints.isEmpty()) return;
+
+        LOGGER.info("Recreating {} waypoint entities for player {} in {}",
+                waypoints.size(), player.getName().getString(), dimension);
 
         for (WaypointData data : waypoints.values()) {
             try {
@@ -221,11 +296,12 @@ public class HeadingMarkerMod implements ModInitializer {
 
     private static void displayDistances(ServerPlayerEntity player) {
         UUID playerUuid = player.getUuid();
-        Map<String, WaypointData> waypoints = playerWaypoints.get(playerUuid);
+        String dimension = getDimensionKey(player.getEntityWorld().getRegistryKey());
+        Map<String, WaypointData> waypoints = getWaypoints(playerUuid, dimension);
 
         MutableText fullText = Text.empty();
 
-        if (waypoints != null && !waypoints.isEmpty()) {
+        if (!waypoints.isEmpty()) {
             Vec3d playerPos = new Vec3d(player.getX(), player.getY(), player.getZ());
 
             fullText = waypoints.keySet().stream()
@@ -264,7 +340,7 @@ public class HeadingMarkerMod implements ModInitializer {
 			Path storageDir = FabricLoader.getInstance().getGameDir().resolve("waypoints");
 			try {
 				Files.createDirectories(storageDir);
-				Map<UUID, Map<String, WaypointData>> loadedData = WaypointStorage.loadWaypoints(storageDir);
+				Map<UUID, Map<String, Map<String, WaypointData>>> loadedData = WaypointStorage.loadWaypoints(storageDir);
 				playerWaypoints.putAll(loadedData);
 				LOGGER.info("Loaded data for {} players.", loadedData.size());
 			} catch (IOException e) {

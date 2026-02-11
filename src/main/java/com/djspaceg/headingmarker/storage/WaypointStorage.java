@@ -52,22 +52,28 @@ public class WaypointStorage {
         }
     }
 
-    public static void saveWaypoints(Path storageDir, Map<UUID, Map<String, WaypointData>> playerWaypoints) {
-        for (Map.Entry<UUID, Map<String, WaypointData>> entry : playerWaypoints.entrySet()) {
+    /**
+     * Save waypoints to storage. Structure: PlayerUUID -> Dimension -> Color -> WaypointData
+     */
+    public static void saveWaypoints(Path storageDir, Map<UUID, Map<String, Map<String, WaypointData>>> playerWaypoints) {
+        for (Map.Entry<UUID, Map<String, Map<String, WaypointData>>> entry : playerWaypoints.entrySet()) {
             UUID playerUuid = entry.getKey();
-            Map<String, WaypointData> waypoints = entry.getValue();
+            Map<String, Map<String, WaypointData>> dimensionWaypoints = entry.getValue();
             Path playerFile = storageDir.resolve(playerUuid.toString() + ".json");
 
             try (FileWriter writer = new FileWriter(playerFile.toFile())) {
-                GSON.toJson(waypoints, writer);
+                GSON.toJson(dimensionWaypoints, writer);
             } catch (IOException e) {
                 HeadingMarkerMod.LOGGER.error("Failed to save waypoints for player {}", playerUuid, e);
             }
         }
     }
 
-    public static Map<UUID, Map<String, WaypointData>> loadWaypoints(Path storageDir) {
-        Map<UUID, Map<String, WaypointData>> playerWaypoints = new HashMap<>();
+    /**
+     * Load waypoints from storage. Structure: PlayerUUID -> Dimension -> Color -> WaypointData
+     */
+    public static Map<UUID, Map<String, Map<String, WaypointData>>> loadWaypoints(Path storageDir) {
+        Map<UUID, Map<String, Map<String, WaypointData>>> playerWaypoints = new HashMap<>();
 
         try (var files = Files.list(storageDir)) {
             files.filter(path -> path.toString().endsWith(".json")).forEach(path -> {
@@ -77,15 +83,44 @@ public class WaypointStorage {
                 try {
                     UUID playerUuid = UUID.fromString(uuidString);
                     try (FileReader reader = new FileReader(path.toFile())) {
-                        Map<String, WaypointData> waypoints = GSON.fromJson(reader, new TypeToken<Map<String, WaypointData>>() {}.getType());
+                        Map<String, Map<String, WaypointData>> dimensionWaypoints = GSON.fromJson(
+                                reader,
+                                new TypeToken<Map<String, Map<String, WaypointData>>>() {}.getType()
+                        );
+
+                        if (dimensionWaypoints == null) {
+                            dimensionWaypoints = new HashMap<>();
+                        }
 
                         // Re-create tracked waypoints and set entity IDs to -1 as they are not persistent.
-                        waypoints.forEach((color, data) -> {
-                            TrackedWaypoint wp = TrackedWaypoint.ofPos(playerUuid, new Waypoint.Config(), new net.minecraft.util.math.Vec3i((int)data.x(), (int)data.y(), (int)data.z()));
-                            waypoints.put(color, new WaypointData(data.color(), data.x(), data.y(), data.z(), wp, -1));
-                        });
+                        for (Map.Entry<String, Map<String, WaypointData>> dimEntry : dimensionWaypoints.entrySet()) {
+                            String dimension = dimEntry.getKey();
+                            Map<String, WaypointData> waypoints = dimEntry.getValue();
 
-                        playerWaypoints.put(playerUuid, waypoints);
+                            Map<String, WaypointData> recreatedWaypoints = new HashMap<>();
+                            for (Map.Entry<String, WaypointData> wpEntry : waypoints.entrySet()) {
+                                String color = wpEntry.getKey();
+                                WaypointData data = wpEntry.getValue();
+
+                                TrackedWaypoint wp = TrackedWaypoint.ofPos(
+                                        playerUuid,
+                                        new Waypoint.Config(),
+                                        new net.minecraft.util.math.Vec3i((int)data.x(), (int)data.y(), (int)data.z())
+                                );
+                                recreatedWaypoints.put(color, new WaypointData(
+                                        data.color(),
+                                        dimension,
+                                        data.x(),
+                                        data.y(),
+                                        data.z(),
+                                        wp,
+                                        -1
+                                ));
+                            }
+                            dimensionWaypoints.put(dimension, recreatedWaypoints);
+                        }
+
+                        playerWaypoints.put(playerUuid, dimensionWaypoints);
                     } catch (IOException e) {
                         HeadingMarkerMod.LOGGER.error("Failed to load waypoints from file: {}", path, e);
                     }

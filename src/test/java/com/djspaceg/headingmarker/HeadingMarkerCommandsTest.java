@@ -32,7 +32,6 @@ public class HeadingMarkerCommandsTest {
             // Skip test if Minecraft environment is not fully initialized (e.g., in unit tests)
             // This can happen when static initializers in Minecraft classes fail in test environment
             assumeTrue(false, "Skipping test due to Minecraft environment initialization issue: " + e.getMessage());
-            return;
         }
 
         Set<String> present = dispatcher.getRoot().getChild("hm").getChildren().stream()

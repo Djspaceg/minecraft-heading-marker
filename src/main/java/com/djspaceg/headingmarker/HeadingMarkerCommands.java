@@ -25,20 +25,24 @@ public class HeadingMarkerCommands {
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess, CommandManager.RegistrationEnvironment environment) {
         LiteralCommandNode<ServerCommandSource> hmCommand = dispatcher.register(
                 CommandManager.literal("hm")
+                        .requires(source -> true)
                         .executes(context -> {
                             sendHelpMessage(context.getSource().getPlayer());
                             return 1;
                         })
                         .then(CommandManager.literal("help")
+                                .requires(source -> true)
                                 .executes(context -> {
                                     sendHelpMessage(context.getSource().getPlayer());
                                     return 1;
                                 })
                         )
                         .then(CommandManager.literal("list")
+                                .requires(source -> true)
                                 .executes(context -> listWaypoints(context.getSource().getPlayer()))
                         )
                         .then(CommandManager.literal("remove")
+                                .requires(source -> true)
                                 .then(CommandManager.argument("color", StringArgumentType.word())
                                         .suggests((context, builder) -> {
                                             ServerPlayerEntity player = context.getSource().getPlayer();
@@ -49,6 +53,7 @@ public class HeadingMarkerCommands {
                                 )
                         )
                         .then(CommandManager.literal("set")
+                                .requires(source -> true)
                                 .then(CommandManager.argument("color", StringArgumentType.word())
                                         .suggests((context, builder) -> CommandSource.suggestMatching(VALID_COLORS, builder))
                                         .executes(context -> {
@@ -66,7 +71,9 @@ public class HeadingMarkerCommands {
                         )
         );
 
-        dispatcher.register(CommandManager.literal("headingmarker").redirect(hmCommand));
+        dispatcher.register(CommandManager.literal("headingmarker")
+                .requires(source -> true)
+                .redirect(hmCommand));
     }
 
     private static int setWaypoint(ServerPlayerEntity player, String color, double x, double y, double z) {

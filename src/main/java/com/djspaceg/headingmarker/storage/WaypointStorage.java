@@ -99,16 +99,26 @@ public class WaypointStorage {
 
                             Map<String, WaypointData> recreatedWaypoints = new HashMap<>();
                             for (Map.Entry<String, WaypointData> wpEntry : waypoints.entrySet()) {
-                                String color = wpEntry.getKey();
+                                String colorKey = wpEntry.getKey();
                                 WaypointData data = wpEntry.getValue();
+
+                                // Migrate old "purple" key to "light_purple" to match new color names
+                                String migratedKey = colorKey;
+                                String migratedColor = data.color();
+                                if ("purple".equals(colorKey)) {
+                                    migratedKey = "light_purple";
+                                    migratedColor = "light_purple";
+                                    HeadingMarkerMod.LOGGER.info("Migrating waypoint key from 'purple' to 'light_purple' for player {} in {}", 
+                                            playerUuid, dimension);
+                                }
 
                                 TrackedWaypoint wp = TrackedWaypoint.ofPos(
                                         playerUuid,
                                         new Waypoint.Config(),
                                         new net.minecraft.util.math.Vec3i((int)data.x(), (int)data.y(), (int)data.z())
                                 );
-                                recreatedWaypoints.put(color, new WaypointData(
-                                        data.color(),
+                                recreatedWaypoints.put(migratedKey, new WaypointData(
+                                        migratedColor,
                                         dimension,
                                         data.x(),
                                         data.y(),

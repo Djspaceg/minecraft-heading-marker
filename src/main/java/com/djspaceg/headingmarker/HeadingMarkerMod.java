@@ -342,11 +342,22 @@ public class HeadingMarkerMod implements ModInitializer {
             LOGGER.info("Recreating {} waypoint entities for player {} in {}",
                     waypoints.size(), player.getName().getString(), dimension);
 
-            for (WaypointData data : waypoints.values()) {
+            // Create a snapshot of the waypoints to avoid ConcurrentModificationException
+            // since createWaypointInWorld modifies the same map structure
+            java.util.List<WaypointData> waypointSnapshot = new java.util.ArrayList<>(waypoints.values());
+            
+            for (WaypointData data : waypointSnapshot) {
                 try {
-                    // Create a temporary player reference for the target dimension
-                    // We need to pass the player to createWaypoint, but use the correct world
-                    createWaypointInWorld(world, playerUuid, data.color(), data.x(), data.y(), data.z());
+                    // Migrate old "purple" entries to "light_purple" during recreation
+                    String colorName = data.color();
+                    if ("purple".equals(colorName)) {
+                        // Remove old "purple" entry before creating with "light_purple"
+                        waypoints.remove("purple");
+                        LOGGER.info("Migrating waypoint from 'purple' to 'light_purple' for player {} in {}", 
+                                player.getName().getString(), dimension);
+                    }
+                    
+                    createWaypointInWorld(world, playerUuid, colorName, data.x(), data.y(), data.z());
                     recreatedCount++;
                 } catch (Exception e) {
                     LOGGER.error("Failed to recreate waypoint entity for color {} in {}: {}", 

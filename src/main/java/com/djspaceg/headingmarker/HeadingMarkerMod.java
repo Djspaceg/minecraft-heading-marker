@@ -158,7 +158,7 @@ public class HeadingMarkerMod implements ModInitializer {
             return;
         }
         try {
-            String command = String.format("waypoint modify %s color %s", armorStand.getUuidAsString(), color.name);
+            String command = String.format("waypoint modify %s color %d", armorStand.getUuidAsString(), color.colorInt);
             var commandSource = world.getServer().getCommandSource().withSilent();
             var dispatcher = world.getServer().getCommandManager().getDispatcher();
             var parseResults = dispatcher.parse(command, commandSource);

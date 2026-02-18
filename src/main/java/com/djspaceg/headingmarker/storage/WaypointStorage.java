@@ -18,71 +18,37 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 public class WaypointStorage {
 
     private static final Gson GSON = new GsonBuilder()
-            .registerTypeAdapter(WaypointData.class, new WaypointDataAdapter())
+            .registerTypeAdapter(Optional.class, new OptionalTypeAdapter<>())
             .create();
 
     /**
-     * Custom TypeAdapter for WaypointData that only serializes essential fields.
-     * The TrackedWaypoint field is skipped entirely since it's recreated on load.
-     * This avoids Gson trying to analyze classes with Optional<T> fields that would
-     * trigger Java module system reflection violations.
+     * Custom TypeAdapter for Optional to avoid Java module reflection issues
      */
-    private static class WaypointDataAdapter extends TypeAdapter<WaypointData> {
+    private static class OptionalTypeAdapter<T> extends TypeAdapter<Optional<T>> {
         @Override
-        public void write(JsonWriter out, WaypointData data) throws IOException {
-            out.beginObject();
-            out.name("color").value(data.color());
-            out.name("dimension").value(data.dimension());
-            out.name("x").value(data.x());
-            out.name("y").value(data.y());
-            out.name("z").value(data.z());
-            out.name("entityId").value(data.entityId());
-            out.endObject();
+        public void write(JsonWriter out, Optional<T> value) throws IOException {
+            if (value.isEmpty()) {
+                out.nullValue();
+            } else {
+                out.jsonValue(String.valueOf(value.get()));
+            }
         }
 
         @Override
-        public WaypointData read(JsonReader in) throws IOException {
-            String color = null;
-            String dimension = null;
-            double x = 0, y = 0, z = 0;
-            int entityId = -1;
-
-            in.beginObject();
-            while (in.hasNext()) {
-                String name = in.nextName();
-                switch (name) {
-                    case "color":
-                        color = in.nextString();
-                        break;
-                    case "dimension":
-                        dimension = in.nextString();
-                        break;
-                    case "x":
-                        x = in.nextDouble();
-                        break;
-                    case "y":
-                        y = in.nextDouble();
-                        break;
-                    case "z":
-                        z = in.nextDouble();
-                        break;
-                    case "entityId":
-                        entityId = in.nextInt();
-                        break;
-                    default:
-                        in.skipValue(); // Skip unknown fields (like old trackedWaypoint data)
-                        break;
-                }
+        public Optional<T> read(JsonReader in) throws IOException {
+            if (in.peek() == com.google.gson.stream.JsonToken.NULL) {
+                in.nextNull();
+                return Optional.empty();
             }
-            in.endObject();
-
-            // TrackedWaypoint is null here - it will be recreated in loadWaypoints()
-            return new WaypointData(color, dimension, x, y, z, null, entityId);
+            @SuppressWarnings("unchecked")
+            T value = (T) Integer.valueOf(in.nextInt());
+            return Optional.of(value);
         }
     }
 
@@ -155,9 +121,6 @@ public class WaypointStorage {
                         }
 
                         playerWaypoints.put(playerUuid, dimensionWaypoints);
-                    } catch (com.google.gson.JsonSyntaxException | com.google.gson.JsonIOException e) {
-                        HeadingMarkerMod.LOGGER.warn("Malformed JSON in waypoint file: {}. Skipping and resetting.", path, e);
-                        // File is corrupted/empty, will be overwritten on next save
                     } catch (IOException e) {
                         HeadingMarkerMod.LOGGER.error("Failed to load waypoints from file: {}", path, e);
                     }

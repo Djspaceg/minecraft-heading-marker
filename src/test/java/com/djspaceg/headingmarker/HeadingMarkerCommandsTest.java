@@ -20,24 +20,23 @@ public class HeadingMarkerCommandsTest {
         // Verify expected subcommands are registered
         List<String> expected = List.of("help", "list", "remove", "set");
 
-        // Exercise idempotent/merge behavior: register twice and ensure all children are present
-        CommandDispatcher<ServerCommandSource> dispatcher = new CommandDispatcher<>();
-
         try {
+            // Exercise idempotent/merge behavior: register twice and ensure all children are present
+            CommandDispatcher<ServerCommandSource> dispatcher = new CommandDispatcher<>();
+
             // Pass null for CommandRegistryAccess since it is not used in the register method
             HeadingMarkerCommands.register(dispatcher, null, CommandManager.RegistrationEnvironment.DEDICATED);
             // Register again to simulate duplicate registration path
             HeadingMarkerCommands.register(dispatcher, null, CommandManager.RegistrationEnvironment.DEDICATED);
+
+            Set<String> present = dispatcher.getRoot().getChild("hm").getChildren().stream()
+                .map(CommandNode::getName)
+                .collect(Collectors.toSet());
+
+            assertTrue(present.containsAll(expected), "After duplicate register, /hm should still contain all subcommands: " + expected);
         } catch (ExceptionInInitializerError | NoClassDefFoundError e) {
-            // Skip test if Minecraft environment is not fully initialized (e.g., in unit tests)
-            // This can happen when static initializers in Minecraft classes fail in test environment
-            assumeTrue(false, "Skipping test due to Minecraft environment initialization issue: " + e.getMessage());
+            // Skip test if Minecraft environment can't be initialized (common in unit test context)
+            assumeTrue(false, "Skipping test - Minecraft environment not available: " + e.getMessage());
         }
-
-        Set<String> present = dispatcher.getRoot().getChild("hm").getChildren().stream()
-            .map(CommandNode::getName)
-            .collect(Collectors.toSet());
-
-        assertTrue(present.containsAll(expected), "After duplicate register, /hm should still contain all subcommands: " + expected);
     }
 }

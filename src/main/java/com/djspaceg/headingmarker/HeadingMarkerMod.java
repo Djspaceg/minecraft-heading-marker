@@ -63,7 +63,7 @@ public class HeadingMarkerMod implements ModInitializer {
         BLUE("blue", 0x5555FF, "🔵", Formatting.BLUE),
         GREEN("green", 0x55FF55, "🟢", Formatting.GREEN),
         YELLOW("yellow", 0xFFFF55, "🟡", Formatting.YELLOW),
-        PURPLE("purple", 0xFF55FF, "🟣", Formatting.LIGHT_PURPLE),
+        PURPLE("light_purple", 0xFF55FF, "🟣", Formatting.LIGHT_PURPLE),
         WHITE("white", 0xFFFFFF, "⚪", Formatting.WHITE);
 
         public final String name;
@@ -77,6 +77,8 @@ public class HeadingMarkerMod implements ModInitializer {
             for (WaypointColor c : values()) {
                 BY_NAME.put(c.name, c);
             }
+            // Add "purple" as an alias for "light_purple" for backward compatibility
+            BY_NAME.put("purple", PURPLE);
         }
 
         WaypointColor(String name, int colorInt, String emoji, Formatting formatting) {

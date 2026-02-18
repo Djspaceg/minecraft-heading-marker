@@ -1,7 +1,6 @@
 package com.djspaceg.headingmarker;
 
 import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import net.minecraft.command.CommandRegistryAccess;
@@ -76,8 +75,7 @@ public class HeadingMarkerCommands {
                                             
                                             // Otherwise, try to parse as X coordinate
                                             try {
-                                                double x = Double.parseDouble(arg1);
-                                                String color = getDefaultColor(player);
+                                                Double.parseDouble(arg1);
                                                 player.sendMessage(Text.literal("Need Z coordinate. Usage: /hm set <x> <z> [color]").formatted(Formatting.RED), false);
                                                 return 0;
                                             } catch (NumberFormatException e) {
@@ -294,7 +292,7 @@ public class HeadingMarkerCommands {
         player.sendMessage(Text.literal("========================================").formatted(Formatting.GOLD), false);
         player.sendMessage(Text.literal(""), false);
         player.sendMessage(Text.literal("SET MARKER:").formatted(Formatting.AQUA, Formatting.BOLD), false);
-        player.sendMessage(Text.literal("• /hm set [color] [x z] [y]  ").formatted(Formatting.YELLOW).append(Text.literal("- Set marker at position").formatted(Formatting.GRAY)), false);
+        player.sendMessage(Text.literal("• /hm set [color] [x y z | x z]  ").formatted(Formatting.YELLOW).append(Text.literal("- Set marker at position").formatted(Formatting.GRAY)), false);
         player.sendMessage(Text.literal("  Examples: /hm set, /hm set red, /hm set 100 200, /hm set red 100 64 200").formatted(Formatting.GRAY), false);
         player.sendMessage(Text.literal(""), false);
         player.sendMessage(Text.literal("REMOVE MARKER:").formatted(Formatting.AQUA, Formatting.BOLD), false);

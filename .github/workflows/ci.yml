@@ -67,10 +67,16 @@ jobs:
       - name: Build mod
         run: ./gradlew build --stacktrace
     
+      - name: Get version info
+        id: version
+        run: |
+          VERSION=$(grep '^mod_version=' gradle.properties | cut -d'=' -f2)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+    
       - name: Upload mod JAR
         uses: actions/upload-artifact@v4
         with:
-          name: headingmarker-mod
+          name: headingmarker-${{ steps.version.outputs.version }}
           path: build/libs/*.jar
           retention-days: 30
 

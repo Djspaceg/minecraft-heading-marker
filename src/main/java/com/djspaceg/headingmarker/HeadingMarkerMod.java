@@ -63,7 +63,7 @@ public class HeadingMarkerMod implements ModInitializer {
         BLUE("blue", 0x5555FF, "🔵", Formatting.BLUE),
         GREEN("green", 0x55FF55, "🟢", Formatting.GREEN),
         YELLOW("yellow", 0xFFFF55, "🟡", Formatting.YELLOW),
-        PURPLE("purple", 0xFF55FF, "🟣", Formatting.LIGHT_PURPLE),
+        PURPLE("light_purple", 0xFF55FF, "🟣", Formatting.LIGHT_PURPLE),
         WHITE("white", 0xFFFFFF, "⚪", Formatting.WHITE);
 
         public final String name;
@@ -77,6 +77,8 @@ public class HeadingMarkerMod implements ModInitializer {
             for (WaypointColor c : values()) {
                 BY_NAME.put(c.name, c);
             }
+            // Add "purple" as an alias for "light_purple" for backward compatibility
+            BY_NAME.put("purple", PURPLE);
         }
 
         WaypointColor(String name, int colorInt, String emoji, Formatting formatting) {
@@ -100,7 +102,7 @@ public class HeadingMarkerMod implements ModInitializer {
         LOGGER.info("Creating waypoint: color={}, dimension={}, pos=({},{},{}), player={}",
                 color.name, dimension, x, y, z, player.getName().getString());
 
-        removeWaypointEntity(player, color.name, dimension);
+        removeWaypointEntityInWorld(world, playerUuid, color.name, dimension);
 
         ArmorStandEntity armorStand = spawnAndConfigureWaypointEntity(world, color, x, y, z);
         if (armorStand == null) {
@@ -122,6 +124,36 @@ public class HeadingMarkerMod implements ModInitializer {
                 .put(color.name, data);
 
         LOGGER.info("Successfully created waypoint entity for color {} in {} at ({},{},{})", color.name, dimension, x, y, z);
+    }
+
+    /**
+     * Create a waypoint in a specific world/dimension without requiring the player to be in that world.
+     * Used for recreating waypoints across all dimensions when a player joins.
+     */
+    private static void createWaypointInWorld(ServerWorld world, UUID playerUuid, String colorName, double x, double y, double z) {
+        WaypointColor color = WaypointColor.fromString(colorName);
+        String dimension = getDimensionKey(world.getRegistryKey());
+
+        removeWaypointEntityInWorld(world, playerUuid, color.name, dimension);
+
+        ArmorStandEntity armorStand = spawnAndConfigureWaypointEntity(world, color, x, y, z);
+        if (armorStand == null) {
+            LOGGER.error("Aborting waypoint creation due to entity spawn failure in {}", dimension);
+            return;
+        }
+
+        setWaypointColorWithCommand(world, armorStand, color);
+
+        Vec3i pos = new Vec3i((int) x, (int) y, (int) z);
+        Waypoint.Config config = new Waypoint.Config();
+        config.color = java.util.Optional.of(color.colorInt);
+        TrackedWaypoint trackedWaypoint = TrackedWaypoint.ofPos(playerUuid, config, pos);
+
+        WaypointData data = new WaypointData(color.name, dimension, pos.getX(), pos.getY(), pos.getZ(), trackedWaypoint, armorStand.getId());
+        playerWaypoints
+                .computeIfAbsent(playerUuid, k -> new HashMap<>())
+                .computeIfAbsent(dimension, k -> new HashMap<>())
+                .put(color.name, data);
     }
 
     private static ArmorStandEntity spawnAndConfigureWaypointEntity(ServerWorld world, WaypointColor color, double x, double y, double z) {
@@ -187,13 +219,21 @@ public class HeadingMarkerMod implements ModInitializer {
     }
 
     private static void removeWaypointEntity(ServerPlayerEntity player, String color, String dimension) {
-        Map<String, Map<String, WaypointData>> dimensionWaypoints = playerWaypoints.get(player.getUuid());
+        ServerWorld world = (ServerWorld) player.getEntityWorld();
+        removeWaypointEntityInWorld(world, player.getUuid(), color, dimension);
+    }
+
+    /**
+     * Remove a waypoint entity from a specific world/dimension.
+     * Used for removing waypoints when we need to specify the exact world.
+     */
+    private static void removeWaypointEntityInWorld(ServerWorld world, UUID playerUuid, String color, String dimension) {
+        Map<String, Map<String, WaypointData>> dimensionWaypoints = playerWaypoints.get(playerUuid);
         if (dimensionWaypoints != null) {
             Map<String, WaypointData> waypoints = dimensionWaypoints.get(dimension);
             if (waypoints != null && waypoints.containsKey(color)) {
                 WaypointData data = waypoints.get(color);
                 if (data.entityId() != -1) {
-                    ServerWorld world = (ServerWorld) player.getEntityWorld();
                     Entity entity = world.getEntityById(data.entityId());
                     if (entity instanceof ArmorStandEntity) {
                         entity.discard();
@@ -277,20 +317,58 @@ public class HeadingMarkerMod implements ModInitializer {
     }
 
     public static void recreateWaypointEntities(ServerPlayerEntity player) {
-        String dimension = getDimensionKey(player.getEntityWorld().getRegistryKey());
-        Map<String, WaypointData> waypoints = getWaypoints(player.getUuid(), dimension);
+        UUID playerUuid = player.getUuid();
+        Map<String, Map<String, WaypointData>> dimensionWaypoints = playerWaypoints.get(playerUuid);
 
-        if (waypoints.isEmpty()) return;
+        if (dimensionWaypoints == null || dimensionWaypoints.isEmpty()) {
+            return;
+        }
 
-        LOGGER.info("Recreating {} waypoint entities for player {} in {}",
-                waypoints.size(), player.getName().getString(), dimension);
+        int recreatedCount = 0;
+        net.minecraft.server.MinecraftServer server = ((ServerWorld) player.getEntityWorld()).getServer();
 
-        for (WaypointData data : waypoints.values()) {
-            try {
-                createWaypoint(player, data.color(), data.x(), data.y(), data.z());
-            } catch (Exception e) {
-                LOGGER.error("Failed to recreate waypoint entity for color {}: {}", data.color(), e.getMessage());
+        // Recreate waypoint entities in all dimensions where the player has waypoints
+        for (Map.Entry<String, Map<String, WaypointData>> dimEntry : dimensionWaypoints.entrySet()) {
+            String dimension = dimEntry.getKey();
+            Map<String, WaypointData> waypoints = dimEntry.getValue();
+
+            // Get the corresponding world for this dimension
+            ServerWorld world = getWorldForDimension(server, dimension);
+            if (world == null) {
+                LOGGER.warn("Could not get world for dimension {} to recreate waypoints", dimension);
+                continue;
             }
+
+            LOGGER.info("Recreating {} waypoint entities for player {} in {}",
+                    waypoints.size(), player.getName().getString(), dimension);
+
+            // Create a snapshot of the waypoints to avoid ConcurrentModificationException
+            // since createWaypointInWorld modifies the same map structure
+            java.util.List<WaypointData> waypointSnapshot = new java.util.ArrayList<>(waypoints.values());
+            
+            for (WaypointData data : waypointSnapshot) {
+                try {
+                    // Migrate old "purple" entries to "light_purple" during recreation
+                    String colorName = data.color();
+                    if ("purple".equals(colorName)) {
+                        // Remove old "purple" entry before creating with "light_purple"
+                        waypoints.remove("purple");
+                        LOGGER.info("Migrating waypoint from 'purple' to 'light_purple' for player {} in {}", 
+                                player.getName().getString(), dimension);
+                    }
+                    
+                    createWaypointInWorld(world, playerUuid, colorName, data.x(), data.y(), data.z());
+                    recreatedCount++;
+                } catch (Exception e) {
+                    LOGGER.error("Failed to recreate waypoint entity for color {} in {}: {}", 
+                            data.color(), dimension, e.getMessage());
+                }
+            }
+        }
+
+        if (recreatedCount > 0) {
+            LOGGER.info("Successfully recreated {} waypoint entities across all dimensions for player {}",
+                    recreatedCount, player.getName().getString());
         }
     }
 

@@ -1,6 +1,6 @@
 package com.djspaceg.headingmarker.waypoint;
 
-import net.minecraft.entity.Entity;
+import net.minecraft.world.entity.Entity;
 
 public interface EntityTickProgress {
     float getTickProgress(Entity entity);

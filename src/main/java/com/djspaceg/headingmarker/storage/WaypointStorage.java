@@ -115,7 +115,7 @@ public class WaypointStorage {
                                 TrackedWaypoint wp = TrackedWaypoint.ofPos(
                                         playerUuid,
                                         new Waypoint.Config(),
-                                        new net.minecraft.util.math.Vec3i((int)data.x(), (int)data.y(), (int)data.z())
+                                        new net.minecraft.core.Vec3i((int)data.x(), (int)data.y(), (int)data.z())
                                 );
                                 recreatedWaypoints.put(migratedKey, new WaypointData(
                                         migratedColor,

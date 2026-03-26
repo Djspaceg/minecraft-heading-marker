@@ -3,8 +3,8 @@ package com.djspaceg.headingmarker;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.ParseResults;
 import com.mojang.brigadier.tree.CommandNode;
-import net.minecraft.server.command.CommandManager;
-import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.commands.Commands;
+import net.minecraft.commands.CommandSourceStack;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -23,12 +23,12 @@ public class HeadingMarkerCommandsTest {
 
         try {
             // Exercise idempotent/merge behavior: register twice and ensure all children are present
-            CommandDispatcher<ServerCommandSource> dispatcher = new CommandDispatcher<>();
+            CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
 
             // Pass null for CommandRegistryAccess since it is not used in the register method
-            HeadingMarkerCommands.register(dispatcher, null, CommandManager.RegistrationEnvironment.DEDICATED);
+            HeadingMarkerCommands.register(dispatcher, null, Commands.CommandSelection.DEDICATED);
             // Register again to simulate duplicate registration path
-            HeadingMarkerCommands.register(dispatcher, null, CommandManager.RegistrationEnvironment.DEDICATED);
+            HeadingMarkerCommands.register(dispatcher, null, Commands.CommandSelection.DEDICATED);
 
             Set<String> present = dispatcher.getRoot().getChild("hm").getChildren().stream()
                 .map(CommandNode::getName)
@@ -49,8 +49,8 @@ public class HeadingMarkerCommandsTest {
     @Test
     public void testSetCommandVariations() {
         try {
-            CommandDispatcher<ServerCommandSource> dispatcher = new CommandDispatcher<>();
-            HeadingMarkerCommands.register(dispatcher, null, CommandManager.RegistrationEnvironment.DEDICATED);
+            CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+            HeadingMarkerCommands.register(dispatcher, null, Commands.CommandSelection.DEDICATED);
 
             // List of all 8 command variations we need to support
             List<String> commands = List.of(
@@ -66,7 +66,7 @@ public class HeadingMarkerCommandsTest {
 
             // Test that all variations parse without errors
             for (String command : commands) {
-                ParseResults<ServerCommandSource> parseResult = dispatcher.parse(command, null);
+                ParseResults<CommandSourceStack> parseResult = dispatcher.parse(command, null);
                 
                 // Verify that the command was successfully parsed (no exceptions)
                 assertNotNull(parseResult, "Parse result should not be null for command: " + command);
@@ -90,7 +90,7 @@ public class HeadingMarkerCommandsTest {
             );
 
             for (String command : coloredCommands) {
-                ParseResults<ServerCommandSource> parseResult = dispatcher.parse(command, null);
+                ParseResults<CommandSourceStack> parseResult = dispatcher.parse(command, null);
                 assertNotNull(parseResult, "Parse result should not be null for command: " + command);
                 assertTrue(parseResult.getExceptions().isEmpty(),
                         "Command should parse without errors: " + command);
@@ -108,8 +108,8 @@ public class HeadingMarkerCommandsTest {
     @Test
     public void testSetCommandInvalidInputs() {
         try {
-            CommandDispatcher<ServerCommandSource> dispatcher = new CommandDispatcher<>();
-            HeadingMarkerCommands.register(dispatcher, null, CommandManager.RegistrationEnvironment.DEDICATED);
+            CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+            HeadingMarkerCommands.register(dispatcher, null, Commands.CommandSelection.DEDICATED);
 
             // These commands should still parse (Brigadier accepts them as strings),
             // but would fail during execution with proper error messages
@@ -122,7 +122,7 @@ public class HeadingMarkerCommandsTest {
             for (String command : invalidCommands) {
                 // These should parse (Brigadier accepts string arguments)
                 // but would be rejected during execution
-                ParseResults<ServerCommandSource> parseResult = dispatcher.parse(command, null);
+                ParseResults<CommandSourceStack> parseResult = dispatcher.parse(command, null);
                 assertNotNull(parseResult, "Parse result should not be null for: " + command);
                 // We can't test execution without a full Minecraft environment,
                 // but the parsing should succeed since we use StringArgumentType
@@ -139,12 +139,12 @@ public class HeadingMarkerCommandsTest {
     @Test
     public void testHeadingMarkerAlias() {
         try {
-            CommandDispatcher<ServerCommandSource> dispatcher = new CommandDispatcher<>();
-            HeadingMarkerCommands.register(dispatcher, null, CommandManager.RegistrationEnvironment.DEDICATED);
+            CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+            HeadingMarkerCommands.register(dispatcher, null, Commands.CommandSelection.DEDICATED);
 
             // Test that both "hm" and "headingmarker" work
-            ParseResults<ServerCommandSource> hmResult = dispatcher.parse("hm set red", null);
-            ParseResults<ServerCommandSource> fullResult = dispatcher.parse("headingmarker set red", null);
+            ParseResults<CommandSourceStack> hmResult = dispatcher.parse("hm set red", null);
+            ParseResults<CommandSourceStack> fullResult = dispatcher.parse("headingmarker set red", null);
 
             assertNotNull(hmResult, "hm command should parse");
             assertNotNull(fullResult, "headingmarker command should parse");
@@ -162,8 +162,8 @@ public class HeadingMarkerCommandsTest {
     @Test
     public void testClearCommandVariations() {
         try {
-            CommandDispatcher<ServerCommandSource> dispatcher = new CommandDispatcher<>();
-            HeadingMarkerCommands.register(dispatcher, null, CommandManager.RegistrationEnvironment.DEDICATED);
+            CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+            HeadingMarkerCommands.register(dispatcher, null, Commands.CommandSelection.DEDICATED);
 
             List<String> commands = List.of(
                     "hm clear",
@@ -173,7 +173,7 @@ public class HeadingMarkerCommandsTest {
             );
 
             for (String command : commands) {
-                ParseResults<ServerCommandSource> parseResult = dispatcher.parse(command, null);
+                ParseResults<CommandSourceStack> parseResult = dispatcher.parse(command, null);
                 assertNotNull(parseResult, "Parse result should not be null for command: " + command);
                 assertTrue(parseResult.getExceptions().isEmpty(),
                         "Command should parse without errors: " + command +
@@ -190,8 +190,8 @@ public class HeadingMarkerCommandsTest {
     @Test
     public void testShareCommandVariations() {
         try {
-            CommandDispatcher<ServerCommandSource> dispatcher = new CommandDispatcher<>();
-            HeadingMarkerCommands.register(dispatcher, null, CommandManager.RegistrationEnvironment.DEDICATED);
+            CommandDispatcher<CommandSourceStack> dispatcher = new CommandDispatcher<>();
+            HeadingMarkerCommands.register(dispatcher, null, Commands.CommandSelection.DEDICATED);
 
             List<String> commands = List.of(
                     "hm share SomePlayer red",
@@ -203,7 +203,7 @@ public class HeadingMarkerCommandsTest {
             );
 
             for (String command : commands) {
-                ParseResults<ServerCommandSource> parseResult = dispatcher.parse(command, null);
+                ParseResults<CommandSourceStack> parseResult = dispatcher.parse(command, null);
                 assertNotNull(parseResult, "Parse result should not be null for command: " + command);
                 assertTrue(parseResult.getExceptions().isEmpty(),
                         "Command should parse without errors: " + command +

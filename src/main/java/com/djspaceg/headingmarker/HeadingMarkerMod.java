@@ -9,22 +9,21 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.attribute.EntityAttributeInstance;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.Vec3i;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.core.Vec3i;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import org.slf4j.LoggerFactory;
-
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.world.World;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -56,22 +55,22 @@ public class HeadingMarkerMod implements ModInitializer {
     /**
      * Get the dimension key string from a World's registry key
      */
-    public static String getDimensionKey(RegistryKey<World> worldKey) {
-        return worldKey.getValue().getPath(); // Returns "overworld", "the_nether", or "the_end"
+    public static String getDimensionKey(ResourceKey<Level> worldKey) {
+        return worldKey.identifier().getPath(); // Returns "overworld", "the_nether", or "the_end"
     }
 
     public enum WaypointColor {
-        RED("red", 0xFF0000, "🔴", Formatting.RED),
-        BLUE("blue", 0x5555FF, "🔵", Formatting.BLUE),
-        GREEN("green", 0x55FF55, "🟢", Formatting.GREEN),
-        YELLOW("yellow", 0xFFFF55, "🟡", Formatting.YELLOW),
-        PURPLE("light_purple", 0xFF55FF, "🟣", Formatting.LIGHT_PURPLE),
-        WHITE("white", 0xFFFFFF, "⚪", Formatting.WHITE);
+        RED("red", 0xFF0000, "🔴", ChatFormatting.RED),
+        BLUE("blue", 0x5555FF, "🔵", ChatFormatting.BLUE),
+        GREEN("green", 0x55FF55, "🟢", ChatFormatting.GREEN),
+        YELLOW("yellow", 0xFFFF55, "🟡", ChatFormatting.YELLOW),
+        PURPLE("light_purple", 0xFF55FF, "🟣", ChatFormatting.LIGHT_PURPLE),
+        WHITE("white", 0xFFFFFF, "⚪", ChatFormatting.WHITE);
 
         public final String name;
         public final int colorInt;
         public final String emoji;
-        public final Formatting formatting;
+        public final ChatFormatting formatting;
 
         private static final Map<String, WaypointColor> BY_NAME = new HashMap<>();
 
@@ -83,7 +82,7 @@ public class HeadingMarkerMod implements ModInitializer {
             BY_NAME.put("purple", PURPLE);
         }
 
-        WaypointColor(String name, int colorInt, String emoji, Formatting formatting) {
+        WaypointColor(String name, int colorInt, String emoji, ChatFormatting formatting) {
             this.name = name;
             this.colorInt = colorInt;
             this.emoji = emoji;
@@ -95,18 +94,18 @@ public class HeadingMarkerMod implements ModInitializer {
         }
     }
 
-    public static void createWaypoint(ServerPlayerEntity player, String colorName, double x, double y, double z) {
-        UUID playerUuid = player.getUuid();
+    public static void createWaypoint(ServerPlayer player, String colorName, double x, double y, double z) {
+        UUID playerUuid = player.getUUID();
         WaypointColor color = WaypointColor.fromString(colorName);
-        ServerWorld world = (ServerWorld) player.getEntityWorld();
-        String dimension = getDimensionKey(world.getRegistryKey());
+        ServerLevel world = player.level();
+        String dimension = getDimensionKey(world.dimension());
 
         LOGGER.info("Creating waypoint: color={}, dimension={}, pos=({},{},{}), player={}",
                 color.name, dimension, x, y, z, player.getName().getString());
 
         removeWaypointEntityInWorld(world, playerUuid, color.name, dimension);
 
-        ArmorStandEntity armorStand = spawnAndConfigureWaypointEntity(world, color, x, y, z);
+        ArmorStand armorStand = spawnAndConfigureWaypointEntity(world, color, x, y, z);
         if (armorStand == null) {
             LOGGER.error("Aborting waypoint creation due to entity spawn failure.");
             return;
@@ -133,13 +132,13 @@ public class HeadingMarkerMod implements ModInitializer {
      * Create a waypoint in a specific world/dimension without requiring the player to be in that world.
      * Used for recreating waypoints across all dimensions when a player joins.
      */
-    private static void createWaypointInWorld(ServerWorld world, UUID playerUuid, String colorName, double x, double y, double z) {
+    private static void createWaypointInWorld(ServerLevel world, UUID playerUuid, String colorName, double x, double y, double z) {
         WaypointColor color = WaypointColor.fromString(colorName);
-        String dimension = getDimensionKey(world.getRegistryKey());
+        String dimension = getDimensionKey(world.dimension());
 
         removeWaypointEntityInWorld(world, playerUuid, color.name, dimension);
 
-        ArmorStandEntity armorStand = spawnAndConfigureWaypointEntity(world, color, x, y, z);
+        ArmorStand armorStand = spawnAndConfigureWaypointEntity(world, color, x, y, z);
         if (armorStand == null) {
             LOGGER.error("Aborting waypoint creation due to entity spawn failure in {}", dimension);
             return;
@@ -150,7 +149,7 @@ public class HeadingMarkerMod implements ModInitializer {
         // Restrict the waypoint entity to be visible only to its owner player
         net.minecraft.server.MinecraftServer server = world.getServer();
         if (server != null) {
-            ServerPlayerEntity owner = server.getPlayerManager().getPlayer(playerUuid);
+            ServerPlayer owner = server.getPlayerList().getPlayer(playerUuid);
             if (owner != null) {
                 setWaypointViewersWithCommand(world, armorStand, owner.getName().getString());
             }
@@ -168,17 +167,17 @@ public class HeadingMarkerMod implements ModInitializer {
                 .put(color.name, data);
     }
 
-    private static ArmorStandEntity spawnAndConfigureWaypointEntity(ServerWorld world, WaypointColor color, double x, double y, double z) {
-        ArmorStandEntity armorStand = new ArmorStandEntity(EntityType.ARMOR_STAND, world);
-        armorStand.setPosition(x, y, z);
+    private static ArmorStand spawnAndConfigureWaypointEntity(ServerLevel world, WaypointColor color, double x, double y, double z) {
+        ArmorStand armorStand = new ArmorStand(EntityType.ARMOR_STAND, world);
+        armorStand.setPos(x, y, z);
         armorStand.setInvisible(true);
         armorStand.setInvulnerable(true);
         armorStand.setNoGravity(true);
         armorStand.setSilent(true);
-        armorStand.setCustomName(Text.literal(color.name + " waypoint"));
+        armorStand.setCustomName(Component.literal(color.name + " waypoint"));
 
         try {
-            EntityAttributeInstance waypointAttr = armorStand.getAttributeInstance(EntityAttributes.WAYPOINT_TRANSMIT_RANGE);
+            AttributeInstance waypointAttr = armorStand.getAttribute(Attributes.WAYPOINT_TRANSMIT_RANGE);
             if (waypointAttr != null) {
                 waypointAttr.setBaseValue(999999.0);
             } else {
@@ -188,7 +187,7 @@ public class HeadingMarkerMod implements ModInitializer {
             LOGGER.error("Failed to set waypoint attribute", e);
         }
 
-        if (world.spawnEntity(armorStand)) {
+        if (world.addFreshEntity(armorStand)) {
             return armorStand;
         } else {
             LOGGER.error("Failed to spawn waypoint entity for color {}", color.name);
@@ -196,20 +195,20 @@ public class HeadingMarkerMod implements ModInitializer {
         }
     }
 
-    private static void setWaypointColorWithCommand(ServerWorld world, ArmorStandEntity armorStand, WaypointColor color) {
+    private static void setWaypointColorWithCommand(ServerLevel world, ArmorStand armorStand, WaypointColor color) {
         if (world.getServer() == null) {
-            LOGGER.warn("Could not set waypoint color for entity {}: server is null", armorStand.getUuid());
+            LOGGER.warn("Could not set waypoint color for entity {}: server is null", armorStand.getUUID());
             return;
         }
         try {
-            String command = String.format("waypoint modify %s color %s", armorStand.getUuidAsString(), color.name);
-            var commandSource = world.getServer().getCommandSource().withSilent();
-            var dispatcher = world.getServer().getCommandManager().getDispatcher();
+            String command = String.format("waypoint modify %s color %s", armorStand.getStringUUID(), color.name);
+            var commandSource = world.getServer().createCommandSourceStack().withSuppressedOutput();
+            var dispatcher = world.getServer().getCommands().getDispatcher();
             var parseResults = dispatcher.parse(command, commandSource);
-            world.getServer().getCommandManager().execute(parseResults, command);
-            LOGGER.info("Set waypoint color to {} for entity {}", color.name, armorStand.getUuidAsString());
+            world.getServer().getCommands().performCommand(parseResults, command);
+            LOGGER.info("Set waypoint color to {} for entity {}", color.name, armorStand.getStringUUID());
         } catch (Exception e) {
-            LOGGER.error("Failed to execute waypoint color command for entity {}: {}", armorStand.getUuid(), e.getMessage());
+            LOGGER.error("Failed to execute waypoint color command for entity {}: {}", armorStand.getUUID(), e.getMessage());
         }
     }
 
@@ -218,28 +217,28 @@ public class HeadingMarkerMod implements ModInitializer {
      * This prevents other players from seeing the waypoint on their locator bar.
      * Wrapped in try/catch so the mod continues to work if the command is unavailable.
      */
-    private static void setWaypointViewersWithCommand(ServerWorld world, ArmorStandEntity armorStand, String playerName) {
+    private static void setWaypointViewersWithCommand(ServerLevel world, ArmorStand armorStand, String playerName) {
         if (world.getServer() == null) {
-            LOGGER.warn("Could not restrict waypoint viewers for entity {}: server is null", armorStand.getUuid());
+            LOGGER.warn("Could not restrict waypoint viewers for entity {}: server is null", armorStand.getUUID());
             return;
         }
         try {
             String command = String.format("waypoint modify %s viewers @a[name=%s]",
-                    armorStand.getUuidAsString(), playerName);
-            var commandSource = world.getServer().getCommandSource().withSilent();
-            var dispatcher = world.getServer().getCommandManager().getDispatcher();
+                    armorStand.getStringUUID(), playerName);
+            var commandSource = world.getServer().createCommandSourceStack().withSuppressedOutput();
+            var dispatcher = world.getServer().getCommands().getDispatcher();
             var parseResults = dispatcher.parse(command, commandSource);
-            world.getServer().getCommandManager().execute(parseResults, command);
-            LOGGER.info("Restricted waypoint {} visibility to player {}", armorStand.getUuidAsString(), playerName);
+            world.getServer().getCommands().performCommand(parseResults, command);
+            LOGGER.info("Restricted waypoint {} visibility to player {}", armorStand.getStringUUID(), playerName);
         } catch (Exception e) {
             LOGGER.warn("Could not restrict waypoint viewers for entity {} (feature may not be available): {}",
-                    armorStand.getUuid(), e.getMessage());
+                    armorStand.getUUID(), e.getMessage());
         }
     }
 
-    public static boolean removeWaypoint(ServerPlayerEntity player, String color) {
-        UUID playerUuid = player.getUuid();
-        String dimension = getDimensionKey(player.getEntityWorld().getRegistryKey());
+    public static boolean removeWaypoint(ServerPlayer player, String color) {
+        UUID playerUuid = player.getUUID();
+        String dimension = getDimensionKey(player.level().dimension());
 
         Map<String, Map<String, WaypointData>> dimensionWaypoints = playerWaypoints.get(playerUuid);
         if (dimensionWaypoints != null) {
@@ -254,24 +253,24 @@ public class HeadingMarkerMod implements ModInitializer {
         return false;
     }
 
-    private static void removeWaypointEntity(ServerPlayerEntity player, String color, String dimension) {
-        ServerWorld world = (ServerWorld) player.getEntityWorld();
-        removeWaypointEntityInWorld(world, player.getUuid(), color, dimension);
+    private static void removeWaypointEntity(ServerPlayer player, String color, String dimension) {
+        ServerLevel world = (ServerLevel) player.level();
+        removeWaypointEntityInWorld(world, player.getUUID(), color, dimension);
     }
 
     /**
      * Remove a waypoint entity from a specific world/dimension.
      * Used for removing waypoints when we need to specify the exact world.
      */
-    private static void removeWaypointEntityInWorld(ServerWorld world, UUID playerUuid, String color, String dimension) {
+    private static void removeWaypointEntityInWorld(ServerLevel world, UUID playerUuid, String color, String dimension) {
         Map<String, Map<String, WaypointData>> dimensionWaypoints = playerWaypoints.get(playerUuid);
         if (dimensionWaypoints != null) {
             Map<String, WaypointData> waypoints = dimensionWaypoints.get(dimension);
             if (waypoints != null && waypoints.containsKey(color)) {
                 WaypointData data = waypoints.get(color);
                 if (data.entityId() != -1) {
-                    Entity entity = world.getEntityById(data.entityId());
-                    if (entity instanceof ArmorStandEntity) {
+                    Entity entity = world.getEntity(data.entityId());
+                    if (entity instanceof ArmorStand) {
                         entity.discard();
                         LOGGER.info("Removed waypoint entity for color {} in {}", color, dimension);
                     }
@@ -280,8 +279,8 @@ public class HeadingMarkerMod implements ModInitializer {
         }
     }
 
-    private static void removeAllPlayerWaypointEntities(ServerPlayerEntity player) {
-        UUID playerUuid = player.getUuid();
+    private static void removeAllPlayerWaypointEntities(ServerPlayer player) {
+        UUID playerUuid = player.getUUID();
         Map<String, Map<String, WaypointData>> dimensionWaypoints = playerWaypoints.get(playerUuid);
 
         if (dimensionWaypoints == null || dimensionWaypoints.isEmpty()) {
@@ -296,13 +295,13 @@ public class HeadingMarkerMod implements ModInitializer {
             Map<String, WaypointData> waypoints = dimEntry.getValue();
 
             // Get the corresponding world for this dimension
-            ServerWorld world = getWorldForDimension(((ServerWorld) player.getEntityWorld()).getServer(), dimension);
+            ServerLevel world = getWorldForDimension(((ServerLevel) player.level()).getServer(), dimension);
             if (world == null) continue;
 
             for (WaypointData data : waypoints.values()) {
                 if (data.entityId() != -1) {
-                    Entity entity = world.getEntityById(data.entityId());
-                    if (entity instanceof ArmorStandEntity) {
+                    Entity entity = world.getEntity(data.entityId());
+                    if (entity instanceof ArmorStand) {
                         entity.discard();
                         removedCount++;
                     }
@@ -317,14 +316,14 @@ public class HeadingMarkerMod implements ModInitializer {
     }
 
     /**
-     * Get the ServerWorld for a given dimension key string
+     * Get the ServerLevel for a given dimension key string
      */
-    private static ServerWorld getWorldForDimension(net.minecraft.server.MinecraftServer server, String dimension) {
+    private static ServerLevel getWorldForDimension(net.minecraft.server.MinecraftServer server, String dimension) {
         if (server == null) return null;
         return switch (dimension) {
-            case DIM_OVERWORLD -> server.getWorld(World.OVERWORLD);
-            case DIM_NETHER -> server.getWorld(World.NETHER);
-            case DIM_END -> server.getWorld(World.END);
+            case DIM_OVERWORLD -> server.getLevel(Level.OVERWORLD);
+            case DIM_NETHER -> server.getLevel(Level.NETHER);
+            case DIM_END -> server.getLevel(Level.END);
             default -> null;
         };
     }
@@ -356,10 +355,10 @@ public class HeadingMarkerMod implements ModInitializer {
      * Remove all waypoints for a player in their current dimension.
      * Returns the number of waypoints that were removed.
      */
-    public static int clearWaypointsInDimension(ServerPlayerEntity player) {
-        UUID playerUuid = player.getUuid();
-        ServerWorld world = (ServerWorld) player.getEntityWorld();
-        String dimension = getDimensionKey(world.getRegistryKey());
+    public static int clearWaypointsInDimension(ServerPlayer player) {
+        UUID playerUuid = player.getUUID();
+        ServerLevel world = (ServerLevel) player.level();
+        String dimension = getDimensionKey(world.dimension());
 
         Map<String, Map<String, WaypointData>> dimensionWaypoints = playerWaypoints.get(playerUuid);
         if (dimensionWaypoints == null) return 0;
@@ -370,8 +369,8 @@ public class HeadingMarkerMod implements ModInitializer {
         int count = waypoints.size();
         for (WaypointData data : waypoints.values()) {
             if (data.entityId() != -1) {
-                Entity entity = world.getEntityById(data.entityId());
-                if (entity instanceof ArmorStandEntity) {
+                Entity entity = world.getEntity(data.entityId());
+                if (entity instanceof ArmorStand) {
                     entity.discard();
                 }
             }
@@ -386,19 +385,19 @@ public class HeadingMarkerMod implements ModInitializer {
      * Remove all waypoints for a player across all dimensions.
      * Returns the total number of waypoints that were removed.
      */
-    public static int clearAllWaypoints(ServerPlayerEntity player) {
-        UUID playerUuid = player.getUuid();
+    public static int clearAllWaypoints(ServerPlayer player) {
+        UUID playerUuid = player.getUUID();
         Map<String, Map<String, WaypointData>> dimensionWaypoints = playerWaypoints.get(playerUuid);
         if (dimensionWaypoints == null || dimensionWaypoints.isEmpty()) return 0;
 
         int count = 0;
-        net.minecraft.server.MinecraftServer server = ((ServerWorld) player.getEntityWorld()).getServer();
+        net.minecraft.server.MinecraftServer server = ((ServerLevel) player.level()).getServer();
 
         for (Map.Entry<String, Map<String, WaypointData>> dimEntry : dimensionWaypoints.entrySet()) {
             String dimension = dimEntry.getKey();
             Map<String, WaypointData> waypoints = dimEntry.getValue();
 
-            ServerWorld world = getWorldForDimension(server, dimension);
+            ServerLevel world = getWorldForDimension(server, dimension);
             if (world == null) {
                 count += waypoints.size();
                 waypoints.clear();
@@ -407,8 +406,8 @@ public class HeadingMarkerMod implements ModInitializer {
 
             for (WaypointData data : waypoints.values()) {
                 if (data.entityId() != -1) {
-                    Entity entity = world.getEntityById(data.entityId());
-                    if (entity instanceof ArmorStandEntity) {
+                    Entity entity = world.getEntity(data.entityId());
+                    if (entity instanceof ArmorStand) {
                         entity.discard();
                     }
                 }
@@ -427,10 +426,10 @@ public class HeadingMarkerMod implements ModInitializer {
      * {@code toPlayer}'s waypoint storage, overwriting any existing waypoint of the same color.
      * Returns true if the waypoint was successfully shared.
      */
-    public static boolean shareWaypoint(ServerPlayerEntity fromPlayer, ServerPlayerEntity toPlayer, String colorName) {
-        UUID fromUuid = fromPlayer.getUuid();
+    public static boolean shareWaypoint(ServerPlayer fromPlayer, ServerPlayer toPlayer, String colorName) {
+        UUID fromUuid = fromPlayer.getUUID();
         WaypointColor color = WaypointColor.fromString(colorName);
-        String dimension = getDimensionKey(fromPlayer.getEntityWorld().getRegistryKey());
+        String dimension = getDimensionKey(fromPlayer.level().dimension());
 
         Map<String, WaypointData> fromWaypoints = getWaypoints(fromUuid, dimension);
         WaypointData sourceData = fromWaypoints.get(color.name);
@@ -439,12 +438,12 @@ public class HeadingMarkerMod implements ModInitializer {
             return false;
         }
 
-        ServerWorld world = getWorldForDimension(((ServerWorld) fromPlayer.getEntityWorld()).getServer(), dimension);
+        ServerLevel world = getWorldForDimension(fromPlayer.level().getServer(), dimension);
         if (world == null) {
             return false;
         }
 
-        createWaypointInWorld(world, toPlayer.getUuid(), color.name, sourceData.x(), sourceData.y(), sourceData.z());
+        createWaypointInWorld(world, toPlayer.getUUID(), color.name, sourceData.x(), sourceData.y(), sourceData.z());
 
         LOGGER.info("Shared {} waypoint from {} to {} at ({},{},{}) in {}",
                 color.name, fromPlayer.getName().getString(), toPlayer.getName().getString(),
@@ -452,8 +451,8 @@ public class HeadingMarkerMod implements ModInitializer {
         return true;
     }
 
-    public static void recreateWaypointEntities(ServerPlayerEntity player) {
-        UUID playerUuid = player.getUuid();
+    public static void recreateWaypointEntities(ServerPlayer player) {
+        UUID playerUuid = player.getUUID();
         Map<String, Map<String, WaypointData>> dimensionWaypoints = playerWaypoints.get(playerUuid);
 
         if (dimensionWaypoints == null || dimensionWaypoints.isEmpty()) {
@@ -461,7 +460,7 @@ public class HeadingMarkerMod implements ModInitializer {
         }
 
         int recreatedCount = 0;
-        net.minecraft.server.MinecraftServer server = ((ServerWorld) player.getEntityWorld()).getServer();
+        net.minecraft.server.MinecraftServer server = ((ServerLevel) player.level()).getServer();
 
         // Recreate waypoint entities in all dimensions where the player has waypoints
         for (Map.Entry<String, Map<String, WaypointData>> dimEntry : dimensionWaypoints.entrySet()) {
@@ -469,7 +468,7 @@ public class HeadingMarkerMod implements ModInitializer {
             Map<String, WaypointData> waypoints = dimEntry.getValue();
 
             // Get the corresponding world for this dimension
-            ServerWorld world = getWorldForDimension(server, dimension);
+            ServerLevel world = getWorldForDimension(server, dimension);
             if (world == null) {
                 LOGGER.warn("Could not get world for dimension {} to recreate waypoints", dimension);
                 continue;
@@ -508,28 +507,28 @@ public class HeadingMarkerMod implements ModInitializer {
         }
     }
 
-    private static void displayDistances(ServerPlayerEntity player) {
-        UUID playerUuid = player.getUuid();
-        String dimension = getDimensionKey(player.getEntityWorld().getRegistryKey());
+    private static void displayDistances(ServerPlayer player) {
+        UUID playerUuid = player.getUUID();
+        String dimension = getDimensionKey(player.level().dimension());
         Map<String, WaypointData> waypoints = getWaypoints(playerUuid, dimension);
 
-        MutableText fullText = Text.empty();
+        MutableComponent fullText = Component.empty();
 
         if (!waypoints.isEmpty()) {
-            Vec3d playerPos = new Vec3d(player.getX(), player.getY(), player.getZ());
+            Vec3 playerPos = new Vec3(player.getX(), player.getY(), player.getZ());
 
             fullText = waypoints.keySet().stream()
                 .sorted()
                 .map(colorName -> {
                     WaypointColor color = WaypointColor.fromString(colorName);
                     WaypointData data = waypoints.get(colorName);
-                    int distance = (int) playerPos.distanceTo(new Vec3d(data.x(), data.y(), data.z()));
+                    int distance = (int) playerPos.distanceTo(new Vec3(data.x(), data.y(), data.z()));
 
-                    return Text.literal(color.emoji + " ")
-                        .append(Text.literal(String.valueOf(distance)).formatted(color.formatting));
+                    return Component.literal(color.emoji + " ")
+                        .append(Component.literal(String.valueOf(distance)).withStyle(color.formatting));
                 })
                 .reduce((text1, text2) -> text1.append("  ").append(text2))
-                .orElse(Text.empty());
+                .orElse(Component.empty());
         }
 
         String newDistanceText = fullText.getString();
@@ -537,7 +536,7 @@ public class HeadingMarkerMod implements ModInitializer {
         String oldDistanceText = lastDistanceText.get(playerUuid);
         if (!newDistanceText.equals(oldDistanceText)) {
             lastDistanceText.put(playerUuid, newDistanceText);
-            player.sendMessage(fullText, true);
+            player.sendSystemMessage(fullText, true);
         }
     }
 
@@ -572,14 +571,14 @@ public class HeadingMarkerMod implements ModInitializer {
 
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			removeAllPlayerWaypointEntities(handler.player);
-			lastDistanceText.remove(handler.player.getUuid());
+			lastDistanceText.remove(handler.player.getUUID());
 		});
 
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			tickCounter++;
 			if (tickCounter >= DISTANCE_UPDATE_INTERVAL) {
 				tickCounter = 0;
-				for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+				for (ServerPlayer player : server.getPlayerList().getPlayers()) {
 					displayDistances(player);
 				}
 			}

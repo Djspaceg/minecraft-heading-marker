@@ -1,9 +1,9 @@
 package com.djspaceg.headingmarker.waypoint;
 
-import net.minecraft.util.math.Vec3i;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.World;
+import net.minecraft.core.Vec3i;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.Level;
 import java.util.UUID;
 
 public abstract class TrackedWaypoint implements Waypoint {
@@ -33,11 +33,11 @@ public abstract class TrackedWaypoint implements Waypoint {
 
     public interface YawProvider {
         float getCameraYaw();
-        Vec3d getCameraPos();
+        Vec3 getCameraPos();
     }
 
-    public double getRelativeYaw(World world, YawProvider yawProvider, EntityTickProgress tickProgress) {
-        Vec3d camPos = yawProvider.getCameraPos();
+    public double getRelativeYaw(Level world, YawProvider yawProvider, EntityTickProgress tickProgress) {
+        Vec3 camPos = yawProvider.getCameraPos();
         double dX = this.pos.getX() + 0.5 - camPos.x;
         double dZ = this.pos.getZ() + 0.5 - camPos.z;
 
@@ -51,6 +51,6 @@ public abstract class TrackedWaypoint implements Waypoint {
 
         double camYaw = yawProvider.getCameraYaw();
 
-        return MathHelper.wrapDegrees(angleDeg - camYaw);
+        return Mth.wrapDegrees(angleDeg - camYaw);
     }
 }

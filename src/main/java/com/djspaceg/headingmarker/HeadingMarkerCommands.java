@@ -3,13 +3,13 @@ package com.djspaceg.headingmarker;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.tree.LiteralCommandNode;
-import net.minecraft.command.CommandRegistryAccess;
-import net.minecraft.command.CommandSource;
-import net.minecraft.server.command.CommandManager;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.commands.Commands;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
 
 import java.util.Arrays;
 import java.util.List;
@@ -19,61 +19,61 @@ public class HeadingMarkerCommands {
 
     private static final List<String> VALID_COLORS = Arrays.asList("red", "blue", "green", "yellow", "purple");
 
-    public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess, CommandManager.RegistrationEnvironment environment) {
-        LiteralCommandNode<ServerCommandSource> hmCommand = dispatcher.register(
-                CommandManager.literal("hm")
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext registryAccess, Commands.CommandSelection environment) {
+        LiteralCommandNode<CommandSourceStack> hmCommand = dispatcher.register(
+                Commands.literal("hm")
                         .requires(source -> true)
                         .executes(context -> {
                             sendHelpMessage(context.getSource().getPlayer());
                             return 1;
                         })
-                        .then(CommandManager.literal("help")
+                        .then(Commands.literal("help")
                                 .requires(source -> true)
                                 .executes(context -> {
                                     sendHelpMessage(context.getSource().getPlayer());
                                     return 1;
                                 })
                         )
-                        .then(CommandManager.literal("list")
+                        .then(Commands.literal("list")
                                 .requires(source -> true)
                                 .executes(context -> listWaypoints(context.getSource().getPlayer()))
                         )
-                        .then(CommandManager.literal("remove")
+                        .then(Commands.literal("remove")
                                 .requires(source -> true)
-                                .then(CommandManager.argument("color", StringArgumentType.word())
+                                .then(Commands.argument("color", StringArgumentType.word())
                                         .suggests((context, builder) -> {
-                                            ServerPlayerEntity player = context.getSource().getPlayer();
-                                            String dimension = HeadingMarkerMod.getDimensionKey(player.getEntityWorld().getRegistryKey());
-                                            return CommandSource.suggestMatching(HeadingMarkerMod.getWaypoints(player.getUuid(), dimension).keySet(), builder);
+                                            ServerPlayer player = context.getSource().getPlayer();
+                                            String dimension = HeadingMarkerMod.getDimensionKey(player.level().dimension());
+                                            return SharedSuggestionProvider.suggest(HeadingMarkerMod.getWaypoints(player.getUUID(), dimension).keySet(), builder);
                                         })
                                         .executes(context -> removeWaypoint(context.getSource().getPlayer(), StringArgumentType.getString(context, "color")))
                                 )
                         )
-                        .then(CommandManager.literal("clear")
+                        .then(Commands.literal("clear")
                                 .requires(source -> true)
                                 .executes(context -> clearWaypointsInDimension(context.getSource().getPlayer()))
                         )
-                        .then(CommandManager.literal("clearall")
+                        .then(Commands.literal("clearall")
                                 .requires(source -> true)
                                 .executes(context -> clearAllWaypoints(context.getSource().getPlayer()))
                         )
-                        .then(CommandManager.literal("share")
+                        .then(Commands.literal("share")
                                 .requires(source -> true)
-                                .then(CommandManager.argument("player", StringArgumentType.word())
+                                .then(Commands.argument("player", StringArgumentType.word())
                                         .suggests((context, builder) -> {
                                             // Suggest online player names
-                                            return CommandSource.suggestMatching(
-                                                    context.getSource().getServer().getPlayerManager().getPlayerList().stream()
+                                            return SharedSuggestionProvider.suggest(
+                                                    context.getSource().getServer().getPlayerList().getPlayers().stream()
                                                             .map(p -> p.getName().getString())
-                                                            .filter(name -> !name.equals(context.getSource().getName()))
+                                                            .filter(name -> !name.equals(context.getSource().getTextName()))
                                                             .toList(),
                                                     builder);
                                         })
-                                        .then(CommandManager.argument("color", StringArgumentType.word())
+                                        .then(Commands.argument("color", StringArgumentType.word())
                                                 .suggests((context, builder) -> {
-                                                    ServerPlayerEntity player = context.getSource().getPlayer();
-                                                    String dimension = HeadingMarkerMod.getDimensionKey(player.getEntityWorld().getRegistryKey());
-                                                    return CommandSource.suggestMatching(HeadingMarkerMod.getWaypoints(player.getUuid(), dimension).keySet(), builder);
+                                                    ServerPlayer player = context.getSource().getPlayer();
+                                                    String dimension = HeadingMarkerMod.getDimensionKey(player.level().dimension());
+                                                    return SharedSuggestionProvider.suggest(HeadingMarkerMod.getWaypoints(player.getUUID(), dimension).keySet(), builder);
                                                 })
                                                 .executes(context -> shareWaypoint(
                                                         context.getSource().getPlayer(),
@@ -82,24 +82,24 @@ public class HeadingMarkerCommands {
                                         )
                                 )
                         )
-                        .then(CommandManager.literal("set")
+                        .then(Commands.literal("set")
                                 .requires(source -> true)
                                 // /hm set - use player position, default color
                                 .executes(context -> {
-                                    ServerPlayerEntity player = context.getSource().getPlayer();
+                                    ServerPlayer player = context.getSource().getPlayer();
                                     String color = getDefaultColor(player);
                                     return setWaypoint(player, color, player.getX(), player.getY(), player.getZ());
                                 })
                                 // Branch 1: First argument is a color
-                                .then(CommandManager.argument("arg1", StringArgumentType.word())
+                                .then(Commands.argument("arg1", StringArgumentType.word())
                                         .suggests((context, builder) -> {
                                             // Suggest colors for first argument
-                                            return CommandSource.suggestMatching(VALID_COLORS, builder);
+                                            return SharedSuggestionProvider.suggest(VALID_COLORS, builder);
                                         })
                                         .executes(context -> {
                                             // /hm set <color> or /hm set <x>
                                             String arg1 = StringArgumentType.getString(context, "arg1");
-                                            ServerPlayerEntity player = context.getSource().getPlayer();
+                                            ServerPlayer player = context.getSource().getPlayer();
                                             
                                             // If arg1 is a valid color, use it with player position
                                             if (VALID_COLORS.contains(arg1.toLowerCase())) {
@@ -109,27 +109,27 @@ public class HeadingMarkerCommands {
                                             // Otherwise, try to parse as X coordinate
                                             try {
                                                 Double.parseDouble(arg1);
-                                                player.sendMessage(Text.literal("Need Z coordinate. Usage: /hm set <x> <z> [color]").formatted(Formatting.RED), false);
+                                                player.sendSystemMessage(Component.literal("Need Z coordinate. Usage: /hm set <x> <z> [color]").withStyle(ChatFormatting.RED));
                                                 return 0;
                                             } catch (NumberFormatException e) {
-                                                player.sendMessage(Text.literal("Unknown color or invalid coordinate: " + arg1).formatted(Formatting.RED), false);
+                                                player.sendSystemMessage(Component.literal("Unknown color or invalid coordinate: " + arg1).withStyle(ChatFormatting.RED));
                                                 return 0;
                                             }
                                         })
                                         // Second argument
-                                        .then(CommandManager.argument("arg2", StringArgumentType.word())
+                                        .then(Commands.argument("arg2", StringArgumentType.word())
                                                 .executes(context -> {
                                                     // /hm set <arg1> <arg2>
                                                     return handleTwoArgs(context);
                                                 })
                                                 // Third argument
-                                                .then(CommandManager.argument("arg3", StringArgumentType.word())
+                                                .then(Commands.argument("arg3", StringArgumentType.word())
                                                         .executes(context -> {
                                                             // /hm set <arg1> <arg2> <arg3>
                                                             return handleThreeArgs(context);
                                                         })
                                                         // Fourth argument
-                                                        .then(CommandManager.argument("arg4", StringArgumentType.word())
+                                                        .then(Commands.argument("arg4", StringArgumentType.word())
                                                                 .executes(context -> {
                                                                     // /hm set <arg1> <arg2> <arg3> <arg4>
                                                                     return handleFourArgs(context);
@@ -141,30 +141,30 @@ public class HeadingMarkerCommands {
                         )
         );
 
-        dispatcher.register(CommandManager.literal("headingmarker")
+        dispatcher.register(Commands.literal("headingmarker")
                 .requires(source -> true)
                 .redirect(hmCommand));
     }
 
-    private static int setWaypoint(ServerPlayerEntity player, String color, double x, double y, double z) {
+    private static int setWaypoint(ServerPlayer player, String color, double x, double y, double z) {
         // Validate color since we're using StringArgumentType instead of ColorArgumentType
         String lowerColor = color.toLowerCase();
         if (!VALID_COLORS.contains(lowerColor)) {
-            player.sendMessage(Text.literal("Unknown color: " + color + ". Valid colors: " + String.join(", ", VALID_COLORS)).formatted(Formatting.RED), false);
+            player.sendSystemMessage(Component.literal("Unknown color: " + color + ". Valid colors: " + String.join(", ", VALID_COLORS)).withStyle(ChatFormatting.RED));
             return 0;
         }
 
         HeadingMarkerMod.createWaypoint(player, lowerColor, x, y, z);
-        player.sendMessage(Text.literal(lowerColor + " waypoint set to (" + (int)x + ", " + (int)y + ", " + (int)z + ")").formatted(Formatting.GREEN), false);
+        player.sendSystemMessage(Component.literal(lowerColor + " waypoint set to (" + (int)x + ", " + (int)y + ", " + (int)z + ")").withStyle(ChatFormatting.GREEN));
         return 1;
     }
 
     /**
      * Get the first available color that doesn't have a waypoint, or default to "red"
      */
-    private static String getDefaultColor(ServerPlayerEntity player) {
-        String dimension = HeadingMarkerMod.getDimensionKey(player.getEntityWorld().getRegistryKey());
-        Map<String, HeadingMarkerMod.WaypointData> existingWaypoints = HeadingMarkerMod.getWaypoints(player.getUuid(), dimension);
+    private static String getDefaultColor(ServerPlayer player) {
+        String dimension = HeadingMarkerMod.getDimensionKey(player.level().dimension());
+        Map<String, HeadingMarkerMod.WaypointData> existingWaypoints = HeadingMarkerMod.getWaypoints(player.getUUID(), dimension);
         
         for (String color : VALID_COLORS) {
             if (!existingWaypoints.containsKey(color)) {
@@ -180,15 +180,15 @@ public class HeadingMarkerCommands {
      * Parse two arguments: could be "color x", "x z", or "x y"
      * Handles: /hm set <color> <x>, /hm set <x> <z>
      */
-    private static int handleTwoArgs(com.mojang.brigadier.context.CommandContext<ServerCommandSource> context) {
+    private static int handleTwoArgs(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {
         String arg1 = StringArgumentType.getString(context, "arg1");
         String arg2 = StringArgumentType.getString(context, "arg2");
-        ServerPlayerEntity player = context.getSource().getPlayer();
+        ServerPlayer player = context.getSource().getPlayer();
 
         // Check if arg1 is a color
         if (VALID_COLORS.contains(arg1.toLowerCase())) {
             // /hm set <color> <x>
-            player.sendMessage(Text.literal("Need Z coordinate. Usage: /hm set " + arg1 + " <x> <z> [<y>]").formatted(Formatting.RED), false);
+            player.sendSystemMessage(Component.literal("Need Z coordinate. Usage: /hm set " + arg1 + " <x> <z> [<y>]").withStyle(ChatFormatting.RED));
             return 0;
         }
 
@@ -199,7 +199,7 @@ public class HeadingMarkerCommands {
             String color = getDefaultColor(player);
             return setWaypoint(player, color, x, player.getY(), z);
         } catch (NumberFormatException e) {
-            player.sendMessage(Text.literal("Invalid coordinates. Usage: /hm set <x> <z> [color]").formatted(Formatting.RED), false);
+            player.sendSystemMessage(Component.literal("Invalid coordinates. Usage: /hm set <x> <z> [color]").withStyle(ChatFormatting.RED));
             return 0;
         }
     }
@@ -208,11 +208,11 @@ public class HeadingMarkerCommands {
      * Parse three arguments: could be "color x z", "x z color", or "x y z"
      * Handles: /hm set <color> <x> <z>, /hm set <x> <z> <color>, /hm set <x> <y> <z>
      */
-    private static int handleThreeArgs(com.mojang.brigadier.context.CommandContext<ServerCommandSource> context) {
+    private static int handleThreeArgs(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {
         String arg1 = StringArgumentType.getString(context, "arg1");
         String arg2 = StringArgumentType.getString(context, "arg2");
         String arg3 = StringArgumentType.getString(context, "arg3");
-        ServerPlayerEntity player = context.getSource().getPlayer();
+        ServerPlayer player = context.getSource().getPlayer();
 
         // Check if arg1 is a color: /hm set <color> <x> <z>
         if (VALID_COLORS.contains(arg1.toLowerCase())) {
@@ -221,7 +221,7 @@ public class HeadingMarkerCommands {
                 double z = Double.parseDouble(arg3);
                 return setWaypoint(player, arg1, x, player.getY(), z);
             } catch (NumberFormatException e) {
-                player.sendMessage(Text.literal("Invalid coordinates after color. Usage: /hm set " + arg1 + " <x> <z>").formatted(Formatting.RED), false);
+                player.sendSystemMessage(Component.literal("Invalid coordinates after color. Usage: /hm set " + arg1 + " <x> <z>").withStyle(ChatFormatting.RED));
                 return 0;
             }
         }
@@ -233,7 +233,7 @@ public class HeadingMarkerCommands {
                 double z = Double.parseDouble(arg2);
                 return setWaypoint(player, arg3, x, player.getY(), z);
             } catch (NumberFormatException e) {
-                player.sendMessage(Text.literal("Invalid coordinates before color. Usage: /hm set <x> <z> " + arg3).formatted(Formatting.RED), false);
+                player.sendSystemMessage(Component.literal("Invalid coordinates before color. Usage: /hm set <x> <z> " + arg3).withStyle(ChatFormatting.RED));
                 return 0;
             }
         }
@@ -246,7 +246,7 @@ public class HeadingMarkerCommands {
             String color = getDefaultColor(player);
             return setWaypoint(player, color, x, y, z);
         } catch (NumberFormatException e) {
-            player.sendMessage(Text.literal("Invalid arguments. Usage: /hm set <color> <x> <z> or /hm set <x> <y> <z> or /hm set <x> <z> <color>").formatted(Formatting.RED), false);
+            player.sendSystemMessage(Component.literal("Invalid arguments. Usage: /hm set <color> <x> <z> or /hm set <x> <y> <z> or /hm set <x> <z> <color>").withStyle(ChatFormatting.RED));
             return 0;
         }
     }
@@ -255,12 +255,12 @@ public class HeadingMarkerCommands {
      * Parse four arguments: "color x y z" or "x y z color"
      * Handles: /hm set <color> <x> <y> <z>, /hm set <x> <y> <z> <color>
      */
-    private static int handleFourArgs(com.mojang.brigadier.context.CommandContext<ServerCommandSource> context) {
+    private static int handleFourArgs(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context) {
         String arg1 = StringArgumentType.getString(context, "arg1");
         String arg2 = StringArgumentType.getString(context, "arg2");
         String arg3 = StringArgumentType.getString(context, "arg3");
         String arg4 = StringArgumentType.getString(context, "arg4");
-        ServerPlayerEntity player = context.getSource().getPlayer();
+        ServerPlayer player = context.getSource().getPlayer();
 
         // Check if arg1 is a color: /hm set <color> <x> <y> <z>
         if (VALID_COLORS.contains(arg1.toLowerCase())) {
@@ -270,7 +270,7 @@ public class HeadingMarkerCommands {
                 double z = Double.parseDouble(arg4);
                 return setWaypoint(player, arg1, x, y, z);
             } catch (NumberFormatException e) {
-                player.sendMessage(Text.literal("Invalid coordinates after color. Usage: /hm set " + arg1 + " <x> <y> <z>").formatted(Formatting.RED), false);
+                player.sendSystemMessage(Component.literal("Invalid coordinates after color. Usage: /hm set " + arg1 + " <x> <y> <z>").withStyle(ChatFormatting.RED));
                 return 0;
             }
         }
@@ -283,115 +283,115 @@ public class HeadingMarkerCommands {
                 double z = Double.parseDouble(arg3);
                 return setWaypoint(player, arg4, x, y, z);
             } catch (NumberFormatException e) {
-                player.sendMessage(Text.literal("Invalid coordinates before color. Usage: /hm set <x> <y> <z> " + arg4).formatted(Formatting.RED), false);
+                player.sendSystemMessage(Component.literal("Invalid coordinates before color. Usage: /hm set <x> <y> <z> " + arg4).withStyle(ChatFormatting.RED));
                 return 0;
             }
         }
 
-        player.sendMessage(Text.literal("Invalid arguments. Usage: /hm set <color> <x> <y> <z> or /hm set <x> <y> <z> <color>").formatted(Formatting.RED), false);
+        player.sendSystemMessage(Component.literal("Invalid arguments. Usage: /hm set <color> <x> <y> <z> or /hm set <x> <y> <z> <color>").withStyle(ChatFormatting.RED));
         return 0;
     }
 
-    private static int removeWaypoint(ServerPlayerEntity player, String color) {
+    private static int removeWaypoint(ServerPlayer player, String color) {
         if (HeadingMarkerMod.removeWaypoint(player, color)) {
-            player.sendMessage(Text.literal(color + " waypoint removed").formatted(Formatting.YELLOW), false);
+            player.sendSystemMessage(Component.literal(color + " waypoint removed").withStyle(ChatFormatting.YELLOW));
             return 1;
         } else {
-            player.sendMessage(Text.literal("No waypoint found for color: " + color).formatted(Formatting.RED), false);
+            player.sendSystemMessage(Component.literal("No waypoint found for color: " + color).withStyle(ChatFormatting.RED));
             return 0;
         }
     }
 
-    private static int clearWaypointsInDimension(ServerPlayerEntity player) {
+    private static int clearWaypointsInDimension(ServerPlayer player) {
         int removed = HeadingMarkerMod.clearWaypointsInDimension(player);
         if (removed == 0) {
-            player.sendMessage(Text.literal("You have no waypoints to clear in this dimension.").formatted(Formatting.YELLOW), false);
+            player.sendSystemMessage(Component.literal("You have no waypoints to clear in this dimension.").withStyle(ChatFormatting.YELLOW));
         } else {
-            player.sendMessage(Text.literal("Cleared " + removed + " waypoint(s) in this dimension.").formatted(Formatting.GREEN), false);
+            player.sendSystemMessage(Component.literal("Cleared " + removed + " waypoint(s) in this dimension.").withStyle(ChatFormatting.GREEN));
         }
         return removed;
     }
 
-    private static int clearAllWaypoints(ServerPlayerEntity player) {
+    private static int clearAllWaypoints(ServerPlayer player) {
         int removed = HeadingMarkerMod.clearAllWaypoints(player);
         if (removed == 0) {
-            player.sendMessage(Text.literal("You have no waypoints to clear.").formatted(Formatting.YELLOW), false);
+            player.sendSystemMessage(Component.literal("You have no waypoints to clear.").withStyle(ChatFormatting.YELLOW));
         } else {
-            player.sendMessage(Text.literal("Cleared " + removed + " waypoint(s) across all dimensions.").formatted(Formatting.GREEN), false);
+            player.sendSystemMessage(Component.literal("Cleared " + removed + " waypoint(s) across all dimensions.").withStyle(ChatFormatting.GREEN));
         }
         return removed;
     }
 
-    private static int shareWaypoint(ServerPlayerEntity fromPlayer, String targetPlayerName, String colorName) {
+    private static int shareWaypoint(ServerPlayer fromPlayer, String targetPlayerName, String colorName) {
         String lowerColor = colorName.toLowerCase();
         if (!VALID_COLORS.contains(lowerColor)) {
-            fromPlayer.sendMessage(Text.literal("Unknown color: " + colorName + ". Valid colors: " + String.join(", ", VALID_COLORS)).formatted(Formatting.RED), false);
+            fromPlayer.sendSystemMessage(Component.literal("Unknown color: " + colorName + ". Valid colors: " + String.join(", ", VALID_COLORS)).withStyle(ChatFormatting.RED));
             return 0;
         }
 
         // Look up the target player on the server
-        net.minecraft.server.MinecraftServer server = ((net.minecraft.server.world.ServerWorld) fromPlayer.getEntityWorld()).getServer();
-        ServerPlayerEntity toPlayer = server.getPlayerManager().getPlayer(targetPlayerName);
+        net.minecraft.server.MinecraftServer server = fromPlayer.level().getServer();
+        ServerPlayer toPlayer = server.getPlayerList().getPlayer(targetPlayerName);
         if (toPlayer == null) {
-            fromPlayer.sendMessage(Text.literal("Player not found or not online: " + targetPlayerName).formatted(Formatting.RED), false);
+            fromPlayer.sendSystemMessage(Component.literal("Player not found or not online: " + targetPlayerName).withStyle(ChatFormatting.RED));
             return 0;
         }
 
-        if (toPlayer.getUuid().equals(fromPlayer.getUuid())) {
-            fromPlayer.sendMessage(Text.literal("You cannot share a waypoint with yourself.").formatted(Formatting.RED), false);
+        if (toPlayer.getUUID().equals(fromPlayer.getUUID())) {
+            fromPlayer.sendSystemMessage(Component.literal("You cannot share a waypoint with yourself.").withStyle(ChatFormatting.RED));
             return 0;
         }
 
         if (HeadingMarkerMod.shareWaypoint(fromPlayer, toPlayer, lowerColor)) {
-            fromPlayer.sendMessage(Text.literal("Shared your " + lowerColor + " waypoint with " + targetPlayerName + ".").formatted(Formatting.GREEN), false);
-            toPlayer.sendMessage(Text.literal(fromPlayer.getName().getString() + " shared their " + lowerColor + " waypoint with you.").formatted(Formatting.AQUA), false);
+            fromPlayer.sendSystemMessage(Component.literal("Shared your " + lowerColor + " waypoint with " + targetPlayerName + ".").withStyle(ChatFormatting.GREEN));
+            toPlayer.sendSystemMessage(Component.literal(fromPlayer.getName().getString() + " shared their " + lowerColor + " waypoint with you.").withStyle(ChatFormatting.AQUA));
             return 1;
         } else {
-            fromPlayer.sendMessage(Text.literal("You have no " + lowerColor + " waypoint in this dimension to share.").formatted(Formatting.RED), false);
+            fromPlayer.sendSystemMessage(Component.literal("You have no " + lowerColor + " waypoint in this dimension to share.").withStyle(ChatFormatting.RED));
             return 0;
         }
     }
 
-    private static int listWaypoints(ServerPlayerEntity player) {
-        String dimension = HeadingMarkerMod.getDimensionKey(player.getEntityWorld().getRegistryKey());
-        Map<String, HeadingMarkerMod.WaypointData> waypoints = HeadingMarkerMod.getWaypoints(player.getUuid(), dimension);
+    private static int listWaypoints(ServerPlayer player) {
+        String dimension = HeadingMarkerMod.getDimensionKey(player.level().dimension());
+        Map<String, HeadingMarkerMod.WaypointData> waypoints = HeadingMarkerMod.getWaypoints(player.getUUID(), dimension);
 
         if (waypoints.isEmpty()) {
-            player.sendMessage(Text.literal("You have no active waypoints in " + dimension + ".").formatted(Formatting.YELLOW), false);
+            player.sendSystemMessage(Component.literal("You have no active waypoints in " + dimension + ".").withStyle(ChatFormatting.YELLOW));
             return 0;
         }
 
-        player.sendMessage(Text.literal("Active Waypoints in " + dimension + ":").formatted(Formatting.GOLD), false);
+        player.sendSystemMessage(Component.literal("Active Waypoints in " + dimension + ":").withStyle(ChatFormatting.GOLD));
         waypoints.forEach((color, data) -> {
             String coords = String.format("(%d, %d, %d)", (int)data.x(), (int)data.y(), (int)data.z());
-            player.sendMessage(Text.literal(" - " + color + " waypoint at " + coords).formatted(Formatting.GRAY), false);
+            player.sendSystemMessage(Component.literal(" - " + color + " waypoint at " + coords).withStyle(ChatFormatting.GRAY));
         });
         return waypoints.size();
     }
 
-    private static void sendHelpMessage(ServerPlayerEntity player) {
-        player.sendMessage(Text.literal("========================================").formatted(Formatting.GOLD), false);
-        player.sendMessage(Text.literal("Heading Marker - Command Help").formatted(Formatting.GOLD, Formatting.BOLD), false);
-        player.sendMessage(Text.literal("========================================").formatted(Formatting.GOLD), false);
-        player.sendMessage(Text.literal(""), false);
-        player.sendMessage(Text.literal("SET MARKER:").formatted(Formatting.AQUA, Formatting.BOLD), false);
-        player.sendMessage(Text.literal("• /hm set [color] [x y z | x z]  ").formatted(Formatting.YELLOW).append(Text.literal("- Set marker at position").formatted(Formatting.GRAY)), false);
-        player.sendMessage(Text.literal("  Examples: /hm set, /hm set red, /hm set 100 200, /hm set red 100 64 200").formatted(Formatting.GRAY), false);
-        player.sendMessage(Text.literal(""), false);
-        player.sendMessage(Text.literal("REMOVE MARKER:").formatted(Formatting.AQUA, Formatting.BOLD), false);
-        player.sendMessage(Text.literal("• /hm remove <color>  ").formatted(Formatting.YELLOW).append(Text.literal("- Remove marker by color").formatted(Formatting.GRAY)), false);
-        player.sendMessage(Text.literal("• /hm clear  ").formatted(Formatting.YELLOW).append(Text.literal("- Remove all your markers in this dimension").formatted(Formatting.GRAY)), false);
-        player.sendMessage(Text.literal("• /hm clearall  ").formatted(Formatting.YELLOW).append(Text.literal("- Remove all your markers across every dimension").formatted(Formatting.GRAY)), false);
-        player.sendMessage(Text.literal(""), false);
-        player.sendMessage(Text.literal("LIST MARKERS:").formatted(Formatting.AQUA, Formatting.BOLD), false);
-        player.sendMessage(Text.literal("• /hm list  ").formatted(Formatting.YELLOW).append(Text.literal("- List all your markers in this dimension").formatted(Formatting.GRAY)), false);
-        player.sendMessage(Text.literal(""), false);
-        player.sendMessage(Text.literal("SHARE MARKER:").formatted(Formatting.AQUA, Formatting.BOLD), false);
-        player.sendMessage(Text.literal("• /hm share <player> <color>  ").formatted(Formatting.YELLOW).append(Text.literal("- Share one of your markers with another player").formatted(Formatting.GRAY)), false);
-        player.sendMessage(Text.literal(""), false);
-        player.sendMessage(Text.literal("DISTANCE DISPLAY:").formatted(Formatting.AQUA, Formatting.BOLD), false);
-        player.sendMessage(Text.literal("• /trigger hm.distance  ").formatted(Formatting.YELLOW).append(Text.literal("- Toggle distance display on actionbar").formatted(Formatting.GRAY)), false);
-        player.sendMessage(Text.literal(""), false);
-        player.sendMessage(Text.literal("========================================").formatted(Formatting.GOLD), false);
+    private static void sendHelpMessage(ServerPlayer player) {
+        player.sendSystemMessage(Component.literal("========================================").withStyle(ChatFormatting.GOLD));
+        player.sendSystemMessage(Component.literal("Heading Marker - Command Help").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+        player.sendSystemMessage(Component.literal("========================================").withStyle(ChatFormatting.GOLD));
+        player.sendSystemMessage(Component.literal(""));
+        player.sendSystemMessage(Component.literal("SET MARKER:").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        player.sendSystemMessage(Component.literal("• /hm set [color] [x y z | x z]  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Set marker at position").withStyle(ChatFormatting.GRAY)));
+        player.sendSystemMessage(Component.literal("  Examples: /hm set, /hm set red, /hm set 100 200, /hm set red 100 64 200").withStyle(ChatFormatting.GRAY));
+        player.sendSystemMessage(Component.literal(""));
+        player.sendSystemMessage(Component.literal("REMOVE MARKER:").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        player.sendSystemMessage(Component.literal("• /hm remove <color>  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Remove marker by color").withStyle(ChatFormatting.GRAY)));
+        player.sendSystemMessage(Component.literal("• /hm clear  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Remove all your markers in this dimension").withStyle(ChatFormatting.GRAY)));
+        player.sendSystemMessage(Component.literal("• /hm clearall  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Remove all your markers across every dimension").withStyle(ChatFormatting.GRAY)));
+        player.sendSystemMessage(Component.literal(""));
+        player.sendSystemMessage(Component.literal("LIST MARKERS:").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        player.sendSystemMessage(Component.literal("• /hm list  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- List all your markers in this dimension").withStyle(ChatFormatting.GRAY)));
+        player.sendSystemMessage(Component.literal(""));
+        player.sendSystemMessage(Component.literal("SHARE MARKER:").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        player.sendSystemMessage(Component.literal("• /hm share <player> <color>  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Share one of your markers with another player").withStyle(ChatFormatting.GRAY)));
+        player.sendSystemMessage(Component.literal(""));
+        player.sendSystemMessage(Component.literal("DISTANCE DISPLAY:").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        player.sendSystemMessage(Component.literal("• /trigger hm.distance  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Toggle distance display on actionbar").withStyle(ChatFormatting.GRAY)));
+        player.sendSystemMessage(Component.literal(""));
+        player.sendSystemMessage(Component.literal("========================================").withStyle(ChatFormatting.GOLD));
     }
 }

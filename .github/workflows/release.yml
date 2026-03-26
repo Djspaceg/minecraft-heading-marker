@@ -18,10 +18,10 @@ jobs:
         with:
           fetch-depth: 0
     
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '25'
           distribution: 'temurin'
           cache: gradle
     
@@ -61,12 +61,13 @@ jobs:
             1. Download the JAR file
             2. Place it in your Minecraft `mods` folder
             3. Make sure you have Fabric Loader installed
-            4. Launch Minecraft 1.21.11
+            4. Launch Minecraft 26.1
             
             **Requirements:**
-            - Minecraft 1.21.11
-            - Fabric Loader 0.18.2+
-            - Fabric API 0.140.2+
+            - Minecraft 26.1
+            - Fabric Loader 0.18.5+
+            - Fabric API 0.144.0+
+            - Java 25
           draft: false
           prerelease: false
         env:

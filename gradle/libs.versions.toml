@@ -1,15 +1,15 @@
 [versions]
 annotations = "26.0.2-1"
 junitJupiter = "5.11.4"
-minecraft = "1.21.11"
-yarn = "1.21.11+build.3"
-fabricLoader = "0.18.2"
-fabricApi = "0.140.2+1.21.11"
+junitPlatformLauncher = "1.11.4"
+minecraft = "26.1"
+fabricLoader = "0.18.5"
+fabricApi = "0.144.0+26.1"
 
 [libraries]
 annotations = { module = "org.jetbrains:annotations", version.ref = "annotations" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junitJupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junitPlatformLauncher" }
 minecraft = { module = "com.mojang:minecraft", version.ref = "minecraft" }
-yarn = { module = "net.fabricmc:yarn", version.ref = "yarn" }
 fabric-loader = { module = "net.fabricmc:fabric-loader", version.ref = "fabricLoader" }
 fabric-api = { module = "net.fabricmc.fabric-api:fabric-api", version.ref = "fabricApi" }

@@ -29,7 +29,9 @@ import net.minecraft.world.World;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -111,6 +113,7 @@ public class HeadingMarkerMod implements ModInitializer {
         }
 
         setWaypointColorWithCommand(world, armorStand, color);
+        setWaypointViewersWithCommand(world, armorStand, player.getName().getString());
 
         Vec3i pos = new Vec3i((int) x, (int) y, (int) z);
         Waypoint.Config config = new Waypoint.Config();
@@ -143,6 +146,15 @@ public class HeadingMarkerMod implements ModInitializer {
         }
 
         setWaypointColorWithCommand(world, armorStand, color);
+
+        // Restrict the waypoint entity to be visible only to its owner player
+        net.minecraft.server.MinecraftServer server = world.getServer();
+        if (server != null) {
+            ServerPlayerEntity owner = server.getPlayerManager().getPlayer(playerUuid);
+            if (owner != null) {
+                setWaypointViewersWithCommand(world, armorStand, owner.getName().getString());
+            }
+        }
 
         Vec3i pos = new Vec3i((int) x, (int) y, (int) z);
         Waypoint.Config config = new Waypoint.Config();
@@ -198,6 +210,30 @@ public class HeadingMarkerMod implements ModInitializer {
             LOGGER.info("Set waypoint color to {} for entity {}", color.name, armorStand.getUuidAsString());
         } catch (Exception e) {
             LOGGER.error("Failed to execute waypoint color command for entity {}: {}", armorStand.getUuid(), e.getMessage());
+        }
+    }
+
+    /**
+     * Restrict waypoint visibility to a single player using the vanilla waypoint viewers command.
+     * This prevents other players from seeing the waypoint on their locator bar.
+     * Wrapped in try/catch so the mod continues to work if the command is unavailable.
+     */
+    private static void setWaypointViewersWithCommand(ServerWorld world, ArmorStandEntity armorStand, String playerName) {
+        if (world.getServer() == null) {
+            LOGGER.warn("Could not restrict waypoint viewers for entity {}: server is null", armorStand.getUuid());
+            return;
+        }
+        try {
+            String command = String.format("waypoint modify %s viewers @a[name=%s]",
+                    armorStand.getUuidAsString(), playerName);
+            var commandSource = world.getServer().getCommandSource().withSilent();
+            var dispatcher = world.getServer().getCommandManager().getDispatcher();
+            var parseResults = dispatcher.parse(command, commandSource);
+            world.getServer().getCommandManager().execute(parseResults, command);
+            LOGGER.info("Restricted waypoint {} visibility to player {}", armorStand.getUuidAsString(), playerName);
+        } catch (Exception e) {
+            LOGGER.warn("Could not restrict waypoint viewers for entity {} (feature may not be available): {}",
+                    armorStand.getUuid(), e.getMessage());
         }
     }
 
@@ -316,6 +352,106 @@ public class HeadingMarkerMod implements ModInitializer {
         return playerWaypoints.getOrDefault(playerUuid, new HashMap<>());
     }
 
+    /**
+     * Remove all waypoints for a player in their current dimension.
+     * Returns the number of waypoints that were removed.
+     */
+    public static int clearWaypointsInDimension(ServerPlayerEntity player) {
+        UUID playerUuid = player.getUuid();
+        ServerWorld world = (ServerWorld) player.getEntityWorld();
+        String dimension = getDimensionKey(world.getRegistryKey());
+
+        Map<String, Map<String, WaypointData>> dimensionWaypoints = playerWaypoints.get(playerUuid);
+        if (dimensionWaypoints == null) return 0;
+
+        Map<String, WaypointData> waypoints = dimensionWaypoints.get(dimension);
+        if (waypoints == null || waypoints.isEmpty()) return 0;
+
+        int count = waypoints.size();
+        for (WaypointData data : waypoints.values()) {
+            if (data.entityId() != -1) {
+                Entity entity = world.getEntityById(data.entityId());
+                if (entity instanceof ArmorStandEntity) {
+                    entity.discard();
+                }
+            }
+        }
+        waypoints.clear();
+
+        LOGGER.info("Cleared {} waypoints in {} for player {}", count, dimension, player.getName().getString());
+        return count;
+    }
+
+    /**
+     * Remove all waypoints for a player across all dimensions.
+     * Returns the total number of waypoints that were removed.
+     */
+    public static int clearAllWaypoints(ServerPlayerEntity player) {
+        UUID playerUuid = player.getUuid();
+        Map<String, Map<String, WaypointData>> dimensionWaypoints = playerWaypoints.get(playerUuid);
+        if (dimensionWaypoints == null || dimensionWaypoints.isEmpty()) return 0;
+
+        int count = 0;
+        net.minecraft.server.MinecraftServer server = ((ServerWorld) player.getEntityWorld()).getServer();
+
+        for (Map.Entry<String, Map<String, WaypointData>> dimEntry : dimensionWaypoints.entrySet()) {
+            String dimension = dimEntry.getKey();
+            Map<String, WaypointData> waypoints = dimEntry.getValue();
+
+            ServerWorld world = getWorldForDimension(server, dimension);
+            if (world == null) {
+                count += waypoints.size();
+                waypoints.clear();
+                continue;
+            }
+
+            for (WaypointData data : waypoints.values()) {
+                if (data.entityId() != -1) {
+                    Entity entity = world.getEntityById(data.entityId());
+                    if (entity instanceof ArmorStandEntity) {
+                        entity.discard();
+                    }
+                }
+            }
+            count += waypoints.size();
+            waypoints.clear();
+        }
+
+        LOGGER.info("Cleared all {} waypoints across all dimensions for player {}", count, player.getName().getString());
+        return count;
+    }
+
+    /**
+     * Share a waypoint with another player.
+     * Copies the specified color waypoint from {@code fromPlayer}'s current dimension to
+     * {@code toPlayer}'s waypoint storage, overwriting any existing waypoint of the same color.
+     * Returns true if the waypoint was successfully shared.
+     */
+    public static boolean shareWaypoint(ServerPlayerEntity fromPlayer, ServerPlayerEntity toPlayer, String colorName) {
+        UUID fromUuid = fromPlayer.getUuid();
+        WaypointColor color = WaypointColor.fromString(colorName);
+        String dimension = getDimensionKey(fromPlayer.getEntityWorld().getRegistryKey());
+
+        Map<String, WaypointData> fromWaypoints = getWaypoints(fromUuid, dimension);
+        WaypointData sourceData = fromWaypoints.get(color.name);
+
+        if (sourceData == null) {
+            return false;
+        }
+
+        ServerWorld world = getWorldForDimension(((ServerWorld) fromPlayer.getEntityWorld()).getServer(), dimension);
+        if (world == null) {
+            return false;
+        }
+
+        createWaypointInWorld(world, toPlayer.getUuid(), color.name, sourceData.x(), sourceData.y(), sourceData.z());
+
+        LOGGER.info("Shared {} waypoint from {} to {} at ({},{},{}) in {}",
+                color.name, fromPlayer.getName().getString(), toPlayer.getName().getString(),
+                (int) sourceData.x(), (int) sourceData.y(), (int) sourceData.z(), dimension);
+        return true;
+    }
+
     public static void recreateWaypointEntities(ServerPlayerEntity player) {
         UUID playerUuid = player.getUuid();
         Map<String, Map<String, WaypointData>> dimensionWaypoints = playerWaypoints.get(playerUuid);
@@ -344,7 +480,7 @@ public class HeadingMarkerMod implements ModInitializer {
 
             // Create a snapshot of the waypoints to avoid ConcurrentModificationException
             // since createWaypointInWorld modifies the same map structure
-            java.util.List<WaypointData> waypointSnapshot = new java.util.ArrayList<>(waypoints.values());
+            List<WaypointData> waypointSnapshot = new ArrayList<>(waypoints.values());
             
             for (WaypointData data : waypointSnapshot) {
                 try {

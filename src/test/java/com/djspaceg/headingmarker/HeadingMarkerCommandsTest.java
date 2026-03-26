@@ -19,7 +19,7 @@ public class HeadingMarkerCommandsTest {
     @Test
     public void testHmRegistrationContainsExpectedLiterals() {
         // Verify expected subcommands are registered
-        List<String> expected = List.of("help", "list", "remove", "set");
+        List<String> expected = List.of("help", "list", "remove", "set", "clear", "clearall", "share");
 
         try {
             // Exercise idempotent/merge behavior: register twice and ensure all children are present
@@ -151,6 +151,64 @@ public class HeadingMarkerCommandsTest {
             assertTrue(hmResult.getExceptions().isEmpty(), "hm should parse without errors");
             assertTrue(fullResult.getExceptions().isEmpty(), "headingmarker should parse without errors");
 
+        } catch (ExceptionInInitializerError | NoClassDefFoundError e) {
+            assumeTrue(false, "Skipping test - Minecraft environment not available: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Tests that /hm clear and /hm clearall parse correctly.
+     */
+    @Test
+    public void testClearCommandVariations() {
+        try {
+            CommandDispatcher<ServerCommandSource> dispatcher = new CommandDispatcher<>();
+            HeadingMarkerCommands.register(dispatcher, null, CommandManager.RegistrationEnvironment.DEDICATED);
+
+            List<String> commands = List.of(
+                    "hm clear",
+                    "hm clearall",
+                    "headingmarker clear",
+                    "headingmarker clearall"
+            );
+
+            for (String command : commands) {
+                ParseResults<ServerCommandSource> parseResult = dispatcher.parse(command, null);
+                assertNotNull(parseResult, "Parse result should not be null for command: " + command);
+                assertTrue(parseResult.getExceptions().isEmpty(),
+                        "Command should parse without errors: " + command +
+                        " (errors: " + parseResult.getExceptions() + ")");
+            }
+        } catch (ExceptionInInitializerError | NoClassDefFoundError e) {
+            assumeTrue(false, "Skipping test - Minecraft environment not available: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Tests that /hm share <player> <color> parses correctly.
+     */
+    @Test
+    public void testShareCommandVariations() {
+        try {
+            CommandDispatcher<ServerCommandSource> dispatcher = new CommandDispatcher<>();
+            HeadingMarkerCommands.register(dispatcher, null, CommandManager.RegistrationEnvironment.DEDICATED);
+
+            List<String> commands = List.of(
+                    "hm share SomePlayer red",
+                    "hm share SomePlayer blue",
+                    "hm share SomePlayer green",
+                    "hm share SomePlayer yellow",
+                    "hm share SomePlayer purple",
+                    "headingmarker share SomePlayer red"
+            );
+
+            for (String command : commands) {
+                ParseResults<ServerCommandSource> parseResult = dispatcher.parse(command, null);
+                assertNotNull(parseResult, "Parse result should not be null for command: " + command);
+                assertTrue(parseResult.getExceptions().isEmpty(),
+                        "Command should parse without errors: " + command +
+                        " (errors: " + parseResult.getExceptions() + ")");
+            }
         } catch (ExceptionInInitializerError | NoClassDefFoundError e) {
             assumeTrue(false, "Skipping test - Minecraft environment not available: " + e.getMessage());
         }

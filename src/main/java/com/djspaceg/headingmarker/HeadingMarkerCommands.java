@@ -49,6 +49,39 @@ public class HeadingMarkerCommands {
                                         .executes(context -> removeWaypoint(context.getSource().getPlayer(), StringArgumentType.getString(context, "color")))
                                 )
                         )
+                        .then(CommandManager.literal("clear")
+                                .requires(source -> true)
+                                .executes(context -> clearWaypointsInDimension(context.getSource().getPlayer()))
+                        )
+                        .then(CommandManager.literal("clearall")
+                                .requires(source -> true)
+                                .executes(context -> clearAllWaypoints(context.getSource().getPlayer()))
+                        )
+                        .then(CommandManager.literal("share")
+                                .requires(source -> true)
+                                .then(CommandManager.argument("player", StringArgumentType.word())
+                                        .suggests((context, builder) -> {
+                                            // Suggest online player names
+                                            return CommandSource.suggestMatching(
+                                                    context.getSource().getServer().getPlayerManager().getPlayerList().stream()
+                                                            .map(p -> p.getName().getString())
+                                                            .filter(name -> !name.equals(context.getSource().getName()))
+                                                            .toList(),
+                                                    builder);
+                                        })
+                                        .then(CommandManager.argument("color", StringArgumentType.word())
+                                                .suggests((context, builder) -> {
+                                                    ServerPlayerEntity player = context.getSource().getPlayer();
+                                                    String dimension = HeadingMarkerMod.getDimensionKey(player.getEntityWorld().getRegistryKey());
+                                                    return CommandSource.suggestMatching(HeadingMarkerMod.getWaypoints(player.getUuid(), dimension).keySet(), builder);
+                                                })
+                                                .executes(context -> shareWaypoint(
+                                                        context.getSource().getPlayer(),
+                                                        StringArgumentType.getString(context, "player"),
+                                                        StringArgumentType.getString(context, "color")))
+                                        )
+                                )
+                        )
                         .then(CommandManager.literal("set")
                                 .requires(source -> true)
                                 // /hm set - use player position, default color
@@ -269,6 +302,56 @@ public class HeadingMarkerCommands {
         }
     }
 
+    private static int clearWaypointsInDimension(ServerPlayerEntity player) {
+        int removed = HeadingMarkerMod.clearWaypointsInDimension(player);
+        if (removed == 0) {
+            player.sendMessage(Text.literal("You have no waypoints to clear in this dimension.").formatted(Formatting.YELLOW), false);
+        } else {
+            player.sendMessage(Text.literal("Cleared " + removed + " waypoint(s) in this dimension.").formatted(Formatting.GREEN), false);
+        }
+        return removed;
+    }
+
+    private static int clearAllWaypoints(ServerPlayerEntity player) {
+        int removed = HeadingMarkerMod.clearAllWaypoints(player);
+        if (removed == 0) {
+            player.sendMessage(Text.literal("You have no waypoints to clear.").formatted(Formatting.YELLOW), false);
+        } else {
+            player.sendMessage(Text.literal("Cleared " + removed + " waypoint(s) across all dimensions.").formatted(Formatting.GREEN), false);
+        }
+        return removed;
+    }
+
+    private static int shareWaypoint(ServerPlayerEntity fromPlayer, String targetPlayerName, String colorName) {
+        String lowerColor = colorName.toLowerCase();
+        if (!VALID_COLORS.contains(lowerColor)) {
+            fromPlayer.sendMessage(Text.literal("Unknown color: " + colorName + ". Valid colors: " + String.join(", ", VALID_COLORS)).formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        // Look up the target player on the server
+        net.minecraft.server.MinecraftServer server = ((net.minecraft.server.world.ServerWorld) fromPlayer.getEntityWorld()).getServer();
+        ServerPlayerEntity toPlayer = server.getPlayerManager().getPlayer(targetPlayerName);
+        if (toPlayer == null) {
+            fromPlayer.sendMessage(Text.literal("Player not found or not online: " + targetPlayerName).formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        if (toPlayer.getUuid().equals(fromPlayer.getUuid())) {
+            fromPlayer.sendMessage(Text.literal("You cannot share a waypoint with yourself.").formatted(Formatting.RED), false);
+            return 0;
+        }
+
+        if (HeadingMarkerMod.shareWaypoint(fromPlayer, toPlayer, lowerColor)) {
+            fromPlayer.sendMessage(Text.literal("Shared your " + lowerColor + " waypoint with " + targetPlayerName + ".").formatted(Formatting.GREEN), false);
+            toPlayer.sendMessage(Text.literal(fromPlayer.getName().getString() + " shared their " + lowerColor + " waypoint with you.").formatted(Formatting.AQUA), false);
+            return 1;
+        } else {
+            fromPlayer.sendMessage(Text.literal("You have no " + lowerColor + " waypoint in this dimension to share.").formatted(Formatting.RED), false);
+            return 0;
+        }
+    }
+
     private static int listWaypoints(ServerPlayerEntity player) {
         String dimension = HeadingMarkerMod.getDimensionKey(player.getEntityWorld().getRegistryKey());
         Map<String, HeadingMarkerMod.WaypointData> waypoints = HeadingMarkerMod.getWaypoints(player.getUuid(), dimension);
@@ -297,9 +380,14 @@ public class HeadingMarkerCommands {
         player.sendMessage(Text.literal(""), false);
         player.sendMessage(Text.literal("REMOVE MARKER:").formatted(Formatting.AQUA, Formatting.BOLD), false);
         player.sendMessage(Text.literal("• /hm remove <color>  ").formatted(Formatting.YELLOW).append(Text.literal("- Remove marker by color").formatted(Formatting.GRAY)), false);
+        player.sendMessage(Text.literal("• /hm clear  ").formatted(Formatting.YELLOW).append(Text.literal("- Remove all your markers in this dimension").formatted(Formatting.GRAY)), false);
+        player.sendMessage(Text.literal("• /hm clearall  ").formatted(Formatting.YELLOW).append(Text.literal("- Remove all your markers across every dimension").formatted(Formatting.GRAY)), false);
         player.sendMessage(Text.literal(""), false);
         player.sendMessage(Text.literal("LIST MARKERS:").formatted(Formatting.AQUA, Formatting.BOLD), false);
         player.sendMessage(Text.literal("• /hm list  ").formatted(Formatting.YELLOW).append(Text.literal("- List all your markers in this dimension").formatted(Formatting.GRAY)), false);
+        player.sendMessage(Text.literal(""), false);
+        player.sendMessage(Text.literal("SHARE MARKER:").formatted(Formatting.AQUA, Formatting.BOLD), false);
+        player.sendMessage(Text.literal("• /hm share <player> <color>  ").formatted(Formatting.YELLOW).append(Text.literal("- Share one of your markers with another player").formatted(Formatting.GRAY)), false);
         player.sendMessage(Text.literal(""), false);
         player.sendMessage(Text.literal("DISTANCE DISPLAY:").formatted(Formatting.AQUA, Formatting.BOLD), false);
         player.sendMessage(Text.literal("• /trigger hm.distance  ").formatted(Formatting.YELLOW).append(Text.literal("- Toggle distance display on actionbar").formatted(Formatting.GRAY)), false);

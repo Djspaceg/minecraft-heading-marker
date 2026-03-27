@@ -1,4 +1,4 @@
-package com.djspaceg.headingmarker;
+package com.daolan.headingmarker;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.ParseResults;

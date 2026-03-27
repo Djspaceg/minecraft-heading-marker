@@ -21,10 +21,10 @@
   },
   "entrypoints": {
     "main": [
-      "com.djspaceg.headingmarker.HeadingMarkerMod"
+      "com.daolan.headingmarker.HeadingMarkerMod"
     ],
     "client": [
-      "com.djspaceg.headingmarker.HeadingMarkerClientMod"
+      "com.daolan.headingmarker.HeadingMarkerClientMod"
     ]
   },
   "depends": {

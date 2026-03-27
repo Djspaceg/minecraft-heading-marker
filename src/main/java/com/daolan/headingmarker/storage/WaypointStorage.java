@@ -1,15 +1,15 @@
-package com.djspaceg.headingmarker.storage;
+package com.daolan.headingmarker.storage;
 
-import com.djspaceg.headingmarker.HeadingMarkerMod;
-import com.djspaceg.headingmarker.HeadingMarkerMod.WaypointData;
+import com.daolan.headingmarker.HeadingMarkerMod;
+import com.daolan.headingmarker.HeadingMarkerMod.WaypointData;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.TypeAdapter;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.djspaceg.headingmarker.waypoint.TrackedWaypoint;
-import com.djspaceg.headingmarker.waypoint.Waypoint;
+import com.daolan.headingmarker.waypoint.TrackedWaypoint;
+import com.daolan.headingmarker.waypoint.Waypoint;
 
 import java.io.FileReader;
 import java.io.FileWriter;

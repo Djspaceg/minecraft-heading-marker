@@ -1,4 +1,4 @@
-package com.djspaceg.headingmarker;
+package com.daolan.headingmarker;
 
 import net.fabricmc.api.ClientModInitializer;
 import org.slf4j.Logger;

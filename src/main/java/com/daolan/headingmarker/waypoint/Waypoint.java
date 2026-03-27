@@ -1,4 +1,4 @@
-package com.djspaceg.headingmarker.waypoint;
+package com.daolan.headingmarker.waypoint;
 
 import java.util.Optional;
 

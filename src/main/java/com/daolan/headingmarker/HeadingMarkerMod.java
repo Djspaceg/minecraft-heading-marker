@@ -1,8 +1,8 @@
-package com.djspaceg.headingmarker;
+package com.daolan.headingmarker;
 
-import com.djspaceg.headingmarker.storage.WaypointStorage;
-import com.djspaceg.headingmarker.waypoint.TrackedWaypoint;
-import com.djspaceg.headingmarker.waypoint.Waypoint;
+import com.daolan.headingmarker.storage.WaypointStorage;
+import com.daolan.headingmarker.waypoint.TrackedWaypoint;
+import com.daolan.headingmarker.waypoint.Waypoint;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -34,6 +34,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Objects;
 import java.util.UUID;
 
 public class HeadingMarkerMod implements ModInitializer {
@@ -645,4 +646,47 @@ public class HeadingMarkerMod implements ModInitializer {
 
 		LOGGER.info("Heading Marker Mod initialized.");
 	}
+
+    /**
+     * Purge all orphaned marker armor stands (created by this mod but not in the registry) from all worlds.
+     * Only OPs should call this. Returns the number of purged entities.
+     */
+    public static int purgeOrphanedArmorStands(ServerPlayer executor) {
+        net.minecraft.server.MinecraftServer server = executor.level().getServer();
+        int purged = 0;
+        // Build a set of all known marker entity IDs
+        java.util.HashSet<Integer> knownEntityIds = new java.util.HashSet<>();
+        for (Map<String, Map<String, WaypointData>> dimMap : playerWaypoints.values()) {
+            for (Map<String, WaypointData> colorMap : dimMap.values()) {
+                for (WaypointData data : colorMap.values()) {
+                    if (data.entityId() != -1) {
+                        knownEntityIds.add(data.entityId());
+                    }
+                }
+            }
+        }
+        // Iterate all loaded worlds
+        for (ServerLevel world : server.getAllLevels()) {
+            for (ArmorStand armorStand : world.getEntities(EntityType.ARMOR_STAND, e -> true)) {
+                // Check for marker: custom name ends with "waypoint" (case-insensitive)
+                boolean isMarker = false;
+                if (armorStand.hasCustomName()) {
+                    String name = Objects.requireNonNull(armorStand.getCustomName()).getString().toLowerCase();
+                    if (name.endsWith("waypoint")) {
+                        isMarker = true;
+                    }
+                }
+                // Optionally, check for the attribute as well (defensive)
+                if (!isMarker && armorStand.getAttributes().hasAttribute(Attributes.WAYPOINT_TRANSMIT_RANGE)) {
+                    isMarker = true;
+                }
+                if (isMarker && !knownEntityIds.contains(armorStand.getId())) {
+                    armorStand.discard();
+                    purged++;
+                }
+            }
+        }
+        LOGGER.info("Purged {} orphaned marker armor stands (not in registry) by {}", purged, executor.getName().getString());
+        return purged;
+    }
 }

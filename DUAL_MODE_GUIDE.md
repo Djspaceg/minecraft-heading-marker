@@ -34,8 +34,8 @@ The mod uses **only standard Minecraft argument types** (`StringArgumentType.wor
 ### Dual Entrypoints
 ```json
 "entrypoints": {
-  "main": ["com.djspaceg.headingmarker.HeadingMarkerMod"],      // Runs on logical server
-  "client": ["com.djspaceg.headingmarker.HeadingMarkerClientMod"] // Runs on logical client
+  "main": ["com.daolan.headingmarker.HeadingMarkerMod"],      // Runs on logical server
+  "client": ["com.daolan.headingmarker.HeadingMarkerClientMod"] // Runs on logical client
 }
 ```
 

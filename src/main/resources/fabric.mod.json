@@ -23,10 +23,16 @@
   },
   "entrypoints": {
     "main": [
-      "com.daolan.headingmarker.HeadingMarkerMod"
+      {
+        "adapter": "kotlin",
+        "value": "com.daolan.headingmarker.HeadingMarkerMod"
+      }
     ],
     "client": [
-      "com.daolan.headingmarker.HeadingMarkerClientMod"
+      {
+        "adapter": "kotlin",
+        "value": "com.daolan.headingmarker.HeadingMarkerClientMod"
+      }
     ]
   },
   "depends": {

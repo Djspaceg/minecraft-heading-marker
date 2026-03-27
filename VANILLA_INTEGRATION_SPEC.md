@@ -2,14 +2,17 @@
 
 ## Executive Summary
 
-This document specifies how to properly integrate custom waypoint markers with Minecraft's native waypoint/locator system instead of the current approach of manually drawing rectangles on the screen.
+This document specifies how to properly integrate custom waypoint markers with Minecraft's native
+waypoint/locator system instead of the current approach of manually drawing rectangles on the
+screen.
 
 ## Current Implementation (v1.0.3) - What We're Doing Wrong
 
 ### Architecture
 
 - **Custom rendering**: Manually drawing colored rectangles using `DrawContext.fill()`
-- **Custom positioning**: Manually calculating screen positions based on player yaw and XP bar location
+- **Custom positioning**: Manually calculating screen positions based on player yaw and XP bar
+  location
 - **Custom synchronization**: Using Fabric networking to sync waypoint data from server to client
 - **Injection point**: Mixin into `ExperienceBar.renderAddons()` to draw at the right time
 
@@ -31,35 +34,35 @@ This document specifies how to properly integrate custom waypoint markers with M
 
 - **Package**: `net.minecraft.world.waypoint`
 - **Key Classes**:
-  - `Waypoint` (interface) - Base waypoint contract
-  - `TrackedWaypoint` (abstract class) - Server-to-client synchronized waypoints
-  - `Waypoint.Config` - Style, color, and display configuration
-  - `WaypointStyle` - Visual appearance registry entry
+    - `Waypoint` (interface) - Base waypoint contract
+    - `TrackedWaypoint` (abstract class) - Server-to-client synchronized waypoints
+    - `Waypoint.Config` - Style, color, and display configuration
+    - `WaypointStyle` - Visual appearance registry entry
 
 #### 2. **Server-Side Management**
 
 - **Package**: `net.minecraft.world.waypoint`
 - **Key Classes**:
-  - `ServerWaypoint` - Server-side waypoint tracking and validation
-  - `ServerWaypoint.PositionalWaypointTracker` - Tracks position-based waypoints
-  - `ServerWaypoint.AzimuthWaypointTracker` - Tracks direction-based waypoints
-  - `ServerWaypoint.ChunkWaypointTracker` - Tracks chunk-based waypoints
+    - `ServerWaypoint` - Server-side waypoint tracking and validation
+    - `ServerWaypoint.PositionalWaypointTracker` - Tracks position-based waypoints
+    - `ServerWaypoint.AzimuthWaypointTracker` - Tracks direction-based waypoints
+    - `ServerWaypoint.ChunkWaypointTracker` - Tracks chunk-based waypoints
 
 #### 3. **Client-Side Handling**
 
 - **Package**: `net.minecraft.client.world`, `net.minecraft.client.network`
 - **Key Classes**:
-  - `ClientWaypointHandler` - Receives and manages tracked waypoints on client
-  - `ClientPlayNetworkHandler.onWaypoint()` - Processes `WaypointS2CPacket`
-  - `ClientPlayNetworkHandler.getWaypointHandler()` - Accessor for waypoint handler
+    - `ClientWaypointHandler` - Receives and manages tracked waypoints on client
+    - `ClientPlayNetworkHandler.onWaypoint()` - Processes `WaypointS2CPacket`
+    - `ClientPlayNetworkHandler.getWaypointHandler()` - Accessor for waypoint handler
 
 #### 4. **Rendering System**
 
 - **Package**: `net.minecraft.client.gui.hud.bar`
 - **Key Classes**:
-  - `LocatorBar` - Renders waypoint indicators on the experience bar
-  - `Bar` (interface) - Standard bar rendering contract
-  - Sprites: `ARROW_UP`, `ARROW_DOWN`, `BACKGROUND` textures
+    - `LocatorBar` - Renders waypoint indicators on the experience bar
+    - `Bar` (interface) - Standard bar rendering contract
+    - Sprites: `ARROW_UP`, `ARROW_DOWN`, `BACKGROUND` textures
 
 #### 5. **Networking**
 
@@ -304,14 +307,16 @@ public class HeadingMarkerStyles {
 
 ## Conclusion
 
-The current implementation works but duplicates significant vanilla functionality. Proper integration with Minecraft's native waypoint system would:
+The current implementation works but duplicates significant vanilla functionality. Proper
+integration with Minecraft's native waypoint system would:
 
 - Reduce codebase by 60%
 - Improve visual consistency
 - Enable automatic networking and persistence
 - Make the mod more maintainable and compatible
 
-The refactoring effort is estimated at 8-12 hours but provides long-term benefits in maintainability and feature parity with vanilla systems.
+The refactoring effort is estimated at 8-12 hours but provides long-term benefits in maintainability
+and feature parity with vanilla systems.
 
 ---
 

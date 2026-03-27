@@ -16,7 +16,9 @@
   "environment": "*",
   "custom": {
     "modmenu": {
-      "badges": [ "library" ]
+      "badges": [
+        "library"
+      ]
     }
   },
   "entrypoints": {

@@ -1,12 +1,14 @@
 # Contributing to Heading Marker
 
-Thank you for considering contributing to Heading Marker! This document provides guidelines for contributing to the project.
+Thank you for considering contributing to Heading Marker! This document provides guidelines for
+contributing to the project.
 
 ## How to Contribute
 
 ### Reporting Bugs
 
 If you find a bug, please create an issue with:
+
 - A clear, descriptive title
 - Steps to reproduce the bug
 - Expected behavior vs actual behavior
@@ -16,6 +18,7 @@ If you find a bug, please create an issue with:
 ### Suggesting Features
 
 Feature suggestions are welcome! Please create an issue with:
+
 - A clear description of the feature
 - Why this feature would be useful
 - How it might work in Minecraft
@@ -96,30 +99,32 @@ tellraw @s [
 Before submitting a pull request:
 
 1. **Test in a clean Minecraft world**
-   - Create a new test world
-   - Install only the Heading Marker data pack
-   - Test all modified functions
+    - Create a new test world
+    - Install only the Heading Marker data pack
+    - Test all modified functions
 
 2. **Test in survival mode**
-   - Verify commands work without creative/operator permissions where applicable
-   - Check resource requirements
+    - Verify commands work without creative/operator permissions where applicable
+    - Check resource requirements
 
 3. **Test multiplayer** (if applicable)
-   - Verify functions work for multiple players
-   - Check for any synchronization issues
+    - Verify functions work for multiple players
+    - Check for any synchronization issues
 
 4. **Test compatibility**
-   - Test with vanilla Minecraft (no mods)
-   - Test with common data packs if possible
+    - Test with vanilla Minecraft (no mods)
+    - Test with common data packs if possible
 
 ## Version Compatibility
 
 Currently targeting:
+
 - **Minecraft Java Edition:** 1.21+
 - **Data Pack Format:** 48
 - **Resource Pack Format:** 34
 
 If adding features that require a different version:
+
 - Update documentation
 - Note version requirements clearly
 - Consider backward compatibility
@@ -127,6 +132,7 @@ If adding features that require a different version:
 ## Questions?
 
 If you have questions about contributing:
+
 - Check existing issues and pull requests
 - Create a new issue with your question
 - Reach out to maintainers
@@ -140,7 +146,8 @@ If you have questions about contributing:
 
 ## License
 
-By contributing to Heading Marker, you agree that your contributions will be licensed under the MIT License.
+By contributing to Heading Marker, you agree that your contributions will be licensed under the MIT
+License.
 
 Thank you for helping make Heading Marker better! 🧭
 

@@ -1,7 +1,10 @@
 # CI/CD Improvements Summary
 
 ## Problem
-The GitHub Actions workflows were copied from an Android project but this is a Minecraft Fabric mod. The workflows had several issues:
+
+The GitHub Actions workflows were copied from an Android project but this is a Minecraft Fabric mod.
+The workflows had several issues:
+
 1. Missing `gradle-wrapper.jar` (blocked by `.gitignore`)
 2. Wrong Java version (17 instead of 21)
 3. Android-specific tasks (assembleDebug, assembleRelease, lint)
@@ -11,6 +14,7 @@ The GitHub Actions workflows were copied from an Android project but this is a M
 ## Solutions Implemented
 
 ### 1. Fixed Gradle Wrapper
+
 - **File:** `.gitignore`
 - **Change:** Added exception `!gradle/wrapper/gradle-wrapper.jar`
 - **File:** `gradle/wrapper/gradle-wrapper.jar`
@@ -18,35 +22,40 @@ The GitHub Actions workflows were copied from an Android project but this is a M
 - **Why:** CI builds require the wrapper JAR to bootstrap Gradle
 
 ### 2. Updated CI Workflow (ci.yml)
+
 - **Name:** Changed from "Android CI" to "Minecraft Mod CI"
 - **Java:** Updated from JDK 17 to JDK 21
 - **Jobs:**
-  - `unit-test` - Runs `./gradlew test` (unchanged)
-  - `build` - Runs `./gradlew build` (was `assembleDebug`)
-  - Removed `lint` job (not applicable to Fabric mods)
+    - `unit-test` - Runs `./gradlew test` (unchanged)
+    - `build` - Runs `./gradlew build` (was `assembleDebug`)
+    - Removed `lint` job (not applicable to Fabric mods)
 - **Artifacts:**
-  - Fixed paths from `app/build/` to `build/`
-  - Changed artifact names to match mod project
-  - Updated upload paths for JAR files
+    - Fixed paths from `app/build/` to `build/`
+    - Changed artifact names to match mod project
+    - Updated upload paths for JAR files
 
 ### 3. Updated Release Workflow (release.yml)
+
 - **Name:** Changed from "Build Release APK" to "Build Release Mod"
 - **Java:** Updated from JDK 17 to JDK 21
 - **Build:** Changed from `assembleRelease` to `build`
 - **Version extraction:** Changed from Gradle task to reading `gradle.properties`
 - **Artifacts:**
-  - Changed from APK to JAR files
-  - Updated paths from `app/build/outputs/apk/` to `build/libs/`
-  - Fixed artifact naming for Minecraft mod
+    - Changed from APK to JAR files
+    - Updated paths from `app/build/outputs/apk/` to `build/libs/`
+    - Fixed artifact naming for Minecraft mod
 - **Release notes:** Updated installation instructions for Fabric mod
 
 ### 4. Added Documentation
+
 - **File:** `.github/workflows/README.md`
 - **Content:** Complete documentation of both workflows, requirements, and usage
 
 ## Testing
 
-Due to network restrictions in the build environment, full builds couldn't be tested locally. However:
+Due to network restrictions in the build environment, full builds couldn't be tested locally.
+However:
+
 - ✅ Gradle wrapper verified working
 - ✅ Workflow syntax validated
 - ✅ File paths corrected
@@ -56,6 +65,7 @@ Due to network restrictions in the build environment, full builds couldn't be te
 ## CI Pipeline Flow
 
 ### On Push/PR to main or develop:
+
 ```
 unit-test (./gradlew test)
     ↓
@@ -65,6 +75,7 @@ status-report (PR comment with artifacts)
 ```
 
 ### On Version Tag (v*):
+
 ```
 build-release (./gradlew build)
     ↓
@@ -76,6 +87,7 @@ Create GitHub Release
 ## Expected Results
 
 After these changes:
+
 1. ✅ CI will run successfully on GitHub Actions
 2. ✅ Tests will execute with Java 21
 3. ✅ Mod JARs will be built and uploaded as artifacts
@@ -102,6 +114,7 @@ After these changes:
 ## Future Improvements (Optional)
 
 Consider adding:
+
 - Code coverage reporting with JaCoCo
 - Static analysis with SpotBugs or Checkstyle
 - Automated dependency updates with Dependabot

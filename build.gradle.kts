@@ -78,10 +78,10 @@ tasks.jar {
 
 // Helpful development tasks
 tasks.register("listTasksToFile") {
-    doLast {
-        val file = file("task_list.txt")
-        file.writeText(tasks.map { it.name }.joinToString("\n"))
-    }
+  doLast {
+    val file = file("task_list.txt")
+    file.writeText(tasks.map { it.name }.joinToString("\n"))
+  }
 }
 
 tasks.register("cleanBuildCache") {

@@ -1,18 +1,21 @@
 package com.daolan.headingmarker;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.ParseResults;
 import com.mojang.brigadier.tree.CommandNode;
-import net.minecraft.commands.Commands;
+
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class HeadingMarkerCommandsTest {
 
@@ -31,8 +34,8 @@ public class HeadingMarkerCommandsTest {
             HeadingMarkerCommands.register(dispatcher, null, Commands.CommandSelection.DEDICATED);
 
             Set<String> present = dispatcher.getRoot().getChild("hm").getChildren().stream()
-                .map(CommandNode::getName)
-                .collect(Collectors.toSet());
+                    .map(CommandNode::getName)
+                    .collect(Collectors.toSet());
 
             assertTrue(present.containsAll(expected), "After duplicate register, /hm should still contain all subcommands: " + expected);
         } catch (ExceptionInInitializerError | NoClassDefFoundError e) {
@@ -67,15 +70,15 @@ public class HeadingMarkerCommandsTest {
             // Test that all variations parse without errors
             for (String command : commands) {
                 ParseResults<CommandSourceStack> parseResult = dispatcher.parse(command, null);
-                
+
                 // Verify that the command was successfully parsed (no exceptions)
                 assertNotNull(parseResult, "Parse result should not be null for command: " + command);
-                
+
                 // Verify that there are no parsing exceptions
                 assertTrue(parseResult.getExceptions().isEmpty(),
-                        "Command should parse without errors: " + command + 
-                        " (errors: " + parseResult.getExceptions() + ")");
-                
+                        "Command should parse without errors: " + command +
+                                " (errors: " + parseResult.getExceptions() + ")");
+
                 // Verify that the command context was created
                 assertNotNull(parseResult.getContext(), "Context should not be null for command: " + command);
             }
@@ -95,7 +98,6 @@ public class HeadingMarkerCommandsTest {
                 assertTrue(parseResult.getExceptions().isEmpty(),
                         "Command should parse without errors: " + command);
             }
-
         } catch (ExceptionInInitializerError | NoClassDefFoundError e) {
             // Skip test if Minecraft environment can't be initialized
             assumeTrue(false, "Skipping test - Minecraft environment not available: " + e.getMessage());
@@ -127,7 +129,6 @@ public class HeadingMarkerCommandsTest {
                 // We can't test execution without a full Minecraft environment,
                 // but the parsing should succeed since we use StringArgumentType
             }
-
         } catch (ExceptionInInitializerError | NoClassDefFoundError e) {
             assumeTrue(false, "Skipping test - Minecraft environment not available: " + e.getMessage());
         }
@@ -150,7 +151,6 @@ public class HeadingMarkerCommandsTest {
             assertNotNull(fullResult, "headingmarker command should parse");
             assertTrue(hmResult.getExceptions().isEmpty(), "hm should parse without errors");
             assertTrue(fullResult.getExceptions().isEmpty(), "headingmarker should parse without errors");
-
         } catch (ExceptionInInitializerError | NoClassDefFoundError e) {
             assumeTrue(false, "Skipping test - Minecraft environment not available: " + e.getMessage());
         }
@@ -177,7 +177,7 @@ public class HeadingMarkerCommandsTest {
                 assertNotNull(parseResult, "Parse result should not be null for command: " + command);
                 assertTrue(parseResult.getExceptions().isEmpty(),
                         "Command should parse without errors: " + command +
-                        " (errors: " + parseResult.getExceptions() + ")");
+                                " (errors: " + parseResult.getExceptions() + ")");
             }
         } catch (ExceptionInInitializerError | NoClassDefFoundError e) {
             assumeTrue(false, "Skipping test - Minecraft environment not available: " + e.getMessage());
@@ -207,7 +207,7 @@ public class HeadingMarkerCommandsTest {
                 assertNotNull(parseResult, "Parse result should not be null for command: " + command);
                 assertTrue(parseResult.getExceptions().isEmpty(),
                         "Command should parse without errors: " + command +
-                        " (errors: " + parseResult.getExceptions() + ")");
+                                " (errors: " + parseResult.getExceptions() + ")");
             }
         } catch (ExceptionInInitializerError | NoClassDefFoundError e) {
             assumeTrue(false, "Skipping test - Minecraft environment not available: " + e.getMessage());

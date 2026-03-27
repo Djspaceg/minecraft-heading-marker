@@ -3,6 +3,7 @@ package com.daolan.headingmarker;
 import com.daolan.headingmarker.storage.WaypointStorage;
 import com.daolan.headingmarker.waypoint.TrackedWaypoint;
 import com.daolan.headingmarker.waypoint.Waypoint;
+
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -10,9 +11,9 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.Vec3i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.core.Vec3i;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -23,6 +24,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
@@ -33,68 +35,29 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 public class HeadingMarkerMod implements ModInitializer {
     public static final String MOD_ID = "headingmarker";
     public static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
-
-    // Map structure: PlayerUUID -> (DimensionKey -> (Color -> WaypointData))
-    // This supports 5 colors × 3 dimensions × per-player = up to 15 markers per player
-    private static final Map<UUID, Map<String, Map<String, WaypointData>>> playerWaypoints = new HashMap<>();
-    private static final Map<UUID, String> lastDistanceText = new HashMap<>(); // Cache to prevent sending redundant action bar updates
-    private static int tickCounter = 0;
-    private static final int DISTANCE_UPDATE_INTERVAL = 5; // Update every 5 ticks (4 times per second)
-
     // Dimension constants for easy reference
     public static final String DIM_OVERWORLD = "overworld";
     public static final String DIM_NETHER = "the_nether";
     public static final String DIM_END = "the_end";
-
-    public record WaypointData(String color, String dimension, double x, double y, double z, TrackedWaypoint trackedWaypoint, int entityId) {}
+    // Map structure: PlayerUUID -> (DimensionKey -> (Color -> WaypointData))
+    // This supports 5 colors × 3 dimensions × per-player = up to 15 markers per player
+    private static final Map<UUID, Map<String, Map<String, WaypointData>>> playerWaypoints = new HashMap<>();
+    private static final Map<UUID, String> lastDistanceText = new HashMap<>(); // Cache to prevent sending redundant action bar updates
+    private static final int DISTANCE_UPDATE_INTERVAL = 5; // Update every 5 ticks (4 times per second)
+    private static int tickCounter = 0;
 
     /**
      * Get the dimension key string from a World's registry key
      */
     public static String getDimensionKey(ResourceKey<Level> worldKey) {
         return worldKey.identifier().getPath(); // Returns "overworld", "the_nether", or "the_end"
-    }
-
-    public enum WaypointColor {
-        RED("red", 0xFF0000, "🔴", ChatFormatting.RED),
-        BLUE("blue", 0x5555FF, "🔵", ChatFormatting.BLUE),
-        GREEN("green", 0x55FF55, "🟢", ChatFormatting.GREEN),
-        YELLOW("yellow", 0xFFFF55, "🟡", ChatFormatting.YELLOW),
-        PURPLE("light_purple", 0xFF55FF, "🟣", ChatFormatting.LIGHT_PURPLE),
-        WHITE("white", 0xFFFFFF, "⚪", ChatFormatting.WHITE);
-
-        public final String name;
-        public final int colorInt;
-        public final String emoji;
-        public final ChatFormatting formatting;
-
-        private static final Map<String, WaypointColor> BY_NAME = new HashMap<>();
-
-        static {
-            for (WaypointColor c : values()) {
-                BY_NAME.put(c.name, c);
-            }
-            // Add "purple" as an alias for "light_purple" for backward compatibility
-            BY_NAME.put("purple", PURPLE);
-        }
-
-        WaypointColor(String name, int colorInt, String emoji, ChatFormatting formatting) {
-            this.name = name;
-            this.colorInt = colorInt;
-            this.emoji = emoji;
-            this.formatting = formatting;
-        }
-
-        public static WaypointColor fromString(String name) {
-            return BY_NAME.getOrDefault(name.toLowerCase(), WHITE);
-        }
     }
 
     public static void createWaypoint(ServerPlayer player, String colorName, double x, double y, double z) {
@@ -483,7 +446,7 @@ public class HeadingMarkerMod implements ModInitializer {
             // Create a snapshot of the waypoints to avoid ConcurrentModificationException
             // since createWaypointInWorld modifies the same map structure
             List<WaypointData> waypointSnapshot = new ArrayList<>(waypoints.values());
-            
+
             for (WaypointData data : waypointSnapshot) {
                 try {
                     // Migrate old "purple" entries to "light_purple" during recreation
@@ -491,14 +454,14 @@ public class HeadingMarkerMod implements ModInitializer {
                     if ("purple".equals(colorName)) {
                         // Remove old "purple" entry before creating with "light_purple"
                         waypoints.remove("purple");
-                        LOGGER.info("Migrating waypoint from 'purple' to 'light_purple' for player {} in {}", 
+                        LOGGER.info("Migrating waypoint from 'purple' to 'light_purple' for player {} in {}",
                                 player.getName().getString(), dimension);
                     }
-                    
+
                     createWaypointInWorld(world, playerUuid, colorName, data.x(), data.y(), data.z());
                     recreatedCount++;
                 } catch (Exception e) {
-                    LOGGER.error("Failed to recreate waypoint entity for color {} in {}: {}", 
+                    LOGGER.error("Failed to recreate waypoint entity for color {} in {}: {}",
                             data.color(), dimension, e.getMessage());
                 }
             }
@@ -521,17 +484,17 @@ public class HeadingMarkerMod implements ModInitializer {
             Vec3 playerPos = new Vec3(player.getX(), player.getY(), player.getZ());
 
             fullText = waypoints.keySet().stream()
-                .sorted()
-                .map(colorName -> {
-                    WaypointColor color = WaypointColor.fromString(colorName);
-                    WaypointData data = waypoints.get(colorName);
-                    int distance = (int) playerPos.distanceTo(new Vec3(data.x(), data.y(), data.z()));
+                    .sorted()
+                    .map(colorName -> {
+                        WaypointColor color = WaypointColor.fromString(colorName);
+                        WaypointData data = waypoints.get(colorName);
+                        int distance = (int) playerPos.distanceTo(new Vec3(data.x(), data.y(), data.z()));
 
-                    return Component.literal(color.emoji + " ")
-                        .append(Component.literal(String.valueOf(distance)).withStyle(color.formatting));
-                })
-                .reduce((text1, text2) -> text1.append("  ").append(text2))
-                .orElse(Component.empty());
+                        return Component.literal(color.emoji + " ")
+                                .append(Component.literal(String.valueOf(distance)).withStyle(color.formatting));
+                    })
+                    .reduce((text1, text2) -> text1.append("  ").append(text2))
+                    .orElse(Component.empty());
         }
 
         String newDistanceText = fullText.getString();
@@ -600,53 +563,6 @@ public class HeadingMarkerMod implements ModInitializer {
         return removed;
     }
 
-	@Override
-	public void onInitialize() {
-		// Note: Removed ArgumentTypeRegistry.registerArgumentType for ColorArgumentType
-		// to make this mod truly server-only. Using StringArgumentType instead.
-		// This allows vanilla clients to connect without the mod installed.
-
-		CommandRegistrationCallback.EVENT.register(HeadingMarkerCommands::register);
-
-		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-			LOGGER.info("Loading waypoints from storage...");
-			Path storageDir = FabricLoader.getInstance().getGameDir().resolve("waypoints");
-			try {
-				Files.createDirectories(storageDir);
-				Map<UUID, Map<String, Map<String, WaypointData>>> loadedData = WaypointStorage.loadWaypoints(storageDir);
-				playerWaypoints.putAll(loadedData);
-				LOGGER.info("Loaded data for {} players.", loadedData.size());
-			} catch (IOException e) {
-				LOGGER.error("Failed to create waypoint storage directory.", e);
-			}
-		});
-
-		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
-			LOGGER.info("Saving all waypoints to storage...");
-			Path storageDir = FabricLoader.getInstance().getGameDir().resolve("waypoints");
-			WaypointStorage.saveWaypoints(storageDir, playerWaypoints);
-		});
-
-		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> recreateWaypointEntities(handler.player));
-
-		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-			removeAllPlayerWaypointEntities(handler.player);
-			lastDistanceText.remove(handler.player.getUUID());
-		});
-
-		ServerTickEvents.END_SERVER_TICK.register(server -> {
-			tickCounter++;
-			if (tickCounter >= DISTANCE_UPDATE_INTERVAL) {
-				tickCounter = 0;
-				for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-					displayDistances(player);
-				}
-			}
-		});
-
-		LOGGER.info("Heading Marker Mod initialized.");
-	}
-
     /**
      * Purge all orphaned marker armor stands (created by this mod but not in the registry) from all worlds.
      * Only OPs should call this. Returns the number of purged entities.
@@ -688,5 +604,91 @@ public class HeadingMarkerMod implements ModInitializer {
         }
         LOGGER.info("Purged {} orphaned marker armor stands (not in registry) by {}", purged, executor.getName().getString());
         return purged;
+    }
+
+    @Override
+    public void onInitialize() {
+        // Note: Removed ArgumentTypeRegistry.registerArgumentType for ColorArgumentType
+        // to make this mod truly server-only. Using StringArgumentType instead.
+        // This allows vanilla clients to connect without the mod installed.
+
+        CommandRegistrationCallback.EVENT.register(HeadingMarkerCommands::register);
+
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            LOGGER.info("Loading waypoints from storage...");
+            Path storageDir = FabricLoader.getInstance().getGameDir().resolve("waypoints");
+            try {
+                Files.createDirectories(storageDir);
+                Map<UUID, Map<String, Map<String, WaypointData>>> loadedData = WaypointStorage.loadWaypoints(storageDir);
+                playerWaypoints.putAll(loadedData);
+                LOGGER.info("Loaded data for {} players.", loadedData.size());
+            } catch (IOException e) {
+                LOGGER.error("Failed to create waypoint storage directory.", e);
+            }
+        });
+
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+            LOGGER.info("Saving all waypoints to storage...");
+            Path storageDir = FabricLoader.getInstance().getGameDir().resolve("waypoints");
+            WaypointStorage.saveWaypoints(storageDir, playerWaypoints);
+        });
+
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> recreateWaypointEntities(handler.player));
+
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            removeAllPlayerWaypointEntities(handler.player);
+            lastDistanceText.remove(handler.player.getUUID());
+        });
+
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            tickCounter++;
+            if (tickCounter >= DISTANCE_UPDATE_INTERVAL) {
+                tickCounter = 0;
+                for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                    displayDistances(player);
+                }
+            }
+        });
+
+        LOGGER.info("Heading Marker Mod initialized.");
+    }
+
+    public enum WaypointColor {
+        RED("red", 0xFF0000, "🔴", ChatFormatting.RED),
+        BLUE("blue", 0x5555FF, "🔵", ChatFormatting.BLUE),
+        GREEN("green", 0x55FF55, "🟢", ChatFormatting.GREEN),
+        YELLOW("yellow", 0xFFFF55, "🟡", ChatFormatting.YELLOW),
+        PURPLE("light_purple", 0xFF55FF, "🟣", ChatFormatting.LIGHT_PURPLE),
+        WHITE("white", 0xFFFFFF, "⚪", ChatFormatting.WHITE);
+
+        private static final Map<String, WaypointColor> BY_NAME = new HashMap<>();
+
+        static {
+            for (WaypointColor c : values()) {
+                BY_NAME.put(c.name, c);
+            }
+            // Add "purple" as an alias for "light_purple" for backward compatibility
+            BY_NAME.put("purple", PURPLE);
+        }
+
+        public final String name;
+        public final int colorInt;
+        public final String emoji;
+        public final ChatFormatting formatting;
+
+        WaypointColor(String name, int colorInt, String emoji, ChatFormatting formatting) {
+            this.name = name;
+            this.colorInt = colorInt;
+            this.emoji = emoji;
+            this.formatting = formatting;
+        }
+
+        public static WaypointColor fromString(String name) {
+            return BY_NAME.getOrDefault(name.toLowerCase(), WHITE);
+        }
+    }
+
+    public record WaypointData(String color, String dimension, double x, double y, double z,
+                               TrackedWaypoint trackedWaypoint, int entityId) {
     }
 }

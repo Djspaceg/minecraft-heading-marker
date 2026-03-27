@@ -1,7 +1,7 @@
 # Waypoint Marker Data Pack
 
-This Minecraft data pack allows players to track and display arbitrary coordinates using the `/wp` command.
-
+This Minecraft data pack allows players to track and display arbitrary coordinates using the `/wp`
+command.
 
 ## Features
 
@@ -17,4 +17,5 @@ This Minecraft data pack allows players to track and display arbitrary coordinat
 
 ## Notes
 
-- This is a minimal demonstration. For production use, add error handling and per-player storage iteration.
+- This is a minimal demonstration. For production use, add error handling and per-player storage
+  iteration.

@@ -1,15 +1,16 @@
 package com.daolan.headingmarker.waypoint;
 
 import net.minecraft.core.Vec3i;
-import net.minecraft.world.phys.Vec3;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
+
 import java.util.UUID;
 
 public abstract class TrackedWaypoint implements Waypoint {
+    protected final Vec3i pos;
     private final UUID owner;
     private final Config config;
-    protected final Vec3i pos;
 
     protected TrackedWaypoint(UUID owner, Config config, Vec3i pos) {
         this.owner = owner;
@@ -31,11 +32,6 @@ public abstract class TrackedWaypoint implements Waypoint {
         return config;
     }
 
-    public interface YawProvider {
-        float getCameraYaw();
-        Vec3 getCameraPos();
-    }
-
     public double getRelativeYaw(Level world, YawProvider yawProvider, EntityTickProgress tickProgress) {
         Vec3 camPos = yawProvider.getCameraPos();
         double dX = this.pos.getX() + 0.5 - camPos.x;
@@ -52,5 +48,11 @@ public abstract class TrackedWaypoint implements Waypoint {
         double camYaw = yawProvider.getCameraYaw();
 
         return Mth.wrapDegrees(angleDeg - camYaw);
+    }
+
+    public interface YawProvider {
+        float getCameraYaw();
+
+        Vec3 getCameraPos();
     }
 }

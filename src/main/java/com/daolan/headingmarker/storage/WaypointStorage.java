@@ -2,14 +2,14 @@ package com.daolan.headingmarker.storage;
 
 import com.daolan.headingmarker.HeadingMarkerMod;
 import com.daolan.headingmarker.HeadingMarkerMod.WaypointData;
+import com.daolan.headingmarker.waypoint.TrackedWaypoint;
+import com.daolan.headingmarker.waypoint.Waypoint;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.TypeAdapter;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.daolan.headingmarker.waypoint.TrackedWaypoint;
-import com.daolan.headingmarker.waypoint.Waypoint;
 
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -26,31 +26,6 @@ public class WaypointStorage {
     private static final Gson GSON = new GsonBuilder()
             .registerTypeAdapter(Optional.class, new OptionalTypeAdapter<>())
             .create();
-
-    /**
-     * Custom TypeAdapter for Optional to avoid Java module reflection issues
-     */
-    private static class OptionalTypeAdapter<T> extends TypeAdapter<Optional<T>> {
-        @Override
-        public void write(JsonWriter out, Optional<T> value) throws IOException {
-            if (value.isEmpty()) {
-                out.nullValue();
-            } else {
-                out.jsonValue(String.valueOf(value.get()));
-            }
-        }
-
-        @Override
-        public Optional<T> read(JsonReader in) throws IOException {
-            if (in.peek() == com.google.gson.stream.JsonToken.NULL) {
-                in.nextNull();
-                return Optional.empty();
-            }
-            @SuppressWarnings("unchecked")
-            T value = (T) Integer.valueOf(in.nextInt());
-            return Optional.of(value);
-        }
-    }
 
     /**
      * Save waypoints to storage. Structure: PlayerUUID -> Dimension -> Color -> WaypointData
@@ -85,7 +60,8 @@ public class WaypointStorage {
                     try (FileReader reader = new FileReader(path.toFile())) {
                         Map<String, Map<String, WaypointData>> dimensionWaypoints = GSON.fromJson(
                                 reader,
-                                new TypeToken<Map<String, Map<String, WaypointData>>>() {}.getType()
+                                new TypeToken<Map<String, Map<String, WaypointData>>>() {
+                                }.getType()
                         );
 
                         if (dimensionWaypoints == null) {
@@ -108,14 +84,14 @@ public class WaypointStorage {
                                 if ("purple".equals(colorKey)) {
                                     migratedKey = "light_purple";
                                     migratedColor = "light_purple";
-                                    HeadingMarkerMod.LOGGER.info("Migrating waypoint key from 'purple' to 'light_purple' for player {} in {}", 
+                                    HeadingMarkerMod.LOGGER.info("Migrating waypoint key from 'purple' to 'light_purple' for player {} in {}",
                                             playerUuid, dimension);
                                 }
 
                                 TrackedWaypoint wp = TrackedWaypoint.ofPos(
                                         playerUuid,
                                         new Waypoint.Config(),
-                                        new net.minecraft.core.Vec3i((int)data.x(), (int)data.y(), (int)data.z())
+                                        new net.minecraft.core.Vec3i((int) data.x(), (int) data.y(), (int) data.z())
                                 );
                                 recreatedWaypoints.put(migratedKey, new WaypointData(
                                         migratedColor,
@@ -143,5 +119,30 @@ public class WaypointStorage {
         }
 
         return playerWaypoints;
+    }
+
+    /**
+     * Custom TypeAdapter for Optional to avoid Java module reflection issues
+     */
+    private static class OptionalTypeAdapter<T> extends TypeAdapter<Optional<T>> {
+        @Override
+        public void write(JsonWriter out, Optional<T> value) throws IOException {
+            if (value.isEmpty()) {
+                out.nullValue();
+            } else {
+                out.jsonValue(String.valueOf(value.get()));
+            }
+        }
+
+        @Override
+        public Optional<T> read(JsonReader in) throws IOException {
+            if (in.peek() == com.google.gson.stream.JsonToken.NULL) {
+                in.nextNull();
+                return Optional.empty();
+            }
+            @SuppressWarnings("unchecked")
+            T value = (T) Integer.valueOf(in.nextInt());
+            return Optional.of(value);
+        }
     }
 }

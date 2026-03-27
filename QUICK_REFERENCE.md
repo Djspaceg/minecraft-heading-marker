@@ -4,15 +4,16 @@
 
 ### What Works Now
 
-| Scenario | Server Has Mod | Client Has Mod | Result |
-|----------|---------------|---------------|---------|
-| **Multiplayer (Vanilla Clients)** | ✅ Yes | ❌ No | ✅ Works! Clients can connect without the mod |
-| **Multiplayer (Modded Clients)** | ✅ Yes | ✅ Yes | ✅ Works! No conflicts, mod loads on both sides |
-| **Singleplayer** | N/A | ✅ Yes | ✅ Works! Integrated server has full functionality |
+| Scenario                          | Server Has Mod | Client Has Mod | Result                                            |
+|-----------------------------------|----------------|----------------|---------------------------------------------------|
+| **Multiplayer (Vanilla Clients)** | ✅ Yes          | ❌ No           | ✅ Works! Clients can connect without the mod      |
+| **Multiplayer (Modded Clients)**  | ✅ Yes          | ✅ Yes          | ✅ Works! No conflicts, mod loads on both sides    |
+| **Singleplayer**                  | N/A            | ✅ Yes          | ✅ Works! Integrated server has full functionality |
 
 ### Key Configuration
 
 #### fabric.mod.json
+
 ```json
 {
   "environment": "*",  // ← Runs on server OR client
@@ -24,12 +25,14 @@
 ```
 
 #### HeadingMarkerMod.java
+
 - ✅ No custom argument type registration
 - ✅ Uses StringArgumentType.word() instead
 - ✅ All commands server-side
 - ✅ All waypoint logic server-side
 
 #### HeadingMarkerClientMod.java (NEW)
+
 - ✅ No-op implementation
 - ✅ Allows mod to load on clients
 - ✅ Ready for future client features
@@ -70,14 +73,17 @@ Copy to: .minecraft/mods/headingmarker-1.0.4.jar
 ### Troubleshooting
 
 **Problem**: Vanilla clients still can't connect
+
 - ✅ **Fixed**: Removed custom argument types (ColorArgumentType)
 - ✅ **Using**: Standard StringArgumentType instead
 
 **Problem**: Mod won't load on singleplayer client
+
 - ✅ **Fixed**: Added client entrypoint (HeadingMarkerClientMod)
 - ✅ **Set**: environment = "*" to allow client loading
 
 **Problem**: Clients get registry sync errors
+
 - ✅ **Fixed**: No custom registries used
 - ✅ **Using**: Only standard Minecraft command argument types
 
@@ -89,7 +95,7 @@ Copy to: .minecraft/mods/headingmarker-1.0.4.jar
 ✅ **Optional on clients**: Vanilla clients can connect to servers  
 ✅ **Singleplayer support**: Works in singleplayer with integrated server  
 ✅ **No conflicts**: Can be installed on both sides safely  
-✅ **No compilation errors**: Ready to build and deploy  
+✅ **No compilation errors**: Ready to build and deploy
 
 **Status**: COMPLETE and TESTED! 🎉
 

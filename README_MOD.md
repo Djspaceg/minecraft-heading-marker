@@ -1,10 +1,12 @@
 # Heading Marker Mod (Fabric)
 
-This is a Fabric mod for Minecraft 1.21.1 that provides per-player waypoints and a HUD compass/distance indicator.
+This is a Fabric mod for Minecraft 1.21.1 that provides per-player waypoints and a HUD
+compass/distance indicator.
 
 ## Features
 
-- **Per-Player Waypoints:** Each player can set their own Red, Blue, Green, Yellow, and Purple waypoints.
+- **Per-Player Waypoints:** Each player can set their own Red, Blue, Green, Yellow, and Purple
+  waypoints.
 - **HUD Indicator:** Shows the distance and direction to your active waypoints in the Action Bar.
 - **Persistent Storage:** Waypoints are saved to the server/world data and persist across restarts.
 - **Dimension Aware:** Waypoints mark the dimension they were set in.
@@ -12,7 +14,7 @@ This is a Fabric mod for Minecraft 1.21.1 that provides per-player waypoints and
 ## Commands
 
 - `/hm set <color>` - Set a waypoint at your current location.
-  - Colors: red, blue, green, yellow, purple
+    - Colors: red, blue, green, yellow, purple
 - `/hm remove <color>` - Remove an existing waypoint.
 - `/hm list` - List your current waypoints and coordinates.
 

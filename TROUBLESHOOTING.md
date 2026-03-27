@@ -7,7 +7,8 @@ This guide helps you diagnose and fix common issues with the Heading Marker data
 Before diving into specific issues, verify:
 
 - [ ] Minecraft version is 1.20.2 or later (macros were added in 1.20.2)
-- [ ] The `headingmarker` folder is in the correct location: `saves/[YourWorld]/datapacks/headingmarker/`
+- [ ] The `headingmarker` folder is in the correct location:
+  `saves/[YourWorld]/datapacks/headingmarker/`
 - [ ] The `pack.mcmeta` file is at: `saves/[YourWorld]/datapacks/headingmarker/pack.mcmeta`
 - [ ] You have operator permissions (required to run function commands)
 - [ ] You've run `/reload` after installing
@@ -24,23 +25,24 @@ Before diving into specific issues, verify:
 **Causes & Solutions:**
 
 1. **Incorrect folder location**
-   - ✅ CORRECT: `saves/[YourWorld]/datapacks/headingmarker/pack.mcmeta`
-   - ❌ WRONG: `saves/[YourWorld]/datapacks/pack.mcmeta` (folder not copied)
-   - ❌ WRONG: `saves/[YourWorld]/headingmarker/pack.mcmeta` (not in datapacks folder) [rename to `datapacks/headingmarker`]
-   - ❌ WRONG: `saves/[YourWorld]/datapacks/headingmarker/data/pack.mcmeta` (too deep)
+    - ✅ CORRECT: `saves/[YourWorld]/datapacks/headingmarker/pack.mcmeta`
+    - ❌ WRONG: `saves/[YourWorld]/datapacks/pack.mcmeta` (folder not copied)
+    - ❌ WRONG: `saves/[YourWorld]/headingmarker/pack.mcmeta` (not in datapacks folder) [rename to
+      `datapacks/headingmarker`]
+    - ❌ WRONG: `saves/[YourWorld]/datapacks/headingmarker/data/pack.mcmeta` (too deep)
 
 2. **Wrong Minecraft version**
-   - This data pack requires Minecraft 1.20.2 or later (for macro support)
-   - Check your version in the main menu
-   - Update to at least 1.20.2 if needed
+    - This data pack requires Minecraft 1.20.2 or later (for macro support)
+    - Check your version in the main menu
+    - Update to at least 1.20.2 if needed
 
 3. **File permissions**
-   - Ensure Minecraft can read the files
-   - On Linux/Mac, check file permissions: `chmod -R 755 headingmarker`
+    - Ensure Minecraft can read the files
+    - On Linux/Mac, check file permissions: `chmod -R 755 headingmarker`
 
 4. **Corrupted download**
-   - Re-download the data pack
-   - Ensure all files copied correctly
+    - Re-download the data pack
+    - Ensure all files copied correctly
 
 **How to verify:**
 
@@ -58,13 +60,16 @@ Before diving into specific issues, verify:
 **Causes & Solutions:**
 
 1. **Duplicate Datapacks / Namespace Conflict**
-   - If you have another folder (like `hm_test` or an old backup) in `datapacks/` that also uses the `headingmarker` namespace (i.e. has `data/headingmarker`), Minecraft may attempt to merge them.
-   - If the old pack has broken code, it can crash the loading of the _new_ pack.
-   - **Fix:** Delete any old or duplicate folders from the `datapacks/` directory.
+    - If you have another folder (like `hm_test` or an old backup) in `datapacks/` that also uses
+      the `headingmarker` namespace (i.e. has `data/headingmarker`), Minecraft may attempt to merge
+      them.
+    - If the old pack has broken code, it can crash the loading of the _new_ pack.
+    - **Fix:** Delete any old or duplicate folders from the `datapacks/` directory.
 
 2. **Incompatible Pack Format**
-   - If the `pack_format` in `pack.mcmeta` is newer than your game version, the game may disable the functions.
-   - **Fix:** Ensure `pack.mcmeta` uses a compatible format (e.g., 48 for 1.21-1.21.1).
+    - If the `pack_format` in `pack.mcmeta` is newer than your game version, the game may disable
+      the functions.
+    - **Fix:** Ensure `pack.mcmeta` uses a compatible format (e.g., 48 for 1.21-1.21.1).
 
 You should see `headingmarker` in the enabled list.
 
@@ -78,12 +83,12 @@ You should see `headingmarker` in the enabled list.
 **Solutions:**
 
 1. **Check Minecraft version**
-   - This pack needs 1.20.2+ for macros
-   - If on older version, the `pack_format: 48` won't be recognized
+    - This pack needs 1.20.2+ for macros
+    - If on older version, the `pack_format: 48` won't be recognized
 
 2. **Check pack.mcmeta**
-   - File should exist at: `datapacks/headingmarker/pack.mcmeta`
-   - Should contain valid JSON with `pack_format: 48`
+    - File should exist at: `datapacks/headingmarker/pack.mcmeta`
+    - Should contain valid JSON with `pack_format: 48`
 
 3. **Force enable (if using older version)**
    ```
@@ -116,18 +121,18 @@ You should see `headingmarker` in the enabled list.
    ```
 
 2. **Missing operator permissions**
-   - Single-player: Enabled by default
-   - Multiplayer: Ask admin to run: `/op YourUsername`
+    - Single-player: Enabled by default
+    - Multiplayer: Ask admin to run: `/op YourUsername`
 
 3. **Typo in command**
-   - Correct: `/function headingmarker:help`
-   - Wrong: `/function headingmarker:help` (hyphen)
-   - Use Tab to auto-complete
+    - Correct: `/function headingmarker:help`
+    - Wrong: `/function headingmarker:help` (hyphen)
+    - Use Tab to auto-complete
 
 4. **Namespace confusion**
-   - Folder name: `headingmarker`
-   - Namespace in commands: `headingmarker` (canonical)
-   - This is normal! The namespace comes from the folder inside `data/`
+    - Folder name: `headingmarker`
+    - Namespace in commands: `headingmarker` (canonical)
+    - This is normal! The namespace comes from the folder inside `data/`
 
 ### No Help Message When Running /function headingmarker:help
 
@@ -170,7 +175,7 @@ You should see `headingmarker` in the enabled list.
 **Causes & Solutions:**
 
 1. **Markers not actually set**
-   - Verify marker is active:
+    - Verify marker is active:
 
    ```
    /scoreboard objectives setdisplay sidebar hm.red.active
@@ -179,18 +184,18 @@ You should see `headingmarker` in the enabled list.
    You should see `1` if red marker is active
 
 2. **Tick function not running**
-   - The display updates every tick
-   - Verify with: `/datapack list`
-   - Ensure `headingmarker` is enabled
+    - The display updates every tick
+    - Verify with: `/datapack list`
+    - Ensure `headingmarker` is enabled
 
 3. **In wrong dimension**
-   - Markers are per-dimension
-   - If you set a marker in Overworld but are in Nether, it won't show
-   - Go back to the dimension where you set the marker
+    - Markers are per-dimension
+    - If you set a marker in Overworld but are in Nether, it won't show
+    - Go back to the dimension where you set the marker
 
 4. **Actionbar blocked by other data packs**
-   - Some data packs may override the actionbar
-   - Temporarily disable other data packs to test
+    - Some data packs may override the actionbar
+    - Temporarily disable other data packs to test
 
 ### Markers Show Distance of 0 But I'm Far Away
 
@@ -201,12 +206,12 @@ You should see `headingmarker` in the enabled list.
 **Causes:**
 
 1. **You ARE at the marker (within rounding error)**
-   - Distance² of 0-100 means you're within 10 blocks
-   - The marker works correctly!
+    - Distance² of 0-100 means you're within 10 blocks
+    - The marker works correctly!
 
 2. **Marker coordinates are your current location**
-   - You may have set the marker at your current position
-   - Set it at a different location to test
+    - You may have set the marker at your current position
+    - Set it at a different location to test
 
 ### Markers Disappear After Restart
 
@@ -218,21 +223,21 @@ You should see `headingmarker` in the enabled list.
 **Causes & Solutions:**
 
 1. **Persistence system not triggering**
-   - Markers should save automatically when `/reload` runs
-   - Or when the world closes normally
-   - Force save: `/function headingmarker:save_markers`
+    - Markers should save automatically when `/reload` runs
+    - Or when the world closes normally
+    - Force save: `/function headingmarker:save_markers`
 
 2. **Player UUID not matching**
-   - This is rare but can happen if player data corrupts
-   - Remove and rejoin the world
+    - This is rare but can happen if player data corrupts
+    - Remove and rejoin the world
 
 3. **Storage cleared**
-   - Check if other data packs might be clearing storage
-   - Verify with: `/data get storage headingmarker:players`
+    - Check if other data packs might be clearing storage
+    - Verify with: `/data get storage headingmarker:players`
 
 4. **Server not saving properly**
-   - On servers, ensure auto-save is enabled
-   - Run `/save-all` before stopping
+    - On servers, ensure auto-save is enabled
+    - Run `/save-all` before stopping
 
 ## Multiplayer Issues
 
@@ -254,16 +259,16 @@ You should see `headingmarker` in the enabled list.
 **Solutions:**
 
 1. **Ensure data pack is server-side**
-   - Install in server's world folder, not client
-   - Server needs to restart to load data pack
+    - Install in server's world folder, not client
+    - Server needs to restart to load data pack
 
 2. **Verify UUID-based storage**
-   - Check storage: `/data get storage headingmarker:players`
-   - Should show UUIDs as keys
+    - Check storage: `/data get storage headingmarker:players`
+    - Should show UUIDs as keys
 
 3. **Server auto-save settings**
-   - Ensure server saves player data
-   - Check `server.properties` for save settings
+    - Ensure server saves player data
+    - Check `server.properties` for save settings
 
 ## Performance Issues
 
@@ -287,12 +292,15 @@ You should see `headingmarker` in the enabled list.
 ### Confirm load tag executed (quick test)
 
 1. Remove any duplicate packs from your world:
-   - Delete `saves/[YourWorld]/datapacks/heading_marker` and `heading-marker` if present; keep only `headingmarker`.
+    - Delete `saves/[YourWorld]/datapacks/heading_marker` and `heading-marker` if present; keep only
+      `headingmarker`.
 2. Reload and watch chat (or `logs/latest.log`):
-   - Run `/reload`.
-   - Look for this exact debug message in chat or the log: **`[Heading Marker DEBUG] pack: headingmarker commit 8508315 loaded`** or the token **`HM-8508315-LOAD`**.
+    - Run `/reload`.
+    - Look for this exact debug message in chat or the log: *
+      *`[Heading Marker DEBUG] pack: headingmarker commit 8508315 loaded`** or the token *
+      *`HM-8508315-LOAD`**.
 3. Test the function directly:
-   - Run `/function headingmarker:debug_loaded` — it should print `debug token: HM-8508315-LOAD`.
+    - Run `/function headingmarker:debug_loaded` — it should print `debug token: HM-8508315-LOAD`.
 
 ### Check if data pack is loaded
 
@@ -347,30 +355,30 @@ You should see `headingmarker` in the enabled list.
 If none of these solutions work:
 
 1. **Collect information:**
-   - Minecraft version
-   - Single-player or multiplayer
-   - Output of `/datapack list`
-   - Any error messages in chat
-   - Game log file (`.minecraft/logs/latest.log`)
+    - Minecraft version
+    - Single-player or multiplayer
+    - Output of `/datapack list`
+    - Any error messages in chat
+    - Game log file (`.minecraft/logs/latest.log`)
 
 2. **Try a clean install:**
-   - Remove the data pack completely
-   - Delete the `headingmarker` folder
-   - Run `/reload`
-   - Restart Minecraft
-   - Re-install fresh copy
+    - Remove the data pack completely
+    - Delete the `headingmarker` folder
+    - Run `/reload`
+    - Restart Minecraft
+    - Re-install fresh copy
 
 3. **Test in a new world:**
-   - Create a new test world
-   - Install data pack in test world
-   - See if issue persists
-   - If it works, issue may be with original world
+    - Create a new test world
+    - Install data pack in test world
+    - See if issue persists
+    - If it works, issue may be with original world
 
 4. **Report the bug:**
-   - Open an issue on GitHub
-   - Include all information from step 1
-   - Describe what you expected vs what happened
-   - Include steps to reproduce
+    - Open an issue on GitHub
+    - Include all information from step 1
+    - Describe what you expected vs what happened
+    - Include steps to reproduce
 
 ## Common Misunderstandings
 
@@ -420,13 +428,15 @@ If none of these solutions work:
 1. /datapack list — confirm pack enabled
 2. /reload — reload functions
 3. /function headingmarker:help — show help (namespace must match files)
-4. /function headingmarker:save_markers and /function headingmarker:load_markers — force persistence ops
+4. /function headingmarker:save_markers and /function headingmarker:load_markers — force persistence
+   ops
 5. /data get storage headingmarker:players — inspect saved data
 6. /scoreboard objectives setdisplay sidebar hm.red.active — verify marker active state
 7. /function headingmarker:set_red, :set_blue, etc. — test all color commands
 8. /function headingmarker:remove_all — test removal of all waypoints
 9. Check server/client latest.log for Unknown function headingmarker:... errors
-10. Always run load.mcfunction after naming changes to re-create scoreboards or update pack_format if necessary
+10. Always run load.mcfunction after naming changes to re-create scoreboards or update pack_format
+    if necessary
 
 ---
 

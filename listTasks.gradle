@@ -1,0 +1,1 @@
+tasks.configureEach { println "Task: ${it.name}" }

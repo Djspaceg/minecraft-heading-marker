@@ -241,10 +241,27 @@ class HeadingMarkerMod : ModInitializer {
                     isInvulnerable = true
                     setNoGravity(true)
                     isSilent = true
-                    setMarker(true)
-                    setNoBasePlate(true)
                     customName = Component.literal("${color.colorName} waypoint")
                 }
+
+            // Set marker mode (no hitbox) and remove base plate.
+            // setMarker()/setNoBasePlate() are private in MC 26.1, so we set the
+            // client flags byte directly via the synced entity data accessor.
+            try {
+                val flagsField = ArmorStand::class.java.getDeclaredField("DATA_CLIENT_FLAGS")
+                flagsField.isAccessible = true
+                @Suppress("UNCHECKED_CAST")
+                val dataKey =
+                    flagsField.get(null) as net.minecraft.network.syncher.EntityDataAccessor<Byte>
+                // Bit flags: 0x01 = small, 0x04 = arms, 0x08 = no base plate, 0x10 = marker
+                val flags: Byte = (0x08 or 0x10).toByte() // NoBasePlate + Marker
+                armorStand.entityData.set(dataKey, flags)
+            } catch (e: Exception) {
+                LOGGER.warn(
+                    "Could not set marker/no-base-plate flags via reflection: {}",
+                    e.message,
+                )
+            }
 
             try {
                 val waypointAttr = armorStand.getAttribute(Attributes.WAYPOINT_TRANSMIT_RANGE)

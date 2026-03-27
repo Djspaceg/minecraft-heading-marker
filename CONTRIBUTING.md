@@ -119,7 +119,7 @@ Before submitting a pull request:
 
 Currently targeting:
 
-- **Minecraft Java Edition:** 1.21+
+- **Minecraft Java Edition:** 26.1+
 - **Data Pack Format:** 48
 - **Resource Pack Format:** 34
 
@@ -146,9 +146,7 @@ If you have questions about contributing:
 
 ## License
 
-By contributing to Heading Marker, you agree that your contributions will be licensed under the MIT
-License.
+By contributing to Heading Marker, you agree that your contributions will be licensed under the
+CC0 1.0 Universal License.
 
 Thank you for helping make Heading Marker better! 🧭
-
-

@@ -295,7 +295,7 @@ The system is 100% vanilla Minecraft - it works on any server running the data p
 
 ## Compatibility
 
-- **Minecraft Version:** 1.21+ (Data Pack Format 48)
+- **Minecraft Version:** 26.1+ (Data Pack Format 48)
 - **Game Mode:** Survival, Creative, Adventure
 - **Multiplayer:** ✅ Fully supported
 - **Server:** ✅ Works on vanilla servers
@@ -384,9 +384,8 @@ Contributions are welcome! Feel free to:
 
 ## License
 
-This project is open source and available under the MIT License.
+This project is open source and available under the CC0 1.0 Universal License.
 
 ## Credits
 
 Created for Minecraft Java Edition players who want better waypoint navigation!
-

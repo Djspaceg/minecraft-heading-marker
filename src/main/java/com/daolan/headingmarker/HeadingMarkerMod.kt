@@ -83,8 +83,12 @@ class HeadingMarkerMod : ModInitializer {
         BLUE("blue", 0x5555FF, "🔵", ChatFormatting.BLUE),
         GREEN("green", 0x55FF55, "🟢", ChatFormatting.GREEN),
         YELLOW("yellow", 0xFFFF55, "🟡", ChatFormatting.YELLOW),
-        PURPLE("light_purple", 0xFF55FF, "🟣", ChatFormatting.LIGHT_PURPLE),
+        PURPLE("purple", 0xFF55FF, "🟣", ChatFormatting.LIGHT_PURPLE),
         WHITE("white", 0xFFFFFF, "⚪", ChatFormatting.WHITE);
+
+        /** The Minecraft color name used in vanilla commands (e.g. "light_purple" for PURPLE). */
+        val mcColorName: String
+            get() = formatting.getName()!!
 
         companion object {
             private val BY_NAME: MutableMap<String, WaypointColor> =
@@ -92,7 +96,8 @@ class HeadingMarkerMod : ModInitializer {
                         for (c in WaypointColor.entries) {
                             put(c.colorName, c)
                         }
-                        put("purple", PURPLE)
+                        // Backward compatibility: accept "light_purple" as alias for "purple"
+                        put("light_purple", PURPLE)
                     }
                     .toMutableMap()
 
@@ -161,7 +166,7 @@ class HeadingMarkerMod : ModInitializer {
             }
 
             setWaypointColorWithCommand(world, armorStand, color)
-            setWaypointViewersWithCommand(world, armorStand, player.name.string)
+            setWaypointViewersWithCommand(world, armorStand, player.gameProfile.name)
 
             val pos = Vec3i(x.toInt(), y.toInt(), z.toInt())
             val config = Waypoint.Config().apply { this.color = Optional.of(color.colorInt) }
@@ -215,9 +220,8 @@ class HeadingMarkerMod : ModInitializer {
 
             setWaypointColorWithCommand(world, armorStand, color)
 
-            val server = world.server
-            server?.playerList?.getPlayer(playerUuid)?.let { owner ->
-                setWaypointViewersWithCommand(world, armorStand, owner.name.string)
+            world.server?.playerList?.getPlayer(playerUuid)?.let { owner ->
+                setWaypointViewersWithCommand(world, armorStand, owner.gameProfile.name)
             }
 
             val pos = Vec3i(x.toInt(), y.toInt(), z.toInt())
@@ -291,7 +295,7 @@ class HeadingMarkerMod : ModInitializer {
                         return
                     }
             try {
-                val command = "waypoint modify ${armorStand.stringUUID} color ${color.colorName}"
+                val command = "waypoint modify ${armorStand.stringUUID} color ${color.mcColorName}"
                 val commandSource = server.createCommandSourceStack().withSuppressedOutput()
                 val dispatcher = server.commands.dispatcher
                 val parseResults = dispatcher.parse(command, commandSource)
@@ -561,10 +565,11 @@ class HeadingMarkerMod : ModInitializer {
                 for (data in waypointSnapshot) {
                     try {
                         var colorName = data.color
-                        if (colorName == "purple") {
-                            waypoints.remove("purple")
+                        if (colorName == "light_purple") {
+                            waypoints.remove("light_purple")
+                            colorName = "purple"
                             LOGGER.info(
-                                "Migrating waypoint from 'purple' to 'light_purple' for player {} in {}",
+                                "Migrating waypoint from 'light_purple' to 'purple' for player {} in {}",
                                 player.name.string,
                                 dimension,
                             )
@@ -624,11 +629,12 @@ class HeadingMarkerMod : ModInitializer {
 
         @JvmStatic
         fun purgeOrphanedWaypointEntities(server: MinecraftServer): Int {
-            val knownEntityIds = HashSet<Int>()
+            // Track known entities with dimension qualifier to avoid cross-dimension ID collisions
+            val knownEntities = HashSet<String>()
             for (dimMap in playerWaypoints.values) {
-                for (colorMap in dimMap.values) {
+                for ((dim, colorMap) in dimMap) {
                     for (data in colorMap.values) {
-                        if (data.entityId != -1) knownEntityIds.add(data.entityId)
+                        if (data.entityId != -1) knownEntities.add("$dim:${data.entityId}")
                     }
                 }
             }
@@ -644,7 +650,7 @@ class HeadingMarkerMod : ModInitializer {
                     if (entity !is ArmorStand) continue
                     val customName = entity.customName?.string ?: continue
                     if (customName !in waypointNames) continue
-                    if (entity.id in knownEntityIds) continue
+                    if ("$dimKey:${entity.id}" in knownEntities) continue
                     orphans.add(entity)
                 }
 
@@ -665,48 +671,6 @@ class HeadingMarkerMod : ModInitializer {
 
             LOGGER.info("Purged {} orphaned waypoint entity(ies) across all dimensions.", removed)
             return removed
-        }
-
-        @JvmStatic
-        fun purgeOrphanedArmorStands(executor: ServerPlayer): Int {
-            val server = executor.level().server!!
-            var purged = 0
-
-            val knownEntityIds = HashSet<Int>()
-            for (dimMap in playerWaypoints.values) {
-                for (colorMap in dimMap.values) {
-                    for (data in colorMap.values) {
-                        if (data.entityId != -1) knownEntityIds.add(data.entityId)
-                    }
-                }
-            }
-
-            for (world in server.allLevels) {
-                for (armorStand in world.getEntities(EntityType.ARMOR_STAND) { true }) {
-                    var isMarker = false
-                    if (armorStand.hasCustomName()) {
-                        val name = armorStand.customName!!.string.lowercase()
-                        if (name.endsWith("waypoint")) isMarker = true
-                    }
-                    if (
-                        !isMarker &&
-                            armorStand.attributes.hasAttribute(Attributes.WAYPOINT_TRANSMIT_RANGE)
-                    ) {
-                        isMarker = true
-                    }
-                    if (isMarker && armorStand.id !in knownEntityIds) {
-                        armorStand.discard()
-                        purged++
-                    }
-                }
-            }
-
-            LOGGER.info(
-                "Purged {} orphaned marker armor stands (not in registry) by {}",
-                purged,
-                executor.name.string,
-            )
-            return purged
         }
     }
 }

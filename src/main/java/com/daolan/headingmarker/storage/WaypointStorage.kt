@@ -83,17 +83,17 @@ object WaypointStorage {
                                     for ((dimension, waypoints) in dimensionWaypoints!!) {
                                         val recreatedWaypoints = HashMap<String, WaypointData>()
                                         for ((colorKey, data) in waypoints) {
-                                            // Migrate old "purple" key to "light_purple"
+                                            // Migrate old "light_purple" key to "purple"
                                             val migratedKey =
-                                                if (colorKey == "purple") "light_purple"
+                                                if (colorKey == "light_purple") "purple"
                                                 else colorKey
                                             val migratedColor =
-                                                if (data.color == "purple") "light_purple"
+                                                if (data.color == "light_purple") "purple"
                                                 else data.color
 
-                                            if (colorKey == "purple") {
+                                            if (colorKey == "light_purple") {
                                                 HeadingMarkerMod.LOGGER.info(
-                                                    "Migrating waypoint key from 'purple' to 'light_purple' for player {} in {}",
+                                                    "Migrating waypoint key from 'light_purple' to 'purple' for player {} in {}",
                                                     playerUuid,
                                                     dimension,
                                                 )

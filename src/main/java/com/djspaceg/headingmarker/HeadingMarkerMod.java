@@ -30,8 +30,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public class HeadingMarkerMod implements ModInitializer {
@@ -538,6 +540,63 @@ public class HeadingMarkerMod implements ModInitializer {
             lastDistanceText.put(playerUuid, newDistanceText);
             player.sendSystemMessage(fullText, true);
         }
+    }
+
+    /**
+     * Purge orphaned waypoint entities — armor stands that match the naming pattern used by
+     * this mod (e.g. "red waypoint") but are no longer tracked in the internal registry.
+     * This is an OP-only recovery tool for clearing disassociated entities that accumulate
+     * after crashes, reloads, or other abnormal shutdowns.
+     *
+     * @param server the MinecraftServer instance
+     * @return the number of orphaned entities removed
+     */
+    public static int purgeOrphanedWaypointEntities(net.minecraft.server.MinecraftServer server) {
+        // Collect all entity IDs that are currently tracked in our registry
+        Set<Integer> knownEntityIds = new HashSet<>();
+        for (Map<String, Map<String, WaypointData>> dimMap : playerWaypoints.values()) {
+            for (Map<String, WaypointData> colorMap : dimMap.values()) {
+                for (WaypointData data : colorMap.values()) {
+                    if (data.entityId() != -1) {
+                        knownEntityIds.add(data.entityId());
+                    }
+                }
+            }
+        }
+
+        // Build the set of custom-name strings this mod uses for waypoint entities
+        Set<String> waypointNames = new HashSet<>();
+        for (WaypointColor color : WaypointColor.values()) {
+            waypointNames.add(color.name + " waypoint");
+        }
+
+        int removed = 0;
+        for (String dimKey : new String[]{DIM_OVERWORLD, DIM_NETHER, DIM_END}) {
+            ServerLevel world = getWorldForDimension(server, dimKey);
+            if (world == null) continue;
+
+            // Collect candidates first to avoid modifying the entity list while iterating
+            List<ArmorStand> orphans = new ArrayList<>();
+            for (Entity entity : world.getAllEntities()) {
+                if (!(entity instanceof ArmorStand stand)) continue;
+                Component customName = stand.getCustomName();
+                if (customName == null) continue;
+                if (!waypointNames.contains(customName.getString())) continue;
+                if (knownEntityIds.contains(stand.getId())) continue;
+                orphans.add(stand);
+            }
+
+            for (ArmorStand stand : orphans) {
+                LOGGER.info("Purging orphaned waypoint entity '{}' (id={}) at ({},{},{}) in {}",
+                        stand.getCustomName().getString(), stand.getId(),
+                        (int) stand.getX(), (int) stand.getY(), (int) stand.getZ(), dimKey);
+                stand.discard();
+                removed++;
+            }
+        }
+
+        LOGGER.info("Purged {} orphaned waypoint entity(ies) across all dimensions.", removed);
+        return removed;
     }
 
 	@Override

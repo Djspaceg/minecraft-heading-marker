@@ -24,13 +24,13 @@ public class HeadingMarkerCommands {
                 Commands.literal("hm")
                         .requires(source -> true)
                         .executes(context -> {
-                            sendHelpMessage(context.getSource().getPlayer());
+                            sendHelpMessage(context.getSource());
                             return 1;
                         })
                         .then(Commands.literal("help")
                                 .requires(source -> true)
                                 .executes(context -> {
-                                    sendHelpMessage(context.getSource().getPlayer());
+                                    sendHelpMessage(context.getSource());
                                     return 1;
                                 })
                         )
@@ -56,6 +56,10 @@ public class HeadingMarkerCommands {
                         .then(Commands.literal("clearall")
                                 .requires(source -> true)
                                 .executes(context -> clearAllWaypoints(context.getSource().getPlayer()))
+                        )
+                        .then(Commands.literal("purge")
+                                .requires(source -> source.hasPermission(2))
+                                .executes(context -> purgeOrphanedEntities(context.getSource()))
                         )
                         .then(Commands.literal("share")
                                 .requires(source -> true)
@@ -312,6 +316,16 @@ public class HeadingMarkerCommands {
         return removed;
     }
 
+    private static int purgeOrphanedEntities(CommandSourceStack source) {
+        int removed = HeadingMarkerMod.purgeOrphanedWaypointEntities(source.getServer());
+        if (removed == 0) {
+            source.sendSuccess(() -> Component.literal("No orphaned waypoint entities found.").withStyle(ChatFormatting.YELLOW), false);
+        } else {
+            source.sendSuccess(() -> Component.literal("Purged " + removed + " orphaned waypoint entity(ies) across all dimensions.").withStyle(ChatFormatting.GREEN), true);
+        }
+        return 1;
+    }
+
     private static int clearAllWaypoints(ServerPlayer player) {
         int removed = HeadingMarkerMod.clearAllWaypoints(player);
         if (removed == 0) {
@@ -369,29 +383,34 @@ public class HeadingMarkerCommands {
         return waypoints.size();
     }
 
-    private static void sendHelpMessage(ServerPlayer player) {
-        player.sendSystemMessage(Component.literal("========================================").withStyle(ChatFormatting.GOLD));
-        player.sendSystemMessage(Component.literal("Heading Marker - Command Help").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
-        player.sendSystemMessage(Component.literal("========================================").withStyle(ChatFormatting.GOLD));
-        player.sendSystemMessage(Component.literal(""));
-        player.sendSystemMessage(Component.literal("SET MARKER:").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        player.sendSystemMessage(Component.literal("• /hm set [color] [x y z | x z]  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Set marker at position").withStyle(ChatFormatting.GRAY)));
-        player.sendSystemMessage(Component.literal("  Examples: /hm set, /hm set red, /hm set 100 200, /hm set red 100 64 200").withStyle(ChatFormatting.GRAY));
-        player.sendSystemMessage(Component.literal(""));
-        player.sendSystemMessage(Component.literal("REMOVE MARKER:").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        player.sendSystemMessage(Component.literal("• /hm remove <color>  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Remove marker by color").withStyle(ChatFormatting.GRAY)));
-        player.sendSystemMessage(Component.literal("• /hm clear  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Remove all your markers in this dimension").withStyle(ChatFormatting.GRAY)));
-        player.sendSystemMessage(Component.literal("• /hm clearall  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Remove all your markers across every dimension").withStyle(ChatFormatting.GRAY)));
-        player.sendSystemMessage(Component.literal(""));
-        player.sendSystemMessage(Component.literal("LIST MARKERS:").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        player.sendSystemMessage(Component.literal("• /hm list  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- List all your markers in this dimension").withStyle(ChatFormatting.GRAY)));
-        player.sendSystemMessage(Component.literal(""));
-        player.sendSystemMessage(Component.literal("SHARE MARKER:").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        player.sendSystemMessage(Component.literal("• /hm share <player> <color>  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Share one of your markers with another player").withStyle(ChatFormatting.GRAY)));
-        player.sendSystemMessage(Component.literal(""));
-        player.sendSystemMessage(Component.literal("DISTANCE DISPLAY:").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
-        player.sendSystemMessage(Component.literal("• /trigger hm.distance  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Toggle distance display on actionbar").withStyle(ChatFormatting.GRAY)));
-        player.sendSystemMessage(Component.literal(""));
-        player.sendSystemMessage(Component.literal("========================================").withStyle(ChatFormatting.GOLD));
+    private static void sendHelpMessage(CommandSourceStack source) {
+        source.sendSuccess(() -> Component.literal("========================================").withStyle(ChatFormatting.GOLD), false);
+        source.sendSuccess(() -> Component.literal("Heading Marker - Command Help").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
+        source.sendSuccess(() -> Component.literal("========================================").withStyle(ChatFormatting.GOLD), false);
+        source.sendSuccess(() -> Component.literal(""), false);
+        source.sendSuccess(() -> Component.literal("SET MARKER:").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), false);
+        source.sendSuccess(() -> Component.literal("• /hm set [color] [x y z | x z]  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Set marker at position").withStyle(ChatFormatting.GRAY)), false);
+        source.sendSuccess(() -> Component.literal("  Examples: /hm set, /hm set red, /hm set 100 200, /hm set red 100 64 200").withStyle(ChatFormatting.GRAY), false);
+        source.sendSuccess(() -> Component.literal(""), false);
+        source.sendSuccess(() -> Component.literal("REMOVE MARKER:").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), false);
+        source.sendSuccess(() -> Component.literal("• /hm remove <color>  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Remove marker by color").withStyle(ChatFormatting.GRAY)), false);
+        source.sendSuccess(() -> Component.literal("• /hm clear  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Remove all your markers in this dimension").withStyle(ChatFormatting.GRAY)), false);
+        source.sendSuccess(() -> Component.literal("• /hm clearall  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Remove all your markers across every dimension").withStyle(ChatFormatting.GRAY)), false);
+        source.sendSuccess(() -> Component.literal(""), false);
+        source.sendSuccess(() -> Component.literal("LIST MARKERS:").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), false);
+        source.sendSuccess(() -> Component.literal("• /hm list  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- List all your markers in this dimension").withStyle(ChatFormatting.GRAY)), false);
+        source.sendSuccess(() -> Component.literal(""), false);
+        source.sendSuccess(() -> Component.literal("SHARE MARKER:").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), false);
+        source.sendSuccess(() -> Component.literal("• /hm share <player> <color>  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Share one of your markers with another player").withStyle(ChatFormatting.GRAY)), false);
+        source.sendSuccess(() -> Component.literal(""), false);
+        source.sendSuccess(() -> Component.literal("DISTANCE DISPLAY:").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD), false);
+        source.sendSuccess(() -> Component.literal("• /trigger hm.distance  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Toggle distance display on actionbar").withStyle(ChatFormatting.GRAY)), false);
+        if (source.hasPermission(2)) {
+            source.sendSuccess(() -> Component.literal(""), false);
+            source.sendSuccess(() -> Component.literal("ADMIN:").withStyle(ChatFormatting.RED, ChatFormatting.BOLD), false);
+            source.sendSuccess(() -> Component.literal("• /hm purge  ").withStyle(ChatFormatting.YELLOW).append(Component.literal("- Purge untracked waypoint entities from all dimensions (OP only)").withStyle(ChatFormatting.GRAY)), false);
+        }
+        source.sendSuccess(() -> Component.literal(""), false);
+        source.sendSuccess(() -> Component.literal("========================================").withStyle(ChatFormatting.GOLD), false);
     }
 }

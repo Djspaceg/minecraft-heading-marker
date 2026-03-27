@@ -21,12 +21,14 @@ Place the following 16x16 pixel PNG images in this directory:
 ## Usage
 
 Once you add the PNG files here:
+
 1. The resource pack will automatically map them to unicode characters
 2. Update the datapack functions to use `\uE000` through `\uE004` instead of emoji
 3. The custom sprites will appear on the actionbar instead of emoji
 
 ## Current Status
 
-Currently using emoji placeholders (🔴🔵🟢🟡🟣) which work without any resource pack. Once you add custom sprites here, you can switch to the unicode characters for a custom look.
+Currently using emoji placeholders (🔴🔵🟢🟡🟣) which work without any resource pack. Once you add custom
+sprites here, you can switch to the unicode characters for a custom look.
 
 

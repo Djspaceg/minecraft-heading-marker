@@ -1,18 +1,23 @@
 # Heading Marker
 
-A Minecraft Java Edition data pack that displays multiple custom waypoint markers on your HUD (actionbar) using slash commands. Track up to 5 waypoints per dimension with colored icons and real-time distance tracking!
+A Minecraft Java Edition data pack that displays multiple custom waypoint markers on your HUD (
+actionbar) using slash commands. Track up to 5 waypoints per dimension with colored icons and
+real-time distance tracking!
 
 ## Features
 
-- 🎯 **Multiple HUD Markers** - Track up to 5 waypoints per dimension (15 total across all dimensions)
+- 🎯 **Multiple HUD Markers** - Track up to 5 waypoints per dimension (15 total across all
+  dimensions)
 - 🌍 **Per-Dimension Markers** - Separate marker sets for Overworld, Nether, and End
 - 📍 **Coordinate-Based** - Enter 2D (X, Z) or 3D (X, Y, Z) coordinates via commands
 - 🎨 **5 Color Options** - 🔴 Red, 🔵 Blue, 🟢 Green, 🟡 Yellow, 🟣 Purple
 - 📏 **Distance Tracking** - See real-time distance² to all active waypoints in current dimension
-- 💾 **Full Persistence** - Markers saved and restored between gameplay sessions with UUID-based per-player per-dimension storage
+- 💾 **Full Persistence** - Markers saved and restored between gameplay sessions with UUID-based
+  per-player per-dimension storage
 - 🔄 **Auto-Color Cycling** - Automatically assigns next available color
 - ⚡ **Instant Updates** - All markers update every tick (20 times per second)
-- 👥 **Per-Player Markers** - Each player has their own set of markers (5 per dimension) with UUID-based persistence for multiplayer servers
+- 👥 **Per-Player Markers** - Each player has their own set of markers (5 per dimension) with
+  UUID-based persistence for multiplayer servers
 - 🚪 **Dimension-Aware** - Automatically saves/loads correct markers when changing dimensions
 - 💡 **Built-in Help** - In-game help command with clickable examples and tab-completion
 
@@ -101,12 +106,13 @@ Each dimension maintains its own independent set of markers.
 
 1. Download or clone this repository
 2. Copy the `headingmarker` folder to your Minecraft world's `datapacks` directory:
-   - Windows: `%appdata%\.minecraft\saves\[YourWorldName]\datapacks\`
-   - Mac/Linux: `~/.minecraft/saves/[YourWorldName]/datapacks/`
+    - Windows: `%appdata%\.minecraft\saves\[YourWorldName]\datapacks\`
+    - Mac/Linux: `~/.minecraft/saves/[YourWorldName]/datapacks/`
 3. The final path should be: `saves/[YourWorldName]/datapacks/headingmarker/pack.mcmeta`
 4. Load or reload your world
 5. Run `/reload` in-game to activate the data pack
-6. You should see a welcome message: "Heading Marker loaded! Use /function headingmarker:help for commands"
+6. You should see a welcome message: "Heading Marker loaded! Use /function headingmarker:help for
+   commands"
 
 ### Resource Pack (Optional Custom Sprites)
 
@@ -118,13 +124,14 @@ The resource pack includes a pre-configured font file for custom marker sprites.
 
 1. Create 16x16 pixel PNG images for each marker color
 2. Place them in `resourcepack/assets/headingmarker/textures/hud/`:
-   - `marker_red.png`
-   - `marker_blue.png`
-   - `marker_green.png`
-   - `marker_yellow.png`
-   - `marker_purple.png`
+    - `marker_red.png`
+    - `marker_blue.png`
+    - `marker_green.png`
+    - `marker_yellow.png`
+    - `marker_purple.png`
 3. Install the resource pack in your world
-4. The font file (`resourcepack/assets/headingmarker/font/default.json`) is already configured to map these sprites to unicode characters \uE000-\uE004
+4. The font file (`resourcepack/assets/headingmarker/font/default.json`) is already configured to
+   map these sprites to unicode characters \uE000-\uE004
 
 **Note:** You can use the data pack without the resource pack. Sprites are optional!
 
@@ -190,7 +197,8 @@ You can have up to 5 markers active at once (one per color):
 - 🟡 **Yellow** (3) - Villages/Trading
 - 🟣 **Purple** (4) - Nether Portals/End Portals
 
-All markers are shown together on your HUD, allowing you to track multiple important locations at once!
+All markers are shown together on your HUD, allowing you to track multiple important locations at
+once!
 
 #### Color Auto-Cycling
 
@@ -232,7 +240,8 @@ This shows:
 - ✅ Commands you can click to copy and edit
 - ✅ Quick example functions for common use cases
 
-**Tab-completion support:** When typing `/function headingmarker:`, press Tab to see all available commands including:
+**Tab-completion support:** When typing `/function headingmarker:`, press Tab to see all available
+commands including:
 
 - `set` - Set a marker
 - `remove` - Remove a marker
@@ -286,7 +295,7 @@ The system is 100% vanilla Minecraft - it works on any server running the data p
 
 ## Compatibility
 
-- **Minecraft Version:** 1.21+ (Data Pack Format 48)
+- **Minecraft Version:** 26.1+ (Data Pack Format 48)
 - **Game Mode:** Survival, Creative, Adventure
 - **Multiplayer:** ✅ Fully supported
 - **Server:** ✅ Works on vanilla servers
@@ -361,7 +370,8 @@ resourcepack/
                     └── hud/                 # Custom HUD icons (future)
 ```
 
-**Note:** The resource pack is currently a placeholder. The HUD uses emoji icons (🔴🔵🟢🟡🟣) which work without a resource pack.
+**Note:** The resource pack is currently a placeholder. The HUD uses emoji icons (🔴🔵🟢🟡🟣) which work
+without a resource pack.
 
 ## Contributing
 
@@ -374,9 +384,8 @@ Contributions are welcome! Feel free to:
 
 ## License
 
-This project is open source and available under the MIT License.
+This project is open source and available under the CC0 1.0 Universal License.
 
 ## Credits
 
 Created for Minecraft Java Edition players who want better waypoint navigation!
-

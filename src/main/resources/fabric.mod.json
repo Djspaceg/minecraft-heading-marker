@@ -8,32 +8,39 @@
     "Djspaceg"
   ],
   "contact": {
-    "homepage": "https://fabricmc.net/",
-    "sources": "https://github.com/FabricMC/fabric-example-mod"
+    "homepage": "https://www.daolan.com/",
+    "sources": "https://github.com/Djspaceg/minecraft-heading-marker"
   },
   "license": "CC0-1.0",
   "icon": "assets/headingmarker/icon.png",
   "environment": "*",
   "custom": {
     "modmenu": {
-      "badges": [ "library" ]
+      "badges": [
+        "library"
+      ]
     }
   },
   "entrypoints": {
     "main": [
-      "com.djspaceg.headingmarker.HeadingMarkerMod"
+      {
+        "adapter": "kotlin",
+        "value": "com.daolan.headingmarker.HeadingMarkerMod"
+      }
     ],
     "client": [
-      "com.djspaceg.headingmarker.HeadingMarkerClientMod"
+      {
+        "adapter": "kotlin",
+        "value": "com.daolan.headingmarker.HeadingMarkerClientMod"
+      }
     ]
   },
   "depends": {
-    "fabricloader": ">=0.16.5",
-    "minecraft": "1.21.11",
-    "java": ">=21",
-    "fabric-api": "*"
+    "fabricloader": ">=0.18.5",
+    "minecraft": "26.1",
+    "java": ">=25",
+    "fabric-api": "*",
+    "fabric-language-kotlin": "*"
   },
-  "suggests": {
-    "another-mod": "*"
-  }
+  "suggests": {}
 }

@@ -4,7 +4,8 @@ This directory is intended for custom heading marker icons for future enhancemen
 
 ## Current Implementation
 
-The current version uses emoji icons (🔴🔵🟢🟡🟣) displayed via the actionbar, which don't require custom textures.
+The current version uses emoji icons (🔴🔵🟢🟡🟣) displayed via the actionbar, which don't require custom
+textures.
 
 ## Future Enhancement
 
@@ -17,6 +18,7 @@ In a future version, custom PNG textures could be added here to provide:
 
 ## Placeholder
 
-This directory structure is a placeholder for future custom icon support. The current implementation works without any resource pack textures.
+This directory structure is a placeholder for future custom icon support. The current implementation
+works without any resource pack textures.
 
 

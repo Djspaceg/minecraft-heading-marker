@@ -10,7 +10,7 @@ This directory contains GitHub Actions workflows for continuous integration and 
 
 **Jobs:**
 
-1. **unit-test** - Runs JUnit tests with Java 21
+1. **unit-test** - Runs JUnit tests with Java 25
     - Uploads test results as artifacts
 
 2. **build** - Builds the Minecraft mod JAR
@@ -45,9 +45,9 @@ This directory contains GitHub Actions workflows for continuous integration and 
 
 Both workflows require:
 
-- Java 21 (Temurin distribution)
+- Java 25 (Temurin distribution)
 - Gradle wrapper (gradle-wrapper.jar must be committed)
-- Fabric Loom plugin (configured in build.gradle)
+- Fabric Loom plugin (configured in build.gradle.kts)
 
 ## Local Testing
 
@@ -66,7 +66,7 @@ ls -la build/libs/
 
 ## Notes
 
-- The workflows use Java 21 to match the project's requirements
+- The workflows use Java 25 to match the project's requirements (Minecraft 26.1)
 - Gradle caching is enabled to speed up builds
 - All builds use `--stacktrace` for better error diagnostics
 - The gradle-wrapper.jar is committed to the repository (exception in .gitignore)

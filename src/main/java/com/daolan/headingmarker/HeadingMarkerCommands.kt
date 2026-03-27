@@ -20,7 +20,9 @@ import net.minecraft.server.players.NameAndId
 object HeadingMarkerCommands {
 
     private val VALID_COLORS: List<String> =
-        HeadingMarkerMod.WaypointColor.entries.map { it.colorName }
+        HeadingMarkerMod.WaypointColor.entries
+            .filter { it != HeadingMarkerMod.WaypointColor.WHITE }
+            .map { it.colorName }
 
     @JvmStatic
     fun register(

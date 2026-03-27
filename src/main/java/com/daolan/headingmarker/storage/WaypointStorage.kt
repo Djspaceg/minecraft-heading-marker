@@ -80,6 +80,8 @@ object WaypointStorage {
 
                                     // Re-create tracked waypoints and set entity IDs to -1 as they
                                     // are not persistent.
+                                    val rebuiltDimensions =
+                                        HashMap<String, MutableMap<String, WaypointData>>()
                                     for ((dimension, waypoints) in dimensionWaypoints!!) {
                                         val recreatedWaypoints = HashMap<String, WaypointData>()
                                         for ((colorKey, data) in waypoints) {
@@ -99,11 +101,15 @@ object WaypointStorage {
                                                 )
                                             }
 
+                                            val resolvedColor =
+                                                HeadingMarkerMod.WaypointColor.fromString(
+                                                    migratedColor
+                                                )
                                             val wp =
                                                 TrackedWaypoint.ofPos(
                                                     playerUuid,
                                                     Waypoint.Config().apply {
-                                                        color = Optional.of(0)
+                                                        color = Optional.of(resolvedColor.colorInt)
                                                     },
                                                     Vec3i(
                                                         data.x.toInt(),
@@ -122,10 +128,10 @@ object WaypointStorage {
                                                     -1,
                                                 )
                                         }
-                                        dimensionWaypoints!![dimension] = recreatedWaypoints
+                                        rebuiltDimensions[dimension] = recreatedWaypoints
                                     }
 
-                                    playerWaypoints[playerUuid] = dimensionWaypoints!!
+                                    playerWaypoints[playerUuid] = rebuiltDimensions
                                 }
                             } catch (e: IOException) {
                                 HeadingMarkerMod.LOGGER.error(

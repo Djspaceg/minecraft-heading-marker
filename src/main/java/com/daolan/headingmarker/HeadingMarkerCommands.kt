@@ -86,10 +86,13 @@ object HeadingMarkerCommands {
                 )
                 .then(
                     Commands.literal("set")
+                        // /hm set — player pos, auto color
                         .executes { ctx -> setAtPlayerPos(ctx, null) }
+                        // /hm set <color> ...
                         .then(
                             Commands.argument("color", StringArgumentType.word())
                                 .suggests(::suggestColors)
+                                // /hm set <color> — player pos, specified color
                                 .executes { ctx ->
                                     val arg = StringArgumentType.getString(ctx, "color")
                                     if (arg.lowercase() in VALID_COLORS) {
@@ -111,55 +114,50 @@ object HeadingMarkerCommands {
                                     }
                                     0
                                 }
+                                // /hm set <color> <x> <z> — 2D with color
                                 .then(
-                                    Commands.argument("x", DoubleArgumentType.doubleArg())
+                                    Commands.argument("n1", DoubleArgumentType.doubleArg())
                                         .then(
-                                            Commands.argument("z", DoubleArgumentType.doubleArg())
+                                            Commands.argument("n2", DoubleArgumentType.doubleArg())
                                                 .executes { ctx ->
-                                                    setAtPos(
+                                                    setColorXZ(
                                                         ctx,
                                                         StringArgumentType.getString(ctx, "color"),
-                                                        true,
                                                     )
                                                 }
+                                                // /hm set <color> <x> <y> <z> — 3D with color
                                                 .then(
                                                     Commands.argument(
                                                             "y",
                                                             DoubleArgumentType.doubleArg(),
                                                         )
                                                         .executes { ctx ->
-                                                            setAtPos(
+                                                            setColorXYZ(
                                                                 ctx,
                                                                 StringArgumentType.getString(
                                                                     ctx,
                                                                     "color",
                                                                 ),
-                                                                false,
                                                             )
                                                         }
                                                 )
                                         )
                                 )
                         )
+                        // /hm set <x> <z> ... — coordinates first
                         .then(
-                            Commands.argument("x", DoubleArgumentType.doubleArg())
+                            Commands.argument("n1", DoubleArgumentType.doubleArg())
                                 .then(
-                                    Commands.argument("z", DoubleArgumentType.doubleArg())
-                                        .executes { ctx -> setAtPos(ctx, null, true) }
+                                    Commands.argument("n2", DoubleArgumentType.doubleArg())
+                                        // /hm set <x> <z> — 2D, auto color
+                                        .executes { ctx -> setXZ(ctx, null) }
+                                        // /hm set <x> <y> <z> ... — 3D branch (y is always a
+                                        // double, no ambiguity)
                                         .then(
-                                            Commands.argument("color", StringArgumentType.word())
-                                                .suggests(::suggestColors)
-                                                .executes { ctx ->
-                                                    setAtPos(
-                                                        ctx,
-                                                        StringArgumentType.getString(ctx, "color"),
-                                                        true,
-                                                    )
-                                                }
-                                        )
-                                        .then(
-                                            Commands.argument("y", DoubleArgumentType.doubleArg())
-                                                .executes { ctx -> setAtPos(ctx, null, false) }
+                                            Commands.argument("n3", DoubleArgumentType.doubleArg())
+                                                // /hm set <x> <y> <z> — 3D, auto color
+                                                .executes { ctx -> setXYZ(ctx, null) }
+                                                // /hm set <x> <y> <z> <color> — 3D with color
                                                 .then(
                                                     Commands.argument(
                                                             "color",
@@ -167,16 +165,27 @@ object HeadingMarkerCommands {
                                                         )
                                                         .suggests(::suggestColors)
                                                         .executes { ctx ->
-                                                            setAtPos(
+                                                            setXYZ(
                                                                 ctx,
                                                                 StringArgumentType.getString(
                                                                     ctx,
                                                                     "color",
                                                                 ),
-                                                                false,
                                                             )
                                                         }
                                                 )
+                                        )
+                                        // /hm set <x> <z> <color> — 2D with color (word after two
+                                        // doubles, unambiguous)
+                                        .then(
+                                            Commands.argument("color", StringArgumentType.word())
+                                                .suggests(::suggestColors)
+                                                .executes { ctx ->
+                                                    setXZ(
+                                                        ctx,
+                                                        StringArgumentType.getString(ctx, "color"),
+                                                    )
+                                                }
                                         )
                                 )
                         )
@@ -197,15 +206,38 @@ object HeadingMarkerCommands {
         return setWaypoint(player, colorToUse, player.x, player.y, player.z)
     }
 
-    private fun setAtPos(
-        ctx: CommandContext<CommandSourceStack>,
-        color: String?,
-        usePlayerY: Boolean,
-    ): Int {
+    /** /hm set <color> <x> <z> */
+    private fun setColorXZ(ctx: CommandContext<CommandSourceStack>, color: String): Int {
         val player = ctx.source.player ?: return 0
-        val x = DoubleArgumentType.getDouble(ctx, "x")
-        val z = DoubleArgumentType.getDouble(ctx, "z")
-        val y = if (usePlayerY) player.y else DoubleArgumentType.getDouble(ctx, "y")
+        val x = DoubleArgumentType.getDouble(ctx, "n1")
+        val z = DoubleArgumentType.getDouble(ctx, "n2")
+        return setWaypoint(player, color, x, player.y, z)
+    }
+
+    /** /hm set <color> <x> <y> <z> */
+    private fun setColorXYZ(ctx: CommandContext<CommandSourceStack>, color: String): Int {
+        val player = ctx.source.player ?: return 0
+        val x = DoubleArgumentType.getDouble(ctx, "n1")
+        val y = DoubleArgumentType.getDouble(ctx, "n2")
+        val z = DoubleArgumentType.getDouble(ctx, "n3")
+        return setWaypoint(player, color, x, y, z)
+    }
+
+    /** /hm set <n1:x> <n2:z> [color] — 2D, second arg is z */
+    private fun setXZ(ctx: CommandContext<CommandSourceStack>, color: String?): Int {
+        val player = ctx.source.player ?: return 0
+        val x = DoubleArgumentType.getDouble(ctx, "n1")
+        val z = DoubleArgumentType.getDouble(ctx, "n2")
+        val colorToUse = color ?: getNextAvailableColor(player)
+        return setWaypoint(player, colorToUse, x, player.y, z)
+    }
+
+    /** /hm set <n1:x> <n2:y> <n3:z> [color] — 3D */
+    private fun setXYZ(ctx: CommandContext<CommandSourceStack>, color: String?): Int {
+        val player = ctx.source.player ?: return 0
+        val x = DoubleArgumentType.getDouble(ctx, "n1")
+        val y = DoubleArgumentType.getDouble(ctx, "n2")
+        val z = DoubleArgumentType.getDouble(ctx, "n3")
         val colorToUse = color ?: getNextAvailableColor(player)
         return setWaypoint(player, colorToUse, x, y, z)
     }
@@ -431,8 +463,8 @@ object HeadingMarkerCommands {
         val player = source.player ?: return true
         return (player.level() as ServerLevel)
             .server
-            .playerList
-            .isOp(NameAndId(player.uuid, player.name.string))
+            ?.playerList
+            ?.isOp(NameAndId(player.uuid, player.gameProfile.name)) ?: false
     }
 
     private fun sendHelpMessage(source: CommandSourceStack) {

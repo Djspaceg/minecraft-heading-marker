@@ -241,6 +241,8 @@ class HeadingMarkerMod : ModInitializer {
                     isInvulnerable = true
                     setNoGravity(true)
                     isSilent = true
+                    setMarker(true)
+                    setNoBasePlate(true)
                     customName = Component.literal("${color.colorName} waypoint")
                 }
 

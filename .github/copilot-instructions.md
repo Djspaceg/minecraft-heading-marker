@@ -37,7 +37,7 @@ get_errors on modified files
 Fabric mod + data pack for per-player, per-dimension waypoint markers in Minecraft 1.21.11.
 
 **Key Structure:**
-- `src/main/java/com/djspaceg/headingmarker/` - Mod code
+- `src/main/java/com/daolan/headingmarker/` - Mod code
 - `datapack_for_headingmarker/headingmarker_datapack/` - Data pack functions
 - 5 colors × 3 dimensions × per-player = 15 total waypoints per player
 

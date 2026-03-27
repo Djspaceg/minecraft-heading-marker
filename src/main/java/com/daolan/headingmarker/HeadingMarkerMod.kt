@@ -173,15 +173,7 @@ class HeadingMarkerMod : ModInitializer {
             val trackedWaypoint = TrackedWaypoint.ofPos(playerUuid, config, pos)
 
             val data =
-                WaypointData(
-                    color.colorName,
-                    dimension,
-                    pos.x.toDouble(),
-                    pos.y.toDouble(),
-                    pos.z.toDouble(),
-                    trackedWaypoint,
-                    armorStand.id,
-                )
+                WaypointData(color.colorName, dimension, x, y, z, trackedWaypoint, armorStand.id)
             playerWaypoints
                 .getOrPut(playerUuid) { HashMap() }
                 .getOrPut(dimension) { HashMap() }[color.colorName] = data
@@ -229,15 +221,7 @@ class HeadingMarkerMod : ModInitializer {
             val trackedWaypoint = TrackedWaypoint.ofPos(playerUuid, config, pos)
 
             val data =
-                WaypointData(
-                    color.colorName,
-                    dimension,
-                    pos.x.toDouble(),
-                    pos.y.toDouble(),
-                    pos.z.toDouble(),
-                    trackedWaypoint,
-                    armorStand.id,
-                )
+                WaypointData(color.colorName, dimension, x, y, z, trackedWaypoint, armorStand.id)
             playerWaypoints
                 .getOrPut(playerUuid) { HashMap() }
                 .getOrPut(dimension) { HashMap() }[color.colorName] = data
@@ -434,8 +418,6 @@ class HeadingMarkerMod : ModInitializer {
         @JvmStatic
         fun getWaypoints(playerUuid: UUID, dimension: String): Map<String, WaypointData> =
             playerWaypoints[playerUuid]?.get(dimension) ?: emptyMap()
-
-        @JvmStatic fun getWaypoints(playerUuid: UUID): Map<String, WaypointData> = emptyMap()
 
         @JvmStatic
         fun getAllWaypoints(playerUuid: UUID): Map<String, Map<String, WaypointData>> =

@@ -113,8 +113,8 @@ class HeadingMarkerMod : ModInitializer {
         @JvmField val x: Double,
         @JvmField val y: Double,
         @JvmField val z: Double,
-        @JvmField val trackedWaypoint: TrackedWaypoint,
-        @JvmField val entityId: Int,
+        @Transient @JvmField val trackedWaypoint: TrackedWaypoint? = null,
+        @Transient @JvmField val entityId: Int = -1,
     )
 
     companion object {

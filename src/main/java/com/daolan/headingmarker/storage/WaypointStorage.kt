@@ -4,12 +4,9 @@ import com.daolan.headingmarker.HeadingMarkerMod
 import com.daolan.headingmarker.HeadingMarkerMod.WaypointData
 import com.daolan.headingmarker.waypoint.TrackedWaypoint
 import com.daolan.headingmarker.waypoint.Waypoint
+import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import com.google.gson.TypeAdapter
-import com.google.gson.reflect.TypeToken
-import com.google.gson.stream.JsonReader
-import com.google.gson.stream.JsonToken
-import com.google.gson.stream.JsonWriter
+import com.google.gson.JsonSyntaxException
 import java.io.FileReader
 import java.io.FileWriter
 import java.io.IOException
@@ -20,10 +17,53 @@ import net.minecraft.core.Vec3i
 
 object WaypointStorage {
 
-    private val GSON =
-        GsonBuilder().registerTypeAdapter(Optional::class.java, OptionalTypeAdapter<Any>()).create()
+    /** Current storage format version. Bump when the schema changes. */
+    private const val FORMAT_VERSION = 2
 
-    /** Save waypoints to storage. Structure: PlayerUUID -> Dimension -> Color -> WaypointData */
+    private val GSON: Gson = GsonBuilder().setPrettyPrinting().create()
+
+    // --- Storage DTOs (only these touch JSON) ---
+
+    /** Top-level envelope written to each player file. */
+    private data class PlayerFile(
+        val formatVersion: Int = FORMAT_VERSION,
+        val dimensions: Map<String, Map<String, StoredWaypoint>> = emptyMap(),
+    )
+
+    /** The only fields that get persisted per waypoint. */
+    private data class StoredWaypoint(
+        val color: String = "",
+        val dimension: String = "",
+        val x: Double = 0.0,
+        val y: Double = 0.0,
+        val z: Double = 0.0,
+    )
+
+    // --- Conversion helpers ---
+
+    private fun WaypointData.toStored() = StoredWaypoint(color, dimension, x, y, z)
+
+    private fun StoredWaypoint.toRuntime(playerUuid: UUID): WaypointData {
+        val resolvedColor = HeadingMarkerMod.WaypointColor.fromString(color)
+        val config = Waypoint.Config().apply { this.color = Optional.of(resolvedColor.colorInt) }
+        val wp = TrackedWaypoint.ofPos(playerUuid, config, Vec3i(x.toInt(), y.toInt(), z.toInt()))
+        return WaypointData(color, dimension, x, y, z, wp, -1)
+    }
+
+    /** Normalize color keys during import (e.g. "light_purple" -> "purple"). */
+    private fun migrateColorKey(key: String): String =
+        when (key) {
+            "light_purple" -> "purple"
+            else -> key
+        }
+
+    private fun migrateStored(stored: StoredWaypoint): StoredWaypoint {
+        val migratedColor = migrateColorKey(stored.color)
+        return if (migratedColor != stored.color) stored.copy(color = migratedColor) else stored
+    }
+
+    // --- Public API ---
+
     @JvmStatic
     fun saveWaypoints(
         storageDir: Path,
@@ -32,9 +72,12 @@ object WaypointStorage {
         for ((playerUuid, dimensionWaypoints) in playerWaypoints) {
             val playerFile = storageDir.resolve("$playerUuid.json")
             try {
-                FileWriter(playerFile.toFile()).use { writer ->
-                    GSON.toJson(dimensionWaypoints, writer)
-                }
+                val storedDimensions =
+                    dimensionWaypoints.mapValues { (_, colorMap) ->
+                        colorMap.mapValues { (_, data) -> data.toStored() }
+                    }
+                val envelope = PlayerFile(FORMAT_VERSION, storedDimensions)
+                FileWriter(playerFile.toFile()).use { writer -> GSON.toJson(envelope, writer) }
             } catch (e: IOException) {
                 HeadingMarkerMod.LOGGER.error(
                     "Failed to save waypoints for player {}",
@@ -45,12 +88,11 @@ object WaypointStorage {
         }
     }
 
-    /** Load waypoints from storage. Structure: PlayerUUID -> Dimension -> Color -> WaypointData */
     @JvmStatic
     fun loadWaypoints(
         storageDir: Path
     ): MutableMap<UUID, MutableMap<String, MutableMap<String, WaypointData>>> {
-        val playerWaypoints = HashMap<UUID, MutableMap<String, MutableMap<String, WaypointData>>>()
+        val result = HashMap<UUID, MutableMap<String, MutableMap<String, WaypointData>>>()
 
         try {
             Files.list(storageDir).use { files ->
@@ -60,88 +102,33 @@ object WaypointStorage {
                         val fileName = path.fileName.toString()
                         val uuidString = fileName.removeSuffix(".json")
 
-                        try {
-                            val playerUuid = UUID.fromString(uuidString)
+                        val playerUuid =
+                            try {
+                                UUID.fromString(uuidString)
+                            } catch (_: IllegalArgumentException) {
+                                HeadingMarkerMod.LOGGER.warn(
+                                    "Invalid UUID in file name: {}",
+                                    fileName,
+                                )
+                                return@forEach
+                            }
+
+                        val dimensions =
                             try {
                                 FileReader(path.toFile()).use { reader ->
-                                    val type =
-                                        object :
-                                                TypeToken<
-                                                    Map<String, Map<String, WaypointData>>
-                                                >() {}
-                                            .type
-                                    var dimensionWaypoints:
-                                        MutableMap<String, MutableMap<String, WaypointData>>? =
-                                        GSON.fromJson(reader, type)
-
-                                    if (dimensionWaypoints == null) {
-                                        dimensionWaypoints = HashMap()
-                                    }
-
-                                    // Re-create tracked waypoints and set entity IDs to -1 as they
-                                    // are not persistent.
-                                    val rebuiltDimensions =
-                                        HashMap<String, MutableMap<String, WaypointData>>()
-                                    for ((dimension, waypoints) in dimensionWaypoints!!) {
-                                        val recreatedWaypoints = HashMap<String, WaypointData>()
-                                        for ((colorKey, data) in waypoints) {
-                                            // Migrate old "light_purple" key to "purple"
-                                            val migratedKey =
-                                                if (colorKey == "light_purple") "purple"
-                                                else colorKey
-                                            val migratedColor =
-                                                if (data.color == "light_purple") "purple"
-                                                else data.color
-
-                                            if (colorKey == "light_purple") {
-                                                HeadingMarkerMod.LOGGER.info(
-                                                    "Migrating waypoint key from 'light_purple' to 'purple' for player {} in {}",
-                                                    playerUuid,
-                                                    dimension,
-                                                )
-                                            }
-
-                                            val resolvedColor =
-                                                HeadingMarkerMod.WaypointColor.fromString(
-                                                    migratedColor
-                                                )
-                                            val wp =
-                                                TrackedWaypoint.ofPos(
-                                                    playerUuid,
-                                                    Waypoint.Config().apply {
-                                                        color = Optional.of(resolvedColor.colorInt)
-                                                    },
-                                                    Vec3i(
-                                                        data.x.toInt(),
-                                                        data.y.toInt(),
-                                                        data.z.toInt(),
-                                                    ),
-                                                )
-                                            recreatedWaypoints[migratedKey] =
-                                                WaypointData(
-                                                    migratedColor,
-                                                    dimension,
-                                                    data.x,
-                                                    data.y,
-                                                    data.z,
-                                                    wp,
-                                                    -1,
-                                                )
-                                        }
-                                        rebuiltDimensions[dimension] = recreatedWaypoints
-                                    }
-
-                                    playerWaypoints[playerUuid] = rebuiltDimensions
+                                    importPlayerFile(reader, playerUuid)
                                 }
-                            } catch (e: IOException) {
+                            } catch (e: Exception) {
                                 HeadingMarkerMod.LOGGER.error(
-                                    "Failed to load waypoints from file: {}",
+                                    "Failed to load waypoints from {}: {}",
                                     path,
-                                    e,
+                                    e.message,
                                 )
+                                null
                             }
-                        } catch (e: IllegalArgumentException) {
-                            HeadingMarkerMod.LOGGER.warn("Invalid UUID in file name: {}", fileName)
+
+                        if (dimensions != null && dimensions.isNotEmpty()) {
+                            result[playerUuid] = dimensions
                         }
                     }
             }
@@ -149,26 +136,112 @@ object WaypointStorage {
             HeadingMarkerMod.LOGGER.error("Failed to list waypoint files in storage directory.", e)
         }
 
-        return playerWaypoints
+        return result
     }
 
-    /** Custom TypeAdapter for Optional to avoid Java module reflection issues */
-    private class OptionalTypeAdapter<T : Any> : TypeAdapter<Optional<T>>() {
-        override fun write(out: JsonWriter, value: Optional<T>?) {
-            if (value == null || value.isEmpty) {
-                out.nullValue()
-            } else {
-                out.jsonValue(value.get().toString())
+    /**
+     * Import a single player file, handling both the current versioned format and the legacy
+     * unversioned format transparently.
+     */
+    private fun importPlayerFile(
+        reader: FileReader,
+        playerUuid: UUID,
+    ): MutableMap<String, MutableMap<String, WaypointData>>? {
+        // Parse as a generic JSON tree first so we can detect the format
+        val jsonElement =
+            try {
+                com.google.gson.JsonParser.parseReader(reader)
+            } catch (e: JsonSyntaxException) {
+                HeadingMarkerMod.LOGGER.warn(
+                    "Corrupt waypoint file for player {}, skipping: {}",
+                    playerUuid,
+                    e.message,
+                )
+                return null
             }
-        }
 
-        override fun read(`in`: JsonReader): Optional<T> {
-            if (`in`.peek() == JsonToken.NULL) {
-                `in`.nextNull()
-                return Optional.empty<T>()
-            }
-            @Suppress("UNCHECKED_CAST") val value = Integer.valueOf(`in`.nextInt()) as T
-            return Optional.of<T>(value)
+        if (jsonElement == null || !jsonElement.isJsonObject) return null
+        val root = jsonElement.asJsonObject
+
+        // Detect format: versioned files have "formatVersion" + "dimensions"
+        return if (root.has("formatVersion") && root.has("dimensions")) {
+            importVersioned(root, playerUuid)
+        } else {
+            // Legacy format: top-level keys are dimension names directly
+            importLegacy(root, playerUuid)
         }
+    }
+
+    /** Import the current versioned format. */
+    private fun importVersioned(
+        root: com.google.gson.JsonObject,
+        playerUuid: UUID,
+    ): MutableMap<String, MutableMap<String, WaypointData>> {
+        val envelope: PlayerFile =
+            try {
+                GSON.fromJson(root, PlayerFile::class.java)
+            } catch (e: JsonSyntaxException) {
+                HeadingMarkerMod.LOGGER.warn(
+                    "Failed to parse versioned file for {}: {}",
+                    playerUuid,
+                    e.message,
+                )
+                return HashMap()
+            }
+
+        val result = HashMap<String, MutableMap<String, WaypointData>>()
+        for ((dimension, colorMap) in envelope.dimensions) {
+            val rebuilt = HashMap<String, WaypointData>()
+            for ((colorKey, stored) in colorMap) {
+                val migrated = migrateStored(stored.copy(dimension = dimension))
+                val migratedKey = migrateColorKey(colorKey)
+                rebuilt[migratedKey] = migrated.toRuntime(playerUuid)
+            }
+            result[dimension] = rebuilt
+        }
+        return result
+    }
+
+    /**
+     * Import the legacy unversioned format where the JSON root is: { "overworld": { "red": {
+     * "color":"red", "dimension":"overworld", "x":1.0, ... }, ... }, ... }
+     *
+     * Gson may encounter unknown fields (trackedWaypoint, entityId, etc.) from older versions. We
+     * parse each waypoint manually from the JSON tree to extract only the fields we need, making
+     * this resilient to any extra/missing fields.
+     */
+    private fun importLegacy(
+        root: com.google.gson.JsonObject,
+        playerUuid: UUID,
+    ): MutableMap<String, MutableMap<String, WaypointData>> {
+        HeadingMarkerMod.LOGGER.info("Importing legacy waypoint file for player {}", playerUuid)
+        val result = HashMap<String, MutableMap<String, WaypointData>>()
+
+        for ((dimension, dimElement) in root.entrySet()) {
+            if (!dimElement.isJsonObject) continue
+            val rebuilt = HashMap<String, WaypointData>()
+
+            for ((colorKey, wpElement) in dimElement.asJsonObject.entrySet()) {
+                if (!wpElement.isJsonObject) continue
+                val obj = wpElement.asJsonObject
+
+                val stored =
+                    StoredWaypoint(
+                        color = obj.get("color")?.asString ?: colorKey,
+                        dimension = dimension,
+                        x = obj.get("x")?.asDouble ?: 0.0,
+                        y = obj.get("y")?.asDouble ?: 0.0,
+                        z = obj.get("z")?.asDouble ?: 0.0,
+                    )
+                val migrated = migrateStored(stored)
+                val migratedKey = migrateColorKey(colorKey)
+                rebuilt[migratedKey] = migrated.toRuntime(playerUuid)
+            }
+
+            if (rebuilt.isNotEmpty()) {
+                result[dimension] = rebuilt
+            }
+        }
+        return result
     }
 }

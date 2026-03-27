@@ -128,7 +128,7 @@ object HeadingMarkerCommands {
                                                 // /hm set <color> <x> <y> <z> — 3D with color
                                                 .then(
                                                     Commands.argument(
-                                                            "y",
+                                                            "n3",
                                                             DoubleArgumentType.doubleArg(),
                                                         )
                                                         .executes { ctx ->

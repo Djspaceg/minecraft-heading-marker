@@ -639,7 +639,15 @@ class HeadingMarkerMod : ModInitializer {
                 }
             }
 
-            val waypointNames = WaypointColor.entries.map { "${it.colorName} waypoint" }.toSet()
+            val waypointNames = buildSet {
+                for (color in WaypointColor.entries) {
+                    add("${color.colorName} waypoint")
+                    // Include legacy MC color name variants (e.g. "light_purple waypoint")
+                    if (color.mcColorName != color.colorName) {
+                        add("${color.mcColorName} waypoint")
+                    }
+                }
+            }
 
             var removed = 0
             for (dimKey in arrayOf(DIM_OVERWORLD, DIM_NETHER, DIM_END)) {

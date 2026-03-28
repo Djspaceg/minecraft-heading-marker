@@ -554,7 +554,7 @@ object HeadingMarkerCommands {
         cmdLine("/hm clear", "Clear waypoints in this dimension")
         cmdLine("/hm clearall", "Clear waypoints in all dimensions")
         cmdLine("/hm share <player> <selector>", "Share marker(s) by key, color, or name")
-        cmdLine("/trigger hm.distance", "Toggle distance display on actionbar")
+        line("Distances to active waypoints are shown automatically on the actionbar.", ChatFormatting.GRAY)
         if (isOperator(source)) {
             cmdLine("/hm purge", "Remove orphaned waypoint entities (OP only)")
         }

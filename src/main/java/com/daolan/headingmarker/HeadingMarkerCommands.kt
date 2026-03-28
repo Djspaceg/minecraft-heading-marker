@@ -481,27 +481,16 @@ object HeadingMarkerCommands {
                 false,
             )
 
-        line("=== Heading Marker Help ===", ChatFormatting.GOLD, ChatFormatting.BOLD)
-        line("")
-        line("SET MARKER:", ChatFormatting.AQUA, ChatFormatting.BOLD)
-        cmdLine("/hm set [color] [x z | x y z]", "Set a waypoint")
-        line("")
-        line("MANAGE:", ChatFormatting.AQUA, ChatFormatting.BOLD)
+        line("=== Heading Marker (/hm) ===", ChatFormatting.GOLD, ChatFormatting.BOLD)
+        cmdLine("/hm set [color] [x z | x y z]", "Place waypoint (player pos if no coords)")
         cmdLine("/hm list", "List active waypoints")
         cmdLine("/hm remove <color>", "Remove a waypoint")
         cmdLine("/hm clear", "Clear waypoints in this dimension")
-        cmdLine("/hm clearall", "Clear all waypoints")
-        line("")
-        line("SHARE:", ChatFormatting.AQUA, ChatFormatting.BOLD)
-        cmdLine("/hm share <player> <color>", "Share a waypoint")
-        line("")
-        line("DISTANCE:", ChatFormatting.AQUA, ChatFormatting.BOLD)
-        cmdLine("/trigger hm.distance", "Toggle distance display")
+        cmdLine("/hm clearall", "Clear waypoints in all dimensions")
+        cmdLine("/hm share <player> <color>", "Share waypoint with another player")
+        line("Distances to active waypoints are shown automatically on the actionbar.", ChatFormatting.GRAY)
         if (isOperator(source)) {
-            line("")
-            line("ADMIN:", ChatFormatting.RED, ChatFormatting.BOLD)
-            cmdLine("/hm purge", "Purge orphaned waypoint entities (OP only)")
+            cmdLine("/hm purge", "Remove orphaned waypoint entities (OP only)")
         }
-        line("=== =================== ===", ChatFormatting.GOLD)
     }
 }

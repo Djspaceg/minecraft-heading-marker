@@ -37,17 +37,18 @@ object WaypointStorage {
         val x: Double = 0.0,
         val y: Double = 0.0,
         val z: Double = 0.0,
+        val name: String = "",
     )
 
     // --- Conversion helpers ---
 
-    private fun WaypointData.toStored() = StoredWaypoint(color, dimension, x, y, z)
+    private fun WaypointData.toStored() = StoredWaypoint(color, dimension, x, y, z, name)
 
     private fun StoredWaypoint.toRuntime(playerUuid: UUID): WaypointData {
         val resolvedColor = HeadingMarkerMod.WaypointColor.fromString(color)
         val config = Waypoint.Config().apply { this.color = Optional.of(resolvedColor.colorInt) }
         val wp = TrackedWaypoint.ofPos(playerUuid, config, Vec3i(x.toInt(), y.toInt(), z.toInt()))
-        return WaypointData(color, dimension, x, y, z, wp, -1)
+        return WaypointData(color, dimension, x, y, z, name, wp, -1)
     }
 
     /** Normalize color keys during import (e.g. "light_purple" -> "purple"). */
@@ -232,6 +233,7 @@ object WaypointStorage {
                         x = obj.get("x")?.asDouble ?: 0.0,
                         y = obj.get("y")?.asDouble ?: 0.0,
                         z = obj.get("z")?.asDouble ?: 0.0,
+                        name = obj.get("name")?.asString ?: "",
                     )
                 val migrated = migrateStored(stored)
                 val migratedKey = migrateColorKey(colorKey)

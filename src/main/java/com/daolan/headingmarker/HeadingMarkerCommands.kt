@@ -67,6 +67,23 @@ object HeadingMarkerCommands {
                     }
                 )
                 .then(
+                    Commands.literal("rename")
+                        .then(
+                            Commands.argument("color", StringArgumentType.word())
+                                .suggests(::suggestActiveWaypoints)
+                                .then(
+                                    Commands.argument("name", StringArgumentType.greedyString())
+                                        .executes { ctx ->
+                                            renameWaypoint(
+                                                ctx.source.player,
+                                                StringArgumentType.getString(ctx, "color"),
+                                                StringArgumentType.getString(ctx, "name"),
+                                            )
+                                        }
+                                )
+                        )
+                )
+                .then(
                     Commands.literal("share")
                         .then(
                             Commands.argument("player", StringArgumentType.word())
@@ -353,6 +370,41 @@ object HeadingMarkerCommands {
         return count
     }
 
+    private fun renameWaypoint(player: ServerPlayer?, color: String, newName: String): Int {
+        player ?: return 0
+        val lowerColor = color.lowercase()
+        if (lowerColor !in VALID_COLORS) {
+            player.sendSystemMessage(
+                Component.literal(
+                        "Unknown color: $color. Valid colors: ${VALID_COLORS.joinToString(", ")}"
+                    )
+                    .withStyle(ChatFormatting.RED)
+            )
+            return 0
+        }
+        if (newName.isBlank()) {
+            player.sendSystemMessage(
+                Component.literal("Waypoint name cannot be empty.")
+                    .withStyle(ChatFormatting.RED)
+            )
+            return 0
+        }
+        return if (HeadingMarkerMod.renameWaypoint(player, lowerColor, newName)) {
+            val saved = newName.trim()
+            player.sendSystemMessage(
+                Component.literal("Renamed $lowerColor waypoint to \"$saved\".")
+                    .withStyle(ChatFormatting.GREEN)
+            )
+            1
+        } else {
+            player.sendSystemMessage(
+                Component.literal("No $lowerColor waypoint found in this dimension.")
+                    .withStyle(ChatFormatting.RED)
+            )
+            0
+        }
+    }
+
     private fun purgeOrphanedEntities(source: CommandSourceStack): Int {
         val removed = HeadingMarkerMod.purgeOrphanedWaypointEntities(source.server)
         if (removed == 0) {
@@ -443,10 +495,11 @@ object HeadingMarkerCommands {
         player.sendSystemMessage(
             Component.literal("Active Waypoints in $dim:").withStyle(ChatFormatting.GOLD)
         )
-        for ((color, data) in waypoints) {
+        for ((color, data) in waypoints.entries.sortedBy { it.key }) {
+            val nameDisplay = if (data.name.isNotBlank()) " \"${data.name}\"" else ""
             player.sendSystemMessage(
                 Component.literal(
-                        " - $color at (${data.x.toInt()}, ${data.y.toInt()}, ${data.z.toInt()})"
+                        " - $color$nameDisplay at (${data.x.toInt()}, ${data.y.toInt()}, ${data.z.toInt()})"
                     )
                     .withStyle(ChatFormatting.GRAY)
             )
@@ -488,6 +541,7 @@ object HeadingMarkerCommands {
         line("")
         line("MANAGE:", ChatFormatting.AQUA, ChatFormatting.BOLD)
         cmdLine("/hm list", "List active waypoints")
+        cmdLine("/hm rename <color> <name>", "Name or rename a waypoint")
         cmdLine("/hm remove <color>", "Remove a waypoint")
         cmdLine("/hm clear", "Clear waypoints in this dimension")
         cmdLine("/hm clearall", "Clear all waypoints")

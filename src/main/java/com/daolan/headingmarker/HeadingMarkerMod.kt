@@ -175,7 +175,16 @@ class HeadingMarkerMod : ModInitializer {
             val trackedWaypoint = TrackedWaypoint.ofPos(playerUuid, config, pos)
 
             val data =
-                WaypointData(color.colorName, dimension, x, y, z, name, trackedWaypoint, armorStand.id)
+                WaypointData(
+                    color.colorName,
+                    dimension,
+                    x,
+                    y,
+                    z,
+                    name,
+                    trackedWaypoint,
+                    armorStand.id,
+                )
             playerWaypoints
                 .getOrPut(playerUuid) { HashMap() }
                 .getOrPut(dimension) { HashMap() }[color.colorName] = data
@@ -224,7 +233,16 @@ class HeadingMarkerMod : ModInitializer {
             val trackedWaypoint = TrackedWaypoint.ofPos(playerUuid, config, pos)
 
             val data =
-                WaypointData(color.colorName, dimension, x, y, z, name, trackedWaypoint, armorStand.id)
+                WaypointData(
+                    color.colorName,
+                    dimension,
+                    x,
+                    y,
+                    z,
+                    name,
+                    trackedWaypoint,
+                    armorStand.id,
+                )
             playerWaypoints
                 .getOrPut(playerUuid) { HashMap() }
                 .getOrPut(dimension) { HashMap() }[color.colorName] = data
@@ -370,8 +388,8 @@ class HeadingMarkerMod : ModInitializer {
         }
 
         /**
-         * Renames an existing waypoint for [player] in their current dimension.
-         * Returns true if the waypoint was found and renamed, false otherwise.
+         * Renames an existing waypoint for [player] in their current dimension. Returns true if the
+         * waypoint was found and renamed, false otherwise.
          */
         @JvmStatic
         fun renameWaypoint(player: ServerPlayer, color: String, newName: String): Boolean {
@@ -547,6 +565,7 @@ class HeadingMarkerMod : ModInitializer {
                 sourceData.x,
                 sourceData.y,
                 sourceData.z,
+                sourceData.name,
             )
 
             LOGGER.info(
@@ -639,7 +658,7 @@ class HeadingMarkerMod : ModInitializer {
                             val distance =
                                 playerPos.distanceTo(Vec3(data.x, data.y, data.z)).toInt()
                             val label =
-                                if (data.name.isNotBlank()) data.name.take(12)
+                                if (data.name.isNotBlank()) data.name.trim().take(12)
                                 else color.colorName.replaceFirstChar { it.uppercaseChar() }
                             Component.literal("${color.emoji} $label ")
                                 .append(Component.literal("$distance").withStyle(color.formatting))

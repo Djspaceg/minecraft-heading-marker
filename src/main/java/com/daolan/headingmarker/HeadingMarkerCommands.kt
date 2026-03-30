@@ -71,6 +71,15 @@ object HeadingMarkerCommands {
                         .then(
                             Commands.argument("color", StringArgumentType.word())
                                 .suggests(::suggestActiveWaypoints)
+                                // /hm rename <color> — clear the name
+                                .executes { ctx ->
+                                    renameWaypoint(
+                                        ctx.source.player,
+                                        StringArgumentType.getString(ctx, "color"),
+                                        "",
+                                    )
+                                }
+                                // /hm rename <color> <name> — set a name
                                 .then(
                                     Commands.argument("name", StringArgumentType.greedyString())
                                         .executes { ctx ->
@@ -382,19 +391,19 @@ object HeadingMarkerCommands {
             )
             return 0
         }
-        if (newName.isBlank()) {
-            player.sendSystemMessage(
-                Component.literal("Waypoint name cannot be empty.")
-                    .withStyle(ChatFormatting.RED)
-            )
-            return 0
-        }
-        return if (HeadingMarkerMod.renameWaypoint(player, lowerColor, newName)) {
-            val saved = newName.trim()
-            player.sendSystemMessage(
-                Component.literal("Renamed $lowerColor waypoint to \"$saved\".")
-                    .withStyle(ChatFormatting.GREEN)
-            )
+        val trimmed = newName.trim()
+        return if (HeadingMarkerMod.renameWaypoint(player, lowerColor, trimmed)) {
+            if (trimmed.isEmpty()) {
+                player.sendSystemMessage(
+                    Component.literal("Cleared name from $lowerColor waypoint.")
+                        .withStyle(ChatFormatting.GREEN)
+                )
+            } else {
+                player.sendSystemMessage(
+                    Component.literal("Renamed $lowerColor waypoint to \"$trimmed\".")
+                        .withStyle(ChatFormatting.GREEN)
+                )
+            }
             1
         } else {
             player.sendSystemMessage(
@@ -541,7 +550,7 @@ object HeadingMarkerCommands {
         line("")
         line("MANAGE:", ChatFormatting.AQUA, ChatFormatting.BOLD)
         cmdLine("/hm list", "List active waypoints")
-        cmdLine("/hm rename <color> <name>", "Name or rename a waypoint")
+        cmdLine("/hm rename <color> [name]", "Name, rename, or clear a waypoint label")
         cmdLine("/hm remove <color>", "Remove a waypoint")
         cmdLine("/hm clear", "Clear waypoints in this dimension")
         cmdLine("/hm clearall", "Clear all waypoints")

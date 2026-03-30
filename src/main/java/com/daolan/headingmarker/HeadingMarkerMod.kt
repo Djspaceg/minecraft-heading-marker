@@ -113,6 +113,7 @@ class HeadingMarkerMod : ModInitializer {
         @JvmField val x: Double,
         @JvmField val y: Double,
         @JvmField val z: Double,
+        @JvmField val name: String = "",
         @Transient @JvmField val trackedWaypoint: TrackedWaypoint? = null,
         @Transient @JvmField val entityId: Int = -1,
     )
@@ -141,6 +142,7 @@ class HeadingMarkerMod : ModInitializer {
             x: Double,
             y: Double,
             z: Double,
+            name: String = "",
         ) {
             val playerUuid = player.uuid
             val color = WaypointColor.fromString(colorName)
@@ -173,7 +175,16 @@ class HeadingMarkerMod : ModInitializer {
             val trackedWaypoint = TrackedWaypoint.ofPos(playerUuid, config, pos)
 
             val data =
-                WaypointData(color.colorName, dimension, x, y, z, trackedWaypoint, armorStand.id)
+                WaypointData(
+                    color.colorName,
+                    dimension,
+                    x,
+                    y,
+                    z,
+                    name,
+                    trackedWaypoint,
+                    armorStand.id,
+                )
             playerWaypoints
                 .getOrPut(playerUuid) { HashMap() }
                 .getOrPut(dimension) { HashMap() }[color.colorName] = data
@@ -195,6 +206,7 @@ class HeadingMarkerMod : ModInitializer {
             x: Double,
             y: Double,
             z: Double,
+            name: String = "",
         ) {
             val color = WaypointColor.fromString(colorName)
             val dimension = getDimensionKey(world.dimension())
@@ -221,7 +233,16 @@ class HeadingMarkerMod : ModInitializer {
             val trackedWaypoint = TrackedWaypoint.ofPos(playerUuid, config, pos)
 
             val data =
-                WaypointData(color.colorName, dimension, x, y, z, trackedWaypoint, armorStand.id)
+                WaypointData(
+                    color.colorName,
+                    dimension,
+                    x,
+                    y,
+                    z,
+                    name,
+                    trackedWaypoint,
+                    armorStand.id,
+                )
             playerWaypoints
                 .getOrPut(playerUuid) { HashMap() }
                 .getOrPut(dimension) { HashMap() }[color.colorName] = data
@@ -363,6 +384,29 @@ class HeadingMarkerMod : ModInitializer {
             removeWaypointEntity(player, color, dimension)
             waypoints.remove(color)
             LOGGER.info("Removed waypoint: color={}, dimension={}", color, dimension)
+            return true
+        }
+
+        /**
+         * Renames an existing waypoint for [player] in their current dimension. Returns true if the
+         * waypoint was found and renamed, false otherwise.
+         */
+        @JvmStatic
+        fun renameWaypoint(player: ServerPlayer, color: String, newName: String): Boolean {
+            val playerUuid = player.uuid
+            val dimension = getDimensionKey(player.level().dimension())
+
+            val waypoints = playerWaypoints[playerUuid]?.get(dimension) ?: return false
+            val existing = waypoints[color] ?: return false
+
+            waypoints[color] = existing.copy(name = newName.trim())
+            LOGGER.info(
+                "Renamed {} waypoint for player {} in {} to '{}'",
+                color,
+                player.name.string,
+                dimension,
+                newName.trim(),
+            )
             return true
         }
 
@@ -521,6 +565,7 @@ class HeadingMarkerMod : ModInitializer {
                 sourceData.x,
                 sourceData.y,
                 sourceData.z,
+                sourceData.name,
             )
 
             LOGGER.info(
@@ -612,7 +657,10 @@ class HeadingMarkerMod : ModInitializer {
                             val data = waypoints[colorName]!!
                             val distance =
                                 playerPos.distanceTo(Vec3(data.x, data.y, data.z)).toInt()
-                            Component.literal("${color.emoji} ")
+                            val label =
+                                if (data.name.isNotBlank()) data.name.trim().take(12)
+                                else color.colorName.replaceFirstChar { it.uppercaseChar() }
+                            Component.literal("${color.emoji} $label ")
                                 .append(Component.literal("$distance").withStyle(color.formatting))
                         }
                         .reduce { text1, text2 -> text1.append("  ").append(text2) }

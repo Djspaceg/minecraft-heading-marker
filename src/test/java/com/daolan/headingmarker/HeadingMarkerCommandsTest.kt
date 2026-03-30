@@ -107,4 +107,15 @@ class HeadingMarkerCommandsTest {
             )
             .forEach { assertParses(dispatcher, it) }
     }
+
+    @Test
+    fun `rename commands parse correctly`() = withDispatcher { dispatcher ->
+        listOf(
+                "hm rename red", // clear name
+                "hm rename red Home Base", // name with spaces
+                "hm rename blue My Favorite Spot", // greedy string
+                "headingmarker rename green Mine", // alias
+            )
+            .forEach { assertParses(dispatcher, it) }
+    }
 }

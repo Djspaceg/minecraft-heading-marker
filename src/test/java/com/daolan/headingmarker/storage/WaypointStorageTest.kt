@@ -365,4 +365,102 @@ class WaypointStorageTest {
             assertEquals("red", loaded[TEST_UUID]!!["overworld"]!!["red"]!!.color)
             assertEquals("blue", loaded[TEST_UUID_2]!!["the_end"]!!["blue"]!!.color)
         }!!
+
+    // ---- Name field ----
+
+    @Test
+    fun `named waypoint round-trips through save and load`(@TempDir tempDir: Path) =
+        withMcEnv {
+            val waypoints =
+                HashMap<
+                    UUID,
+                    MutableMap<String, MutableMap<String, HeadingMarkerMod.WaypointData>>,
+                >()
+            val overworld = HashMap<String, HeadingMarkerMod.WaypointData>()
+            overworld["red"] =
+                HeadingMarkerMod.WaypointData("red", "overworld", 1.0, 2.0, 3.0, "Home Base")
+            overworld["blue"] =
+                HeadingMarkerMod.WaypointData("blue", "overworld", 4.0, 5.0, 6.0) // no name
+            waypoints[TEST_UUID] =
+                mutableMapOf<String, MutableMap<String, HeadingMarkerMod.WaypointData>>(
+                    "overworld" to overworld
+                )
+
+            WaypointStorage.saveWaypoints(tempDir, waypoints)
+            val loaded = WaypointStorage.loadWaypoints(tempDir)
+
+            val loadedRed = loaded[TEST_UUID]!!["overworld"]!!["red"]!!
+            assertEquals("Home Base", loadedRed.name, "Name should survive round-trip")
+
+            val loadedBlue = loaded[TEST_UUID]!!["overworld"]!!["blue"]!!
+            assertEquals("", loadedBlue.name, "Unnamed waypoint should have empty name")
+        }!!
+
+    @Test
+    fun `versioned format with name field`(@TempDir tempDir: Path) =
+        withMcEnv {
+            val json =
+                """
+        {
+          "formatVersion": 2,
+          "dimensions": {
+            "overworld": {
+              "red": { "color": "red", "dimension": "overworld", "x": 1.0, "y": 2.0, "z": 3.0, "name": "My Spot" }
+            }
+          }
+        }
+        """
+                    .trimIndent()
+            Files.writeString(tempDir.resolve("$TEST_UUID.json"), json)
+
+            val result = WaypointStorage.loadWaypoints(tempDir)
+            assertEquals("My Spot", result[TEST_UUID]!!["overworld"]!!["red"]!!.name)
+        }!!
+
+    @Test
+    fun `legacy format without name field defaults to empty`(@TempDir tempDir: Path) =
+        withMcEnv {
+            val json =
+                """
+        {
+          "overworld": {
+            "red": { "color": "red", "dimension": "overworld", "x": 1.0, "y": 2.0, "z": 3.0 }
+          }
+        }
+        """
+                    .trimIndent()
+            Files.writeString(tempDir.resolve("$TEST_UUID.json"), json)
+
+            val result = WaypointStorage.loadWaypoints(tempDir)
+            assertEquals(
+                "",
+                result[TEST_UUID]!!["overworld"]!!["red"]!!.name,
+                "Missing name should default to empty",
+            )
+        }!!
+
+    @Test
+    fun `versioned format without name field defaults to empty`(@TempDir tempDir: Path) =
+        withMcEnv {
+            val json =
+                """
+        {
+          "formatVersion": 2,
+          "dimensions": {
+            "overworld": {
+              "green": { "color": "green", "dimension": "overworld", "x": 9.0, "y": 8.0, "z": 7.0 }
+            }
+          }
+        }
+        """
+                    .trimIndent()
+            Files.writeString(tempDir.resolve("$TEST_UUID.json"), json)
+
+            val result = WaypointStorage.loadWaypoints(tempDir)
+            assertEquals(
+                "",
+                result[TEST_UUID]!!["overworld"]!!["green"]!!.name,
+                "Missing name in versioned format should default to empty",
+            )
+        }!!
 }

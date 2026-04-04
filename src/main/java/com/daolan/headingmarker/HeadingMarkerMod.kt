@@ -88,7 +88,7 @@ class HeadingMarkerMod : ModInitializer {
 
         /** The Minecraft color name used in vanilla commands (e.g. "light_purple" for PURPLE). */
         val mcColorName: String
-            get() = formatting.getName()!!
+            get() = formatting.getName()
 
         companion object {
             private val BY_NAME: MutableMap<String, WaypointColor> =
@@ -224,7 +224,7 @@ class HeadingMarkerMod : ModInitializer {
 
             setWaypointColorWithCommand(world, armorStand, color)
 
-            world.server?.playerList?.getPlayer(playerUuid)?.let { owner ->
+            world.server.playerList.getPlayer(playerUuid)?.let { owner ->
                 setWaypointViewersWithCommand(world, armorStand, owner.gameProfile.name)
             }
 
@@ -309,15 +309,7 @@ class HeadingMarkerMod : ModInitializer {
             armorStand: ArmorStand,
             color: WaypointColor,
         ) {
-            val server =
-                world.server
-                    ?: run {
-                        LOGGER.warn(
-                            "Could not set waypoint color for entity {}: server is null",
-                            armorStand.uuid,
-                        )
-                        return
-                    }
+            val server = world.server
             try {
                 val command = "waypoint modify ${armorStand.stringUUID} color ${color.mcColorName}"
                 val commandSource = server.createCommandSourceStack().withSuppressedOutput()
@@ -343,15 +335,7 @@ class HeadingMarkerMod : ModInitializer {
             armorStand: ArmorStand,
             playerName: String,
         ) {
-            val server =
-                world.server
-                    ?: run {
-                        LOGGER.warn(
-                            "Could not restrict waypoint viewers for entity {}: server is null",
-                            armorStand.uuid,
-                        )
-                        return
-                    }
+            val server = world.server
             try {
                 val command =
                     "waypoint modify ${armorStand.stringUUID} viewers @a[name=$playerName]"
@@ -412,7 +396,7 @@ class HeadingMarkerMod : ModInitializer {
 
         private fun removeWaypointEntity(player: ServerPlayer, color: String, dimension: String) {
             removeWaypointEntityInWorld(
-                player.level() as ServerLevel,
+                player.level(),
                 player.uuid,
                 color,
                 dimension,
@@ -441,7 +425,7 @@ class HeadingMarkerMod : ModInitializer {
             if (dimensionWaypoints.isEmpty()) return
 
             var removedCount = 0
-            val server = (player.level() as ServerLevel).server
+            val server = player.level().server
 
             for ((dimension, waypoints) in dimensionWaypoints) {
                 val world = getWorldForDimension(server, dimension) ?: continue
@@ -489,7 +473,7 @@ class HeadingMarkerMod : ModInitializer {
         @JvmStatic
         fun clearWaypointsInDimension(player: ServerPlayer): Int {
             val playerUuid = player.uuid
-            val world = player.level() as ServerLevel
+            val world = player.level()
             val dimension = getDimensionKey(world.dimension())
 
             val waypoints = playerWaypoints[playerUuid]?.get(dimension)
@@ -519,7 +503,7 @@ class HeadingMarkerMod : ModInitializer {
             if (dimensionWaypoints.isNullOrEmpty()) return 0
 
             var count = 0
-            val server = (player.level() as ServerLevel).server
+            val server = player.level().server
 
             for ((dimension, waypoints) in dimensionWaypoints) {
                 val world = getWorldForDimension(server, dimension)
@@ -588,7 +572,7 @@ class HeadingMarkerMod : ModInitializer {
             if (dimensionWaypoints.isNullOrEmpty()) return
 
             var recreatedCount = 0
-            val server = (player.level() as ServerLevel).server
+            val server = player.level().server
 
             for ((dimension, waypoints) in dimensionWaypoints) {
                 val world = getWorldForDimension(server, dimension)

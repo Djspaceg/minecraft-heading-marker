@@ -452,7 +452,7 @@ object HeadingMarkerCommands {
             return 0
         }
 
-        val toPlayer = fromPlayer.level().server!!.playerList.getPlayer(targetName)
+        val toPlayer = fromPlayer.level().server.playerList.getPlayer(targetName)
         if (toPlayer == null) {
             fromPlayer.sendSystemMessage(
                 Component.literal("Player not found or not online: $targetName")
@@ -523,10 +523,10 @@ object HeadingMarkerCommands {
      */
     private fun isOperator(source: CommandSourceStack): Boolean {
         val player = source.player ?: return true
-        return (player.level() as ServerLevel)
+        return player.level()
             .server
-            ?.playerList
-            ?.isOp(NameAndId(player.uuid, player.gameProfile.name)) ?: false
+            .playerList
+            .isOp(NameAndId(player.uuid, player.gameProfile.name))
     }
 
     private fun sendHelpMessage(source: CommandSourceStack) {

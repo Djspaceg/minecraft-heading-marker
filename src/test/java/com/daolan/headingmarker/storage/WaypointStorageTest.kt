@@ -32,6 +32,13 @@ class WaypointStorageTest {
         }
     }
 
+    private fun waypointByColor(
+        dimensionWaypoints: Map<String, HeadingMarkerMod.WaypointData>,
+        color: String,
+    ): HeadingMarkerMod.WaypointData =
+        dimensionWaypoints.values.firstOrNull { it.color == color }
+            ?: error("No waypoint found for color '$color'")
+
     // ---- Versioned format (v2) ----
 
     @Test
@@ -64,7 +71,7 @@ class WaypointStorageTest {
             val overworld = dims["overworld"]!!
             assertEquals(2, overworld.size)
 
-            val red = overworld["red"]!!
+            val red = waypointByColor(overworld, "red")
             assertEquals(100.5, red.x, 0.001, "X should preserve sub-block precision")
             assertEquals(64.3, red.y, 0.001, "Y should preserve sub-block precision")
             assertEquals(-200.7, red.z, 0.001, "Z should preserve sub-block precision")
@@ -72,7 +79,7 @@ class WaypointStorageTest {
 
             val nether = dims["the_nether"]!!
             assertEquals(1, nether.size)
-            assertEquals("green", nether["green"]!!.color)
+            assertEquals("green", waypointByColor(nether, "green").color)
         }!!
 
     // ---- Legacy format (unversioned) ----
@@ -94,7 +101,7 @@ class WaypointStorageTest {
 
             val result = WaypointStorage.loadWaypoints(tempDir)
             assertTrue(result.containsKey(TEST_UUID))
-            val red = result[TEST_UUID]!!["overworld"]!!["red"]!!
+            val red = waypointByColor(result[TEST_UUID]!!["overworld"]!!, "red")
             assertEquals(100.0, red.x, 0.001)
             assertEquals("red", red.color)
         }!!
@@ -126,7 +133,7 @@ class WaypointStorageTest {
 
             val result = WaypointStorage.loadWaypoints(tempDir)
             assertTrue(result.containsKey(TEST_UUID), "Should load despite extra fields")
-            val blue = result[TEST_UUID]!!["overworld"]!!["blue"]!!
+            val blue = waypointByColor(result[TEST_UUID]!!["overworld"]!!, "blue")
             assertEquals(50.0, blue.x, 0.001)
             assertEquals("blue", blue.color)
             assertEquals(-1, blue.entityId, "entityId should be -1 (runtime only)")
@@ -149,7 +156,7 @@ class WaypointStorageTest {
 
             val result = WaypointStorage.loadWaypoints(tempDir)
             assertTrue(result.containsKey(TEST_UUID), "Should load despite missing fields")
-            val wp = result[TEST_UUID]!!["overworld"]!!["red"]!!
+            val wp = waypointByColor(result[TEST_UUID]!!["overworld"]!!, "red")
             assertEquals(42.0, wp.x, 0.001, "X should be parsed")
             assertEquals(0.0, wp.y, 0.001, "Missing Y should default to 0")
             assertEquals(-99.0, wp.z, 0.001, "Z should be parsed")
@@ -176,7 +183,7 @@ class WaypointStorageTest {
 
             val result = WaypointStorage.loadWaypoints(tempDir)
             assertTrue(result.containsKey(TEST_UUID), "Should load despite empty waypoint object")
-            val wp = result[TEST_UUID]!!["the_nether"]!!["blue"]!!
+            val wp = waypointByColor(result[TEST_UUID]!!["the_nether"]!!, "blue")
             assertEquals(0.0, wp.x, 0.001, "Missing X should default to 0")
             assertEquals(0.0, wp.y, 0.001, "Missing Y should default to 0")
             assertEquals(0.0, wp.z, 0.001, "Missing Z should default to 0")
@@ -202,12 +209,8 @@ class WaypointStorageTest {
 
             val result = WaypointStorage.loadWaypoints(tempDir)
             val overworld = result[TEST_UUID]!!["overworld"]!!
-            assertFalse(
-                overworld.containsKey("light_purple"),
-                "light_purple key should be migrated",
-            )
-            assertTrue(overworld.containsKey("purple"), "Should have purple key after migration")
-            assertEquals("purple", overworld["purple"]!!.color)
+            assertTrue(overworld.values.none { it.color == "light_purple" })
+            assertEquals("purple", waypointByColor(overworld, "purple").color)
         }!!
 
     @Test
@@ -229,9 +232,77 @@ class WaypointStorageTest {
 
             val result = WaypointStorage.loadWaypoints(tempDir)
             val overworld = result[TEST_UUID]!!["overworld"]!!
-            assertFalse(overworld.containsKey("light_purple"))
-            assertTrue(overworld.containsKey("purple"))
-            assertEquals("purple", overworld["purple"]!!.color)
+            assertTrue(overworld.values.none { it.color == "light_purple" })
+            assertEquals("purple", waypointByColor(overworld, "purple").color)
+        }!!
+
+    @Test
+    fun `long marker keys are normalized to short keys`(@TempDir tempDir: Path) =
+        withMcEnv {
+            val json =
+                """
+        {
+          "formatVersion": 3,
+          "dimensions": {
+            "overworld": {
+              "mk-very-long-legacy-key-12345": {
+                "markerKey": "mk-very-long-legacy-key-12345",
+                "color": "red",
+                "dimension": "overworld",
+                "x": 1.0,
+                "y": 2.0,
+                "z": 3.0
+              }
+            }
+          }
+        }
+        """
+                    .trimIndent()
+            Files.writeString(tempDir.resolve("$TEST_UUID.json"), json)
+
+            val result = WaypointStorage.loadWaypoints(tempDir)
+            val keys = result[TEST_UUID]!!["overworld"]!!.keys
+            assertEquals(1, keys.size)
+            val key = keys.first()
+            assertTrue(key.length <= 8, "Marker keys should be at most 8 characters")
+            assertTrue(key.matches(Regex("^[a-z0-9]{1,8}$")), "Marker key should be compact")
+        }!!
+
+    @Test
+    fun `legacy markers are migrated once and persisted`(@TempDir tempDir: Path) =
+        withMcEnv {
+            val json =
+                """
+        {
+          "formatVersion": 2,
+          "dimensions": {
+            "overworld": {
+              "red": {
+                "color": "red",
+                "dimension": "overworld",
+                "x": 10.0,
+                "y": 64.0,
+                "z": -20.0
+              }
+            }
+          }
+        }
+        """
+                    .trimIndent()
+            val playerFile = tempDir.resolve("$TEST_UUID.json")
+            Files.writeString(playerFile, json)
+
+            val firstLoad = WaypointStorage.loadWaypoints(tempDir)
+            val firstKey = firstLoad[TEST_UUID]!!["overworld"]!!.keys.first()
+            assertTrue(firstKey.matches(Regex("^[a-z0-9]{1,8}$")))
+
+            val rewritten = Files.readString(playerFile)
+            assertTrue(rewritten.contains("\"formatVersion\": 3"))
+            assertTrue(rewritten.contains("\"markerKey\": \"$firstKey\""))
+
+            val secondLoad = WaypointStorage.loadWaypoints(tempDir)
+            val secondKey = secondLoad[TEST_UUID]!!["overworld"]!!.keys.first()
+            assertEquals(firstKey, secondKey, "Migrated key should remain stable on subsequent loads")
         }!!
 
     // ---- Corrupt / edge cases ----
@@ -294,12 +365,27 @@ class WaypointStorageTest {
                     MutableMap<String, MutableMap<String, HeadingMarkerMod.WaypointData>>,
                 >()
             val overworld = HashMap<String, HeadingMarkerMod.WaypointData>()
-            overworld["red"] =
-                HeadingMarkerMod.WaypointData("red", "overworld", 123.456, 64.789, -987.654)
-            overworld["blue"] = HeadingMarkerMod.WaypointData("blue", "overworld", 0.0, 0.0, 0.0)
+            overworld["mk-red"] =
+                HeadingMarkerMod.WaypointData(
+                    "mk-red",
+                    "red",
+                    "overworld",
+                    123.456,
+                    64.789,
+                    -987.654,
+                )
+            overworld["mk-blue"] =
+                HeadingMarkerMod.WaypointData("mk-blue", "blue", "overworld", 0.0, 0.0, 0.0)
             val nether = HashMap<String, HeadingMarkerMod.WaypointData>()
-            nether["green"] =
-                HeadingMarkerMod.WaypointData("green", "the_nether", -100.5, 30.0, 200.5)
+            nether["mk-green"] =
+                HeadingMarkerMod.WaypointData(
+                    "mk-green",
+                    "green",
+                    "the_nether",
+                    -100.5,
+                    30.0,
+                    200.5,
+                )
             val dims =
                 mutableMapOf<String, MutableMap<String, HeadingMarkerMod.WaypointData>>(
                     "overworld" to overworld,
@@ -317,7 +403,7 @@ class WaypointStorageTest {
             val loadedDims = loaded[TEST_UUID]!!
             assertEquals(2, loadedDims.size)
 
-            val loadedRed = loadedDims["overworld"]!!["red"]!!
+            val loadedRed = waypointByColor(loadedDims["overworld"]!!, "red")
             assertEquals(123.456, loadedRed.x, 0.001, "X should round-trip with precision")
             assertEquals(64.789, loadedRed.y, 0.001, "Y should round-trip with precision")
             assertEquals(-987.654, loadedRed.z, 0.001, "Z should round-trip with precision")
@@ -325,7 +411,7 @@ class WaypointStorageTest {
             assertEquals("overworld", loadedRed.dimension)
             assertEquals(-1, loadedRed.entityId, "entityId should be -1 after load")
 
-            val loadedGreen = loadedDims["the_nether"]!!["green"]!!
+            val loadedGreen = waypointByColor(loadedDims["the_nether"]!!, "green")
             assertEquals(-100.5, loadedGreen.x, 0.001)
             assertEquals("the_nether", loadedGreen.dimension)
         }!!
@@ -343,16 +429,30 @@ class WaypointStorageTest {
                 mutableMapOf<String, MutableMap<String, HeadingMarkerMod.WaypointData>>(
                     "overworld" to
                         hashMapOf(
-                            "red" to
-                                HeadingMarkerMod.WaypointData("red", "overworld", 1.0, 2.0, 3.0)
+                            "mk-p1-red" to
+                                HeadingMarkerMod.WaypointData(
+                                    "mk-p1-red",
+                                    "red",
+                                    "overworld",
+                                    1.0,
+                                    2.0,
+                                    3.0,
+                                )
                         )
                 )
             val p2 =
                 mutableMapOf<String, MutableMap<String, HeadingMarkerMod.WaypointData>>(
                     "the_end" to
                         hashMapOf(
-                            "blue" to
-                                HeadingMarkerMod.WaypointData("blue", "the_end", 4.0, 5.0, 6.0)
+                            "mk-p2-blue" to
+                                HeadingMarkerMod.WaypointData(
+                                    "mk-p2-blue",
+                                    "blue",
+                                    "the_end",
+                                    4.0,
+                                    5.0,
+                                    6.0,
+                                )
                         )
                 )
             waypoints[TEST_UUID] = p1
@@ -362,8 +462,11 @@ class WaypointStorageTest {
             val loaded = WaypointStorage.loadWaypoints(tempDir)
 
             assertEquals(2, loaded.size, "Should load both players")
-            assertEquals("red", loaded[TEST_UUID]!!["overworld"]!!["red"]!!.color)
-            assertEquals("blue", loaded[TEST_UUID_2]!!["the_end"]!!["blue"]!!.color)
+            assertEquals("red", waypointByColor(loaded[TEST_UUID]!!["overworld"]!!, "red").color)
+            assertEquals(
+                "blue",
+                waypointByColor(loaded[TEST_UUID_2]!!["the_end"]!!, "blue").color,
+            )
         }!!
 
     // ---- Name field ----
@@ -377,10 +480,18 @@ class WaypointStorageTest {
                     MutableMap<String, MutableMap<String, HeadingMarkerMod.WaypointData>>,
                 >()
             val overworld = HashMap<String, HeadingMarkerMod.WaypointData>()
-            overworld["red"] =
-                HeadingMarkerMod.WaypointData("red", "overworld", 1.0, 2.0, 3.0, "Home Base")
-            overworld["blue"] =
-                HeadingMarkerMod.WaypointData("blue", "overworld", 4.0, 5.0, 6.0) // no name
+            overworld["mk-red"] =
+                HeadingMarkerMod.WaypointData(
+                    "mk-red",
+                    "red",
+                    "overworld",
+                    1.0,
+                    2.0,
+                    3.0,
+                    "Home Base",
+                )
+            overworld["mk-blue"] =
+                HeadingMarkerMod.WaypointData("mk-blue", "blue", "overworld", 4.0, 5.0, 6.0)
             waypoints[TEST_UUID] =
                 mutableMapOf<String, MutableMap<String, HeadingMarkerMod.WaypointData>>(
                     "overworld" to overworld
@@ -389,10 +500,10 @@ class WaypointStorageTest {
             WaypointStorage.saveWaypoints(tempDir, waypoints)
             val loaded = WaypointStorage.loadWaypoints(tempDir)
 
-            val loadedRed = loaded[TEST_UUID]!!["overworld"]!!["red"]!!
+            val loadedRed = waypointByColor(loaded[TEST_UUID]!!["overworld"]!!, "red")
             assertEquals("Home Base", loadedRed.name, "Name should survive round-trip")
 
-            val loadedBlue = loaded[TEST_UUID]!!["overworld"]!!["blue"]!!
+            val loadedBlue = waypointByColor(loaded[TEST_UUID]!!["overworld"]!!, "blue")
             assertEquals("", loadedBlue.name, "Unnamed waypoint should have empty name")
         }!!
 
@@ -414,7 +525,7 @@ class WaypointStorageTest {
             Files.writeString(tempDir.resolve("$TEST_UUID.json"), json)
 
             val result = WaypointStorage.loadWaypoints(tempDir)
-            assertEquals("My Spot", result[TEST_UUID]!!["overworld"]!!["red"]!!.name)
+            assertEquals("My Spot", waypointByColor(result[TEST_UUID]!!["overworld"]!!, "red").name)
         }!!
 
     @Test
@@ -434,7 +545,7 @@ class WaypointStorageTest {
             val result = WaypointStorage.loadWaypoints(tempDir)
             assertEquals(
                 "",
-                result[TEST_UUID]!!["overworld"]!!["red"]!!.name,
+                waypointByColor(result[TEST_UUID]!!["overworld"]!!, "red").name,
                 "Missing name should default to empty",
             )
         }!!
@@ -459,7 +570,7 @@ class WaypointStorageTest {
             val result = WaypointStorage.loadWaypoints(tempDir)
             assertEquals(
                 "",
-                result[TEST_UUID]!!["overworld"]!!["green"]!!.name,
+                waypointByColor(result[TEST_UUID]!!["overworld"]!!, "green").name,
                 "Missing name in versioned format should default to empty",
             )
         }!!

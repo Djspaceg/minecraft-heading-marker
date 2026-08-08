@@ -6,6 +6,7 @@ import com.daolan.headingmarker.waypoint.Waypoint
 import java.io.IOException
 import java.nio.file.Files
 import java.util.*
+import kotlin.random.Random
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
@@ -21,6 +22,7 @@ import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.EntityType
+import net.minecraft.world.entity.EntityTypes
 import net.minecraft.world.entity.ai.attributes.Attributes
 import net.minecraft.world.entity.decoration.ArmorStand
 import net.minecraft.world.level.Level
@@ -88,7 +90,7 @@ class HeadingMarkerMod : ModInitializer {
 
         /** The Minecraft color name used in vanilla commands (e.g. "light_purple" for PURPLE). */
         val mcColorName: String
-            get() = formatting.getName()
+            get() = formatting.name.lowercase()
 
         companion object {
             private val BY_NAME: MutableMap<String, WaypointColor> =
@@ -108,6 +110,7 @@ class HeadingMarkerMod : ModInitializer {
     }
 
     data class WaypointData(
+        @JvmField val markerKey: String,
         @JvmField val color: String,
         @JvmField val dimension: String,
         @JvmField val x: Double,
@@ -130,6 +133,9 @@ class HeadingMarkerMod : ModInitializer {
             HashMap<UUID, MutableMap<String, MutableMap<String, WaypointData>>>()
         private val lastDistanceText = HashMap<UUID, String>()
         private const val DISTANCE_UPDATE_INTERVAL = 5
+        private const val MARKER_KEY_LENGTH = 8
+        private const val MARKER_KEY_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
+        private val MARKER_KEY_REGEX = Regex("^[a-z0-9]{1,8}$")
         private var tickCounter = 0
 
         @JvmStatic
@@ -143,14 +149,21 @@ class HeadingMarkerMod : ModInitializer {
             y: Double,
             z: Double,
             name: String = "",
-        ) {
+        ): String {
             val playerUuid = player.uuid
             val color = WaypointColor.fromString(colorName)
             val world = player.level()
             val dimension = getDimensionKey(world.dimension())
+            val markerKey =
+                generateMarkerKey(
+                    playerWaypoints.getOrPut(playerUuid) { HashMap() }.getOrPut(dimension) {
+                        HashMap()
+                    }
+                )
 
             LOGGER.info(
-                "Creating waypoint: color={}, dimension={}, pos=({},{},{}), player={}",
+                "Creating waypoint: key={}, color={}, dimension={}, pos=({},{},{}), player={}",
+                markerKey,
                 color.colorName,
                 dimension,
                 x,
@@ -159,13 +172,12 @@ class HeadingMarkerMod : ModInitializer {
                 player.name.string,
             )
 
-            removeWaypointEntityInWorld(world, playerUuid, color.colorName, dimension)
-
             val armorStand = spawnAndConfigureWaypointEntity(world, color, x, y, z)
             if (armorStand == null) {
                 LOGGER.error("Aborting waypoint creation due to entity spawn failure.")
-                return
+                return ""
             }
+            armorStand.customName = Component.literal("hm:$markerKey")
 
             setWaypointColorWithCommand(world, armorStand, color)
             setWaypointViewersWithCommand(world, armorStand, player.gameProfile.name)
@@ -176,6 +188,7 @@ class HeadingMarkerMod : ModInitializer {
 
             val data =
                 WaypointData(
+                    markerKey,
                     color.colorName,
                     dimension,
                     x,
@@ -187,21 +200,24 @@ class HeadingMarkerMod : ModInitializer {
                 )
             playerWaypoints
                 .getOrPut(playerUuid) { HashMap() }
-                .getOrPut(dimension) { HashMap() }[color.colorName] = data
+                .getOrPut(dimension) { HashMap() }[markerKey] = data
 
             LOGGER.info(
-                "Successfully created waypoint entity for color {} in {} at ({},{},{})",
+                "Successfully created waypoint {} ({}) in {} at ({},{},{})",
+                markerKey,
                 color.colorName,
                 dimension,
                 x,
                 y,
                 z,
             )
+            return markerKey
         }
 
         private fun createWaypointInWorld(
             world: ServerLevel,
             playerUuid: UUID,
+            markerKey: String,
             colorName: String,
             x: Double,
             y: Double,
@@ -211,8 +227,6 @@ class HeadingMarkerMod : ModInitializer {
             val color = WaypointColor.fromString(colorName)
             val dimension = getDimensionKey(world.dimension())
 
-            removeWaypointEntityInWorld(world, playerUuid, color.colorName, dimension)
-
             val armorStand = spawnAndConfigureWaypointEntity(world, color, x, y, z)
             if (armorStand == null) {
                 LOGGER.error(
@@ -221,6 +235,7 @@ class HeadingMarkerMod : ModInitializer {
                 )
                 return
             }
+            armorStand.customName = Component.literal("hm:$markerKey")
 
             setWaypointColorWithCommand(world, armorStand, color)
 
@@ -234,6 +249,7 @@ class HeadingMarkerMod : ModInitializer {
 
             val data =
                 WaypointData(
+                    markerKey,
                     color.colorName,
                     dimension,
                     x,
@@ -245,7 +261,7 @@ class HeadingMarkerMod : ModInitializer {
                 )
             playerWaypoints
                 .getOrPut(playerUuid) { HashMap() }
-                .getOrPut(dimension) { HashMap() }[color.colorName] = data
+                .getOrPut(dimension) { HashMap() }[markerKey] = data
         }
 
         private fun spawnAndConfigureWaypointEntity(
@@ -256,7 +272,7 @@ class HeadingMarkerMod : ModInitializer {
             z: Double,
         ): ArmorStand? {
             val armorStand =
-                ArmorStand(EntityType.ARMOR_STAND, world).apply {
+                ArmorStand(EntityTypes.ARMOR_STAND, world).apply {
                     setPos(x, y, z)
                     isInvisible = true
                     isInvulnerable = true
@@ -287,7 +303,7 @@ class HeadingMarkerMod : ModInitializer {
             try {
                 val waypointAttr = armorStand.getAttribute(Attributes.WAYPOINT_TRANSMIT_RANGE)
                 if (waypointAttr != null) {
-                    waypointAttr.baseValue = 999999.0
+                    waypointAttr.baseValue = 9999.0
                 } else {
                     LOGGER.warn(
                         "Could not set waypoint transmit range: attribute not found for ArmorStand."
@@ -358,64 +374,88 @@ class HeadingMarkerMod : ModInitializer {
         }
 
         @JvmStatic
-        fun removeWaypoint(player: ServerPlayer, color: String): Boolean {
+        fun removeWaypoint(player: ServerPlayer, selector: String): Int {
             val playerUuid = player.uuid
             val dimension = getDimensionKey(player.level().dimension())
 
-            val waypoints = playerWaypoints[playerUuid]?.get(dimension) ?: return false
-            if (!waypoints.containsKey(color)) return false
+            val waypoints = playerWaypoints[playerUuid]?.get(dimension) ?: return 0
+            val matched = findWaypointMatches(waypoints, selector)
+            if (matched.isEmpty()) return 0
 
-            removeWaypointEntity(player, color, dimension)
-            waypoints.remove(color)
-            LOGGER.info("Removed waypoint: color={}, dimension={}", color, dimension)
-            return true
+            for ((markerKey, _) in matched) {
+                removeWaypointEntity(player.level(), playerUuid, markerKey, dimension)
+                waypoints.remove(markerKey)
+            }
+            LOGGER.info(
+                "Removed {} waypoint(s): selector='{}', dimension={}",
+                matched.size,
+                selector,
+                dimension,
+            )
+            return matched.size
         }
 
         /**
-         * Renames an existing waypoint for [player] in their current dimension. Returns true if the
-         * waypoint was found and renamed, false otherwise.
+         * Renames all waypoints matching [selector] for [player] in their current dimension.
+         * Returns the number of updated waypoints.
          */
         @JvmStatic
-        fun renameWaypoint(player: ServerPlayer, color: String, newName: String): Boolean {
+        fun renameWaypoint(player: ServerPlayer, selector: String, newName: String): Int {
             val playerUuid = player.uuid
             val dimension = getDimensionKey(player.level().dimension())
 
-            val waypoints = playerWaypoints[playerUuid]?.get(dimension) ?: return false
-            val existing = waypoints[color] ?: return false
-
-            waypoints[color] = existing.copy(name = newName.trim())
+            val waypoints = playerWaypoints[playerUuid]?.get(dimension) ?: return 0
+            val matched = findWaypointMatches(waypoints, selector)
+            if (matched.isEmpty()) return 0
+            val trimmed = newName.trim()
+            for ((markerKey, existing) in matched) {
+                waypoints[markerKey] = existing.copy(name = trimmed)
+            }
             LOGGER.info(
-                "Renamed {} waypoint for player {} in {} to '{}'",
-                color,
+                "Renamed {} waypoint(s) for player {} in {} using selector '{}' to '{}'",
+                matched.size,
                 player.name.string,
                 dimension,
-                newName.trim(),
+                selector,
+                trimmed,
             )
-            return true
+            return matched.size
         }
 
-        private fun removeWaypointEntity(player: ServerPlayer, color: String, dimension: String) {
-            removeWaypointEntityInWorld(
-                player.level(),
-                player.uuid,
-                color,
-                dimension,
-            )
-        }
-
-        private fun removeWaypointEntityInWorld(
+        private fun removeWaypointEntity(
             world: ServerLevel,
             playerUuid: UUID,
-            color: String,
+            markerKey: String,
             dimension: String,
         ) {
-            val data = playerWaypoints[playerUuid]?.get(dimension)?.get(color) ?: return
+            val data = playerWaypoints[playerUuid]?.get(dimension)?.get(markerKey) ?: return
             if (data.entityId != -1) {
                 val entity = world.getEntity(data.entityId)
                 if (entity is ArmorStand) {
                     entity.discard()
-                    LOGGER.info("Removed waypoint entity for color {} in {}", color, dimension)
+                    LOGGER.info(
+                        "Removed waypoint entity for key {} (color {}) in {}",
+                        markerKey,
+                        data.color,
+                        dimension,
+                    )
                 }
+            }
+        }
+
+        private fun findWaypointMatches(
+            waypoints: Map<String, WaypointData>,
+            selector: String,
+        ): Map<String, WaypointData> {
+            val trimmed = selector.trim()
+            if (trimmed.isEmpty()) return emptyMap()
+
+            val byKey = waypoints[trimmed]
+            if (byKey != null) return mapOf(trimmed to byKey)
+
+            val lower = trimmed.lowercase()
+            return waypoints.filterValues { data ->
+                data.color.equals(lower, ignoreCase = true) || data.name.equals(trimmed, ignoreCase = true)
             }
         }
 
@@ -533,36 +573,45 @@ class HeadingMarkerMod : ModInitializer {
         fun shareWaypoint(
             fromPlayer: ServerPlayer,
             toPlayer: ServerPlayer,
-            colorName: String,
-        ): Boolean {
+            selector: String,
+        ): Int {
             val fromUuid = fromPlayer.uuid
-            val color = WaypointColor.fromString(colorName)
             val dimension = getDimensionKey(fromPlayer.level().dimension())
 
-            val sourceData = getWaypoints(fromUuid, dimension)[color.colorName] ?: return false
-            val world = getWorldForDimension(fromPlayer.level().server, dimension) ?: return false
+            val sourceData = findWaypointMatches(getWaypoints(fromUuid, dimension), selector)
+            if (sourceData.isEmpty()) return 0
+            val world = getWorldForDimension(fromPlayer.level().server, dimension) ?: return 0
+            var shared = 0
 
-            createWaypointInWorld(
-                world,
-                toPlayer.uuid,
-                color.colorName,
-                sourceData.x,
-                sourceData.y,
-                sourceData.z,
-                sourceData.name,
-            )
+            for ((_, data) in sourceData) {
+                val targetKey =
+                    generateMarkerKey(
+                        playerWaypoints
+                            .getOrPut(toPlayer.uuid) { HashMap() }
+                            .getOrPut(dimension) { HashMap() }
+                    )
+                createWaypointInWorld(
+                    world,
+                    toPlayer.uuid,
+                    targetKey,
+                    data.color,
+                    data.x,
+                    data.y,
+                    data.z,
+                    data.name,
+                )
+                shared++
+            }
 
             LOGGER.info(
-                "Shared {} waypoint from {} to {} at ({},{},{}) in {}",
-                color.colorName,
+                "Shared {} waypoint(s) from {} to {} in {} using selector '{}'",
+                shared,
                 fromPlayer.name.string,
                 toPlayer.name.string,
-                sourceData.x.toInt(),
-                sourceData.y.toInt(),
-                sourceData.z.toInt(),
                 dimension,
+                selector,
             )
-            return true
+            return shared
         }
 
         @JvmStatic
@@ -591,24 +640,33 @@ class HeadingMarkerMod : ModInitializer {
                     dimension,
                 )
 
-                val waypointSnapshot = ArrayList(waypoints.values)
-                for (data in waypointSnapshot) {
+                val waypointSnapshot = ArrayList(waypoints.entries)
+                for ((existingKey, data) in waypointSnapshot) {
                     try {
-                        var colorName = data.color
-                        if (colorName == "light_purple") {
-                            waypoints.remove("light_purple")
-                            colorName = "purple"
-                            LOGGER.info(
-                                "Migrating waypoint from 'light_purple' to 'purple' for player {} in {}",
-                                player.name.string,
-                                dimension,
-                            )
+                        val key =
+                            if (
+                                isValidMarkerKey(existingKey) &&
+                                    existingKey !in reservedSelectorWords()
+                            ) existingKey
+                            else generateMarkerKey(waypoints)
+                        if (key != existingKey) {
+                            waypoints.remove(existingKey)
                         }
-                        createWaypointInWorld(world, playerUuid, colorName, data.x, data.y, data.z)
+                        createWaypointInWorld(
+                            world,
+                            playerUuid,
+                            key,
+                            data.color,
+                            data.x,
+                            data.y,
+                            data.z,
+                            data.name,
+                        )
                         recreatedCount++
                     } catch (e: Exception) {
                         LOGGER.error(
-                            "Failed to recreate waypoint entity for color {} in {}: {}",
+                            "Failed to recreate waypoint entity for key {} (color {}) in {}: {}",
+                            existingKey,
                             data.color,
                             dimension,
                             e.message,
@@ -634,11 +692,10 @@ class HeadingMarkerMod : ModInitializer {
             val fullText: MutableComponent =
                 if (waypoints.isNotEmpty()) {
                     val playerPos = Vec3(player.x, player.y, player.z)
-                    waypoints.keys
-                        .sorted()
-                        .map { colorName ->
-                            val color = WaypointColor.fromString(colorName)
-                            val data = waypoints[colorName]!!
+                    waypoints.entries
+                        .sortedBy { it.key }
+                        .map { (_, data) ->
+                            val color = WaypointColor.fromString(data.color)
                             val distance =
                                 playerPos.distanceTo(Vec3(data.x, data.y, data.z)).toInt()
                             val label =
@@ -690,7 +747,7 @@ class HeadingMarkerMod : ModInitializer {
                 for (entity in world.allEntities) {
                     if (entity !is ArmorStand) continue
                     val customName = entity.customName?.string ?: continue
-                    if (customName !in waypointNames) continue
+                    if (!customName.startsWith("hm:") && customName !in waypointNames) continue
                     if ("$dimKey:${entity.id}" in knownEntities) continue
                     orphans.add(entity)
                 }
@@ -713,5 +770,25 @@ class HeadingMarkerMod : ModInitializer {
             LOGGER.info("Purged {} orphaned waypoint entity(ies) across all dimensions.", removed)
             return removed
         }
+
+        private fun generateMarkerKey(existing: Map<String, WaypointData>): String {
+            repeat(1024) {
+                val candidate =
+                    buildString(MARKER_KEY_LENGTH) {
+                        repeat(MARKER_KEY_LENGTH) {
+                            append(MARKER_KEY_ALPHABET[Random.nextInt(MARKER_KEY_ALPHABET.length)])
+                        }
+                    }
+                if (!existing.containsKey(candidate) && candidate !in reservedSelectorWords()) {
+                    return candidate
+                }
+            }
+            throw IllegalStateException("Unable to generate a unique $MARKER_KEY_LENGTH-character marker key.")
+        }
+
+        private fun isValidMarkerKey(key: String): Boolean = MARKER_KEY_REGEX.matches(key)
+
+        private fun reservedSelectorWords(): Set<String> =
+            WaypointColor.entries.map { it.colorName }.toSet() + "light_purple"
     }
 }

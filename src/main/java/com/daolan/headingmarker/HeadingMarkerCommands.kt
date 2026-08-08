@@ -46,12 +46,12 @@ object HeadingMarkerCommands {
                 .then(
                     Commands.literal("remove")
                         .then(
-                            Commands.argument("color", StringArgumentType.word())
+                            Commands.argument("selector", StringArgumentType.greedyString())
                                 .suggests(::suggestActiveWaypoints)
                                 .executes { ctx ->
                                     removeWaypoint(
                                         ctx.source.player,
-                                        StringArgumentType.getString(ctx, "color"),
+                                        StringArgumentType.getString(ctx, "selector"),
                                     )
                                 }
                         )
@@ -69,23 +69,23 @@ object HeadingMarkerCommands {
                 .then(
                     Commands.literal("rename")
                         .then(
-                            Commands.argument("color", StringArgumentType.word())
+                            Commands.argument("selector", StringArgumentType.string())
                                 .suggests(::suggestActiveWaypoints)
-                                // /hm rename <color> — clear the name
+                                // /hm rename <selector> — clear the name
                                 .executes { ctx ->
                                     renameWaypoint(
                                         ctx.source.player,
-                                        StringArgumentType.getString(ctx, "color"),
+                                        StringArgumentType.getString(ctx, "selector"),
                                         "",
                                     )
                                 }
-                                // /hm rename <color> <name> — set a name
+                                // /hm rename <selector> <name> — set a name
                                 .then(
                                     Commands.argument("name", StringArgumentType.greedyString())
                                         .executes { ctx ->
                                             renameWaypoint(
                                                 ctx.source.player,
-                                                StringArgumentType.getString(ctx, "color"),
+                                                StringArgumentType.getString(ctx, "selector"),
                                                 StringArgumentType.getString(ctx, "name"),
                                             )
                                         }
@@ -98,13 +98,13 @@ object HeadingMarkerCommands {
                             Commands.argument("player", StringArgumentType.word())
                                 .suggests(::suggestOtherPlayers)
                                 .then(
-                                    Commands.argument("color", StringArgumentType.word())
+                                    Commands.argument("selector", StringArgumentType.greedyString())
                                         .suggests(::suggestActiveWaypoints)
                                         .executes { ctx ->
                                             shareWaypoint(
                                                 ctx.source.player,
                                                 StringArgumentType.getString(ctx, "player"),
-                                                StringArgumentType.getString(ctx, "color"),
+                                                StringArgumentType.getString(ctx, "selector"),
                                             )
                                         }
                                 )
@@ -279,10 +279,14 @@ object HeadingMarkerCommands {
     ): CompletableFuture<Suggestions> {
         val player = context.source.player ?: return builder.buildFuture()
         val dimension = HeadingMarkerMod.getDimensionKey(player.level().dimension())
-        return SharedSuggestionProvider.suggest(
-            HeadingMarkerMod.getWaypoints(player.uuid, dimension).keys,
-            builder,
-        )
+        val waypoints = HeadingMarkerMod.getWaypoints(player.uuid, dimension)
+        val suggestions = linkedSetOf<String>()
+        for ((markerKey, data) in waypoints) {
+            suggestions.add(markerKey)
+            suggestions.add(data.color)
+            if (data.name.isNotBlank()) suggestions.add(data.name)
+        }
+        return SharedSuggestionProvider.suggest(suggestions, builder)
     }
 
     private fun suggestOtherPlayers(
@@ -314,10 +318,17 @@ object HeadingMarkerCommands {
             )
             return 0
         }
-        HeadingMarkerMod.createWaypoint(player, lowerColor, x, y, z)
+        val markerKey = HeadingMarkerMod.createWaypoint(player, lowerColor, x, y, z)
+        if (markerKey.isBlank()) {
+            player.sendSystemMessage(
+                Component.literal("Failed to create waypoint. Check server logs.")
+                    .withStyle(ChatFormatting.RED)
+            )
+            return 0
+        }
         player.sendSystemMessage(
             Component.literal(
-                    "$lowerColor waypoint set at (${x.toInt()}, ${y.toInt()}, ${z.toInt()})"
+                    "$lowerColor waypoint set at (${x.toInt()}, ${y.toInt()}, ${z.toInt()}) [key: $markerKey]"
                 )
                 .withStyle(ChatFormatting.GREEN)
         )
@@ -327,19 +338,24 @@ object HeadingMarkerCommands {
     private fun getNextAvailableColor(player: ServerPlayer): String {
         val dimension = HeadingMarkerMod.getDimensionKey(player.level().dimension())
         val existing = HeadingMarkerMod.getWaypoints(player.uuid, dimension)
-        return VALID_COLORS.firstOrNull { it !in existing } ?: VALID_COLORS.first()
+        val counts = existing.values.groupingBy { it.color }.eachCount()
+        return VALID_COLORS.minWithOrNull(compareBy({ counts[it] ?: 0 }, { VALID_COLORS.indexOf(it) }))
+            ?: VALID_COLORS.first()
     }
 
-    private fun removeWaypoint(player: ServerPlayer?, color: String): Int {
+    private fun removeWaypoint(player: ServerPlayer?, selector: String): Int {
         player ?: return 0
-        return if (HeadingMarkerMod.removeWaypoint(player, color)) {
+        val removed = HeadingMarkerMod.removeWaypoint(player, selector)
+        return if (removed > 0) {
             player.sendSystemMessage(
-                Component.literal("$color waypoint removed").withStyle(ChatFormatting.YELLOW)
+                Component.literal("Removed $removed waypoint(s) matching \"$selector\".")
+                    .withStyle(ChatFormatting.YELLOW)
             )
-            1
+            removed
         } else {
             player.sendSystemMessage(
-                Component.literal("No $color waypoint found.").withStyle(ChatFormatting.RED)
+                Component.literal("No waypoint found matching \"$selector\".")
+                    .withStyle(ChatFormatting.RED)
             )
             0
         }
@@ -379,35 +395,28 @@ object HeadingMarkerCommands {
         return count
     }
 
-    private fun renameWaypoint(player: ServerPlayer?, color: String, newName: String): Int {
+    private fun renameWaypoint(player: ServerPlayer?, selector: String, newName: String): Int {
         player ?: return 0
-        val lowerColor = color.lowercase()
-        if (lowerColor !in VALID_COLORS) {
-            player.sendSystemMessage(
-                Component.literal(
-                        "Unknown color: $color. Valid colors: ${VALID_COLORS.joinToString(", ")}"
-                    )
-                    .withStyle(ChatFormatting.RED)
-            )
-            return 0
-        }
         val trimmed = newName.trim()
-        return if (HeadingMarkerMod.renameWaypoint(player, lowerColor, trimmed)) {
+        val renamed = HeadingMarkerMod.renameWaypoint(player, selector, trimmed)
+        return if (renamed > 0) {
             if (trimmed.isEmpty()) {
                 player.sendSystemMessage(
-                    Component.literal("Cleared name from $lowerColor waypoint.")
+                    Component.literal("Cleared name on $renamed waypoint(s) matching \"$selector\".")
                         .withStyle(ChatFormatting.GREEN)
                 )
             } else {
                 player.sendSystemMessage(
-                    Component.literal("Renamed $lowerColor waypoint to \"$trimmed\".")
+                    Component.literal(
+                            "Renamed $renamed waypoint(s) matching \"$selector\" to \"$trimmed\"."
+                        )
                         .withStyle(ChatFormatting.GREEN)
                 )
             }
-            1
+            renamed
         } else {
             player.sendSystemMessage(
-                Component.literal("No $lowerColor waypoint found in this dimension.")
+                Component.literal("No waypoint found matching \"$selector\" in this dimension.")
                     .withStyle(ChatFormatting.RED)
             )
             0
@@ -438,19 +447,12 @@ object HeadingMarkerCommands {
         return 1
     }
 
-    private fun shareWaypoint(fromPlayer: ServerPlayer?, targetName: String, color: String): Int {
+    private fun shareWaypoint(
+        fromPlayer: ServerPlayer?,
+        targetName: String,
+        selector: String,
+    ): Int {
         fromPlayer ?: return 0
-
-        val lowerColor = color.lowercase()
-        if (lowerColor !in VALID_COLORS) {
-            fromPlayer.sendSystemMessage(
-                Component.literal(
-                        "Unknown color: $color. Valid colors: ${VALID_COLORS.joinToString(", ")}"
-                    )
-                    .withStyle(ChatFormatting.RED)
-            )
-            return 0
-        }
 
         val toPlayer = fromPlayer.level().server.playerList.getPlayer(targetName)
         if (toPlayer == null) {
@@ -469,21 +471,22 @@ object HeadingMarkerCommands {
             return 0
         }
 
-        return if (HeadingMarkerMod.shareWaypoint(fromPlayer, toPlayer, lowerColor)) {
+        val shared = HeadingMarkerMod.shareWaypoint(fromPlayer, toPlayer, selector)
+        return if (shared > 0) {
             fromPlayer.sendSystemMessage(
-                Component.literal("Shared $lowerColor waypoint with $targetName")
+                Component.literal("Shared $shared waypoint(s) matching \"$selector\" with $targetName")
                     .withStyle(ChatFormatting.GREEN)
             )
             toPlayer.sendSystemMessage(
                 Component.literal(
-                        "${fromPlayer.name.string} shared their $lowerColor waypoint with you."
+                        "${fromPlayer.name.string} shared $shared waypoint(s) with you."
                     )
                     .withStyle(ChatFormatting.AQUA)
             )
-            1
+            shared
         } else {
             fromPlayer.sendSystemMessage(
-                Component.literal("You have no $lowerColor waypoint in this dimension to share.")
+                Component.literal("You have no waypoint matching \"$selector\" in this dimension.")
                     .withStyle(ChatFormatting.RED)
             )
             0
@@ -504,11 +507,11 @@ object HeadingMarkerCommands {
         player.sendSystemMessage(
             Component.literal("Active Waypoints in $dim:").withStyle(ChatFormatting.GOLD)
         )
-        for ((color, data) in waypoints.entries.sortedBy { it.key }) {
+        for ((markerKey, data) in waypoints.entries.sortedBy { it.key }) {
             val nameDisplay = if (data.name.isNotBlank()) " \"${data.name}\"" else ""
             player.sendSystemMessage(
                 Component.literal(
-                        " - $color$nameDisplay at (${data.x.toInt()}, ${data.y.toInt()}, ${data.z.toInt()})"
+                        " - ${data.color}$nameDisplay at (${data.x.toInt()}, ${data.y.toInt()}, ${data.z.toInt()}) [key: $markerKey]"
                     )
                     .withStyle(ChatFormatting.GRAY)
             )
@@ -550,13 +553,13 @@ object HeadingMarkerCommands {
         line("")
         line("MANAGE:", ChatFormatting.AQUA, ChatFormatting.BOLD)
         cmdLine("/hm list", "List active waypoints")
-        cmdLine("/hm rename <color> [name]", "Name, rename, or clear a waypoint label")
-        cmdLine("/hm remove <color>", "Remove a waypoint")
+        cmdLine("/hm rename <selector> [name]", "Name, rename, or clear marker labels")
+        cmdLine("/hm remove <selector>", "Remove marker(s) by key, color, or name")
         cmdLine("/hm clear", "Clear waypoints in this dimension")
         cmdLine("/hm clearall", "Clear all waypoints")
         line("")
         line("SHARE:", ChatFormatting.AQUA, ChatFormatting.BOLD)
-        cmdLine("/hm share <player> <color>", "Share a waypoint")
+        cmdLine("/hm share <player> <selector>", "Share marker(s) by key, color, or name")
         line("")
         line("DISTANCE:", ChatFormatting.AQUA, ChatFormatting.BOLD)
         cmdLine("/trigger hm.distance", "Toggle distance display")

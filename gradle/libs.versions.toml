@@ -1,9 +1,9 @@
 [versions]
-minecraft = "26.1"
+minecraft = "26.2"
 fabric-loader = "0.18.5"
-fabric-loom = "1.15.0-alpha.6"
+fabric-loom = "1.17.11"
 fabric-kotlin = "1.13.10+kotlin.2.3.20"
-fabric-api = "0.144.3+26.1"
+fabric-api = "0.152.1+26.2"
 kotlin = "2.3.20"
 jetbrains-annotations = "26.1.0"
 junit = "5.10.2"

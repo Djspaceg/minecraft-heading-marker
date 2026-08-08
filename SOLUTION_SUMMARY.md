@@ -19,7 +19,7 @@ the `waypoint_transmission_range` attribute.
 2. Sets these properties on the armor stand:
     - Invisible, Invulnerable, NoGravity, Silent, Marker
     - Custom name (e.g., "red waypoint")
-    - `waypoint_transmission_range` attribute = 999999
+    - `waypoint_transmission_range` attribute = 9999
 
 3. The armor stand entity is spawned in the world
 4. Waypoint data is stored for persistence

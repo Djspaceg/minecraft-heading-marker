@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "headingmarker-gametest",
+  "version": "1.0.0",
+  "name": "Heading Marker Game Tests",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": [
+      {
+        "adapter": "kotlin",
+        "value": "com.daolan.headingmarker.gametest.HeadingMarkerGameTests"
+      },
+      {
+        "adapter": "kotlin",
+        "value": "com.daolan.headingmarker.gametest.ProbeGameTests"
+      }
+    ]
+  },
+  "depends": {
+    "headingmarker": "*",
+    "fabric-gametest-api-v1": "*",
+    "fabric-language-kotlin": "*"
+  }
+}

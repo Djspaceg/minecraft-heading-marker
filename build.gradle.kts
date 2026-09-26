@@ -40,6 +40,18 @@ dependencies {
   implementation(libs.fabric.kotlin)
 }
 
+// In-game tests: boots a headless dedicated server with the mod plus src/gametest, runs every
+// @GameTest method, and exits. Wired into `check` by Loom (task: runGameTest).
+fabricApi {
+  configureTests {
+    createSourceSet = true
+    modId = "headingmarker-gametest"
+    enableGameTests = true
+    enableClientGameTests = false
+    eula = true
+  }
+}
+
 tasks.test { useJUnitPlatform() }
 
 tasks.processResources {

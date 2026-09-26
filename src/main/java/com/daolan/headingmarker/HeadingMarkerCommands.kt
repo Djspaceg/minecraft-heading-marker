@@ -319,7 +319,11 @@ object HeadingMarkerCommands {
         val targetLabel = to.gameProfile.name
         if (result.matched == 0) return noMatch(from, selector)
         if (result.shared == 0) {
-            from.tell("$targetLabel already has those waypoint(s).", ChatFormatting.YELLOW)
+            if (result.alreadyHad == result.matched) {
+                from.tell("$targetLabel already has those waypoint(s).", ChatFormatting.YELLOW)
+            } else {
+                from.tell("Failed to share waypoint(s). Check server logs.", ChatFormatting.RED)
+            }
             return 0
         }
         val skipped =

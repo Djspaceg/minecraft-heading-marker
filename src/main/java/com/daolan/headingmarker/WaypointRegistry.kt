@@ -118,6 +118,10 @@ class WaypointRegistry {
         }
     }
 
+    fun markDirty(owner: UUID) {
+        dirty += owner
+    }
+
     /** Owners changed since the last call. */
     fun takeDirty(): Set<UUID> {
         val changed = dirty.toSet()

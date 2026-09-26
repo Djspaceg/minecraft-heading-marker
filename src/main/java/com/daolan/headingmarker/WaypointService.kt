@@ -41,7 +41,10 @@ class WaypointService(private val server: MinecraftServer, private val storageDi
     /** Writes every owner whose waypoints changed since the last save. */
     fun saveChanged() {
         for (owner in registry.takeDirty()) {
-            WaypointStorage.savePlayer(storageDir, owner, registry.allDimensions(owner))
+            // Keep failures dirty so the next world save (or shutdown) tries again.
+            if (!WaypointStorage.savePlayer(storageDir, owner, registry.allDimensions(owner))) {
+                registry.markDirty(owner)
+            }
         }
     }
 
@@ -130,8 +133,11 @@ class WaypointService(private val server: MinecraftServer, private val storageDi
             }
             val copy =
                 registry.add(to.uuid, dimension, source.color, source.x, source.y, source.z, source.name)
-            if (entities.spawn(to.uuid, copy)) shared++
-            else registry.remove(to.uuid, dimension, copy.key)
+            if (entities.spawn(to.uuid, copy)) {
+                shared++
+            } else {
+                registry.remove(to.uuid, dimension, copy.key)
+            }
         }
         return ShareResult(matched.size, shared, alreadyHad)
     }

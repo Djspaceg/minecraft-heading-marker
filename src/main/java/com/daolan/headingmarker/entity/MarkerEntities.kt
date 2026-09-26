@@ -4,6 +4,7 @@ import com.daolan.headingmarker.Dimensions
 import com.daolan.headingmarker.HeadingMarkerMod.Companion.LOGGER
 import com.daolan.headingmarker.model.Waypoint
 import com.daolan.headingmarker.model.WaypointColor
+import java.lang.reflect.Field
 import java.util.Optional
 import java.util.UUID
 import net.minecraft.network.chat.Component
@@ -172,13 +173,36 @@ class MarkerEntities(private val server: MinecraftServer) {
             // Same color `/waypoint modify <entity> color <name>` would set. Setting it directly
             // also works for stands in unloaded chunks, which that command can't select.
             waypointIcon().color = Optional.ofNullable(TeamColor.byName(waypoint.color.vanillaName)?.rgb())
+            markTicked(this)
         }
+
+    /**
+     * LivingEntity.makeWaypointConnectionWith refuses to connect until the entity has ticked once,
+     * and entities in unloaded chunks never tick, so a distant marker never reached the locator
+     * bar. Clearing the flag lets vanilla connect it as soon as it spawns. Must run after the other
+     * setup: refreshDimensions() may reposition an entity that is past its first tick.
+     */
+    private fun markTicked(stand: ArmorStand) {
+        try {
+            FIRST_TICK?.setBoolean(stand, false)
+        } catch (e: ReflectiveOperationException) {
+            LOGGER.warn("Could not mark marker entity as ticked: {}", e.message)
+        }
+    }
 
     companion object {
         /** Custom-name prefix that identifies marker entities; the key follows it. */
         const val NAME_PREFIX = "hm:"
         private const val TRANSMIT_RANGE = 9999.0
         private const val RESPAWN_CHECK_TICKS = 10
+
+        private val FIRST_TICK: Field? =
+            try {
+                Entity::class.java.getDeclaredField("firstTick").apply { isAccessible = true }
+            } catch (e: ReflectiveOperationException) {
+                LOGGER.warn("Entity.firstTick not found; distant markers won't show: {}", e.message)
+                null
+            }
 
         /** Names used by older mod versions and the datapack, e.g. "red waypoint". */
         private val LEGACY_NAMES: Set<String> =

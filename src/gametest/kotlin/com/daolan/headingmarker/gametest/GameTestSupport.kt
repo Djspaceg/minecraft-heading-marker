@@ -36,3 +36,11 @@ internal fun GameTestHelper.spot(x: Double, z: Double): Vec3 = absoluteVec(Vec3(
 /** Test structures sit millions of blocks out, where Double.toString gives "1.0E7". */
 internal fun coords(v: Vec3): String =
     listOf(v.x, v.y, v.z).joinToString(" ") { String.format(Locale.ROOT, "%.2f", it) }
+
+/** Vanilla's private receiver → transmitter → connection table for [level]. */
+@Suppress("UNCHECKED_CAST")
+internal fun connections(level: ServerLevel): com.google.common.collect.Table<ServerPlayer, Any, Any> {
+    val field = level.waypointManager.javaClass.getDeclaredField("connections")
+    field.isAccessible = true
+    return field.get(level.waypointManager) as com.google.common.collect.Table<ServerPlayer, Any, Any>
+}

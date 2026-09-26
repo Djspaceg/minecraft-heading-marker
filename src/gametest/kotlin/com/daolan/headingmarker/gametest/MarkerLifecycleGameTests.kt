@@ -51,6 +51,20 @@ class MarkerLifecycleGameTests {
         helper.succeed()
     }
 
+    @GameTest(maxTicks = 40)
+    fun farWaypointReachesOwnersLocatorBar(helper: GameTestHelper) {
+        val player = TestPlayers.join(helper, "hm_far_bar")
+        TestPlayers.run(player, "hm set green ${coords(helper.spot(3000.0, -3000.0))}")
+        val key = waypoints(player).keys.single()
+        helper.succeedWhen {
+            val stand = transmitterFor(helper, key)
+            helper.check(stand != null && connections(helper.level).contains(player, stand)) {
+                "owner has no waypoint connection to their far marker"
+            }
+            TestPlayers.leave(player)
+        }
+    }
+
     @GameTest(maxTicks = 200)
     fun farWaypointSurvivesWorldSaves(helper: GameTestHelper) {
         // An entity sitting in an unloaded chunk gets written out and unloaded by the next

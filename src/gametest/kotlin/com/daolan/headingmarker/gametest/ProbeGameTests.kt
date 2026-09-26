@@ -1,22 +1,12 @@
 package com.daolan.headingmarker.gametest
 
-import com.google.common.collect.Table
 import net.fabricmc.fabric.api.gametest.v1.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.network.chat.Component
-import net.minecraft.server.level.ServerLevel
-import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.decoration.ArmorStand
 
 /** Optional diagnostics that log vanilla waypoint behavior instead of asserting it. */
 class ProbeGameTests {
-
-    @Suppress("UNCHECKED_CAST")
-    private fun connections(level: ServerLevel): Table<ServerPlayer, Any, Any> {
-        val field = level.waypointManager.javaClass.getDeclaredField("connections")
-        field.isAccessible = true
-        return field.get(level.waypointManager) as Table<ServerPlayer, Any, Any>
-    }
 
     private fun report(helper: GameTestHelper, text: String) =
         helper.level.server.sendSystemMessage(Component.literal("PROBE $text"))

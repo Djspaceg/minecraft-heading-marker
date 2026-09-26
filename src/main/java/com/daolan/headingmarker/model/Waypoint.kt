@@ -19,12 +19,21 @@ data class Waypoint(
     val label: String
         get() = name.ifBlank { color.displayName }
 
-    /** Same place, color, and name; ignores the key. */
+    /** Same color at the same place; ignores the key and name. */
     fun sameSpotAs(other: Waypoint): Boolean =
         color == other.color &&
             dimension == other.dimension &&
             x == other.x &&
             y == other.y &&
-            z == other.z &&
-            name == other.name
+            z == other.z
+}
+
+/**
+ * Normalizes a typed selector or name: trims it and strips one pair of surrounding double quotes,
+ * so `"Home Base"` means the same as `Home Base` in every command, greedy arguments included.
+ */
+fun cleanInput(text: String): String {
+    val trimmed = text.trim()
+    val quoted = trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')
+    return if (quoted) trimmed.substring(1, trimmed.length - 1).trim() else trimmed
 }

@@ -16,6 +16,10 @@
       },
       {
         "adapter": "kotlin",
+        "value": "com.daolan.headingmarker.gametest.CommandGameTests"
+      },
+      {
+        "adapter": "kotlin",
         "value": "com.daolan.headingmarker.gametest.ProbeGameTests"
       }
     ]

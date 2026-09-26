@@ -3,6 +3,7 @@ package com.daolan.headingmarker
 import com.daolan.headingmarker.model.MarkerKeys
 import com.daolan.headingmarker.model.Waypoint
 import com.daolan.headingmarker.model.WaypointColor
+import com.daolan.headingmarker.model.cleanInput
 import java.util.UUID
 
 /**
@@ -47,7 +48,7 @@ class WaypointRegistry {
     ): Waypoint {
         val bucket = bucket(owner, dimension)
         val key = MarkerKeys.generate { it in bucket }
-        val waypoint = Waypoint(key, color, dimension, x, y, z, name.trim())
+        val waypoint = Waypoint(key, color, dimension, x, y, z, cleanInput(name))
         bucket[key] = waypoint
         dirty += owner
         return waypoint
@@ -71,7 +72,7 @@ class WaypointRegistry {
     fun rename(owner: UUID, dimension: String, key: String, name: String): Waypoint? {
         val bucket = byOwner[owner]?.get(dimension) ?: return null
         val existing = bucket[key] ?: return null
-        val renamed = existing.copy(name = name.trim())
+        val renamed = existing.copy(name = cleanInput(name))
         bucket[key] = renamed
         dirty += owner
         return renamed
@@ -129,7 +130,7 @@ class WaypointRegistry {
 
     companion object {
         fun selectFrom(waypoints: Map<String, Waypoint>, selector: String): List<Waypoint> {
-            val wanted = selector.trim()
+            val wanted = cleanInput(selector)
             if (wanted.isEmpty()) return emptyList()
             waypoints[wanted]?.let { return listOf(it) }
             val color = WaypointColor.parse(wanted)

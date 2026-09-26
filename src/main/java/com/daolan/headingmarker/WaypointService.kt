@@ -112,17 +112,28 @@ class WaypointService(private val server: MinecraftServer, private val storageDi
         return removed.size
     }
 
-    /** Gives [to] their own copy of each of [from]'s waypoints that [selector] matches. */
-    fun share(from: ServerPlayer, to: ServerPlayer, selector: String): Int {
+    class ShareResult(val matched: Int, val shared: Int, val alreadyHad: Int)
+
+    /**
+     * Gives [to] their own copy of each of [from]'s waypoints that [selector] matches, skipping
+     * any [to] already has at the same spot in the same color.
+     */
+    fun share(from: ServerPlayer, to: ServerPlayer, selector: String): ShareResult {
         val dimension = Dimensions.idOf(from.level())
+        val matched = registry.select(from.uuid, dimension, selector)
         var shared = 0
-        for (source in registry.select(from.uuid, dimension, selector)) {
+        var alreadyHad = 0
+        for (source in matched) {
+            if (registry.waypoints(to.uuid, dimension).values.any { it.sameSpotAs(source) }) {
+                alreadyHad++
+                continue
+            }
             val copy =
                 registry.add(to.uuid, dimension, source.color, source.x, source.y, source.z, source.name)
             if (entities.spawn(to.uuid, copy)) shared++
             else registry.remove(to.uuid, dimension, copy.key)
         }
-        return shared
+        return ShareResult(matched.size, shared, alreadyHad)
     }
 
     fun purgeOrphans(): Int = entities.purgeOrphans()

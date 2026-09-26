@@ -108,6 +108,17 @@ class HeadingMarkerCommandsTest {
         }
 
     @Test
+    fun `color with a lone coordinate reports incomplete coordinates`() =
+        withDispatcher { dispatcher ->
+            assertResolvesTo(dispatcher, "hm set red 100", listOf("hm", "set", "color", "n1"))
+        }
+
+    @Test
+    fun `bare alias shows help instead of an incomplete command`() = withDispatcher { dispatcher ->
+        assertResolvesTo(dispatcher, "headingmarker", listOf("headingmarker"))
+    }
+
+    @Test
     fun `invalid set inputs still parse at brigadier level`() = withDispatcher { dispatcher ->
         // These parse (Brigadier accepts string args) but fail at execution with a message
         val commands = listOf("hm set invalidcolor", "hm set notacolor 100 200")

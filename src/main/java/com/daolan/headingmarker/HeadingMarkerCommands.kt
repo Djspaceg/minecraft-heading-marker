@@ -1,9 +1,12 @@
 package com.daolan.headingmarker
 
+import com.daolan.headingmarker.model.Waypoint
 import com.daolan.headingmarker.model.WaypointColor
+import com.daolan.headingmarker.model.cleanInput
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
+import com.mojang.brigadier.builder.RequiredArgumentBuilder
 import com.mojang.brigadier.context.CommandContext
 import com.mojang.brigadier.suggestion.Suggestions
 import com.mojang.brigadier.suggestion.SuggestionsBuilder
@@ -13,19 +16,25 @@ import net.minecraft.commands.CommandBuildContext
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.commands.SharedSuggestionProvider
+import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.server.players.NameAndId
+import net.minecraft.util.Mth
+import net.minecraft.world.level.Level
 
+/** The /hm command tree. Parses input, calls [WaypointService], and formats the feedback. */
 object HeadingMarkerCommands {
 
-    private val VALID_COLORS: List<String> = WaypointColor.SELECTABLE.map { it.id }
+    private val COLOR_NAMES: List<String> = WaypointColor.SELECTABLE.map { it.id }
 
     private const val INCOMPLETE_COORDS =
         "Incomplete coordinates. Usage: /hm set [color] <x> [y] <z>, e.g. /hm set red 100 200"
 
+    /** Same bar as vanilla admin commands like /kill: permission level 2. */
+    private val IS_GAMEMASTER = Commands.hasPermission<CommandSourceStack>(Commands.LEVEL_GAMEMASTERS)
+
     private fun unknownColorMessage(color: String) =
-        "Unknown color: $color. Valid colors: ${VALID_COLORS.joinToString(", ")}"
+        "Unknown color: $color. Valid colors: ${COLOR_NAMES.joinToString(", ")}"
 
     @JvmStatic
     fun register(
@@ -35,61 +44,34 @@ object HeadingMarkerCommands {
     ) {
         val hmCommand =
             Commands.literal("hm")
-                .executes { ctx ->
-                    sendHelpMessage(ctx.source)
-                    1
-                }
-                .then(
-                    Commands.literal("help").executes { ctx ->
-                        sendHelpMessage(ctx.source)
-                        1
-                    }
-                )
-                .then(Commands.literal("list").executes { ctx -> listWaypoints(ctx.source.player) })
+                .executes { help(it.source) }
+                .then(Commands.literal("help").executes { help(it.source) })
+                .then(Commands.literal("list").executes { list(it.player()) })
                 .then(
                     Commands.literal("remove")
                         .then(
-                            Commands.argument("selector", StringArgumentType.greedyString())
-                                .suggests(::suggestActiveWaypoints)
-                                .executes { ctx ->
-                                    removeWaypoint(
-                                        ctx.source.player,
-                                        StringArgumentType.getString(ctx, "selector"),
-                                    )
-                                }
+                            selectorArgument(StringArgumentType.greedyString()).executes {
+                                remove(it.player(), it.selector())
+                            }
                         )
                 )
-                .then(
-                    Commands.literal("clear").executes { ctx ->
-                        clearWaypointsInDimension(ctx.source.player)
-                    }
-                )
-                .then(
-                    Commands.literal("clearall").executes { ctx ->
-                        clearAllWaypoints(ctx.source.player)
-                    }
-                )
+                .then(Commands.literal("clear").executes { clear(it.player()) })
+                .then(Commands.literal("clearall").executes { clearAll(it.player()) })
                 .then(
                     Commands.literal("rename")
                         .then(
-                            Commands.argument("selector", StringArgumentType.string())
-                                .suggests(::suggestActiveWaypoints)
+                            // A single (optionally quoted) word, so a name can follow it.
+                            selectorArgument(StringArgumentType.string())
                                 // /hm rename <selector> — clear the name
-                                .executes { ctx ->
-                                    renameWaypoint(
-                                        ctx.source.player,
-                                        StringArgumentType.getString(ctx, "selector"),
-                                        "",
-                                    )
-                                }
+                                .executes { rename(it.player(), it.selector(), "") }
                                 // /hm rename <selector> <name> — set a name
                                 .then(
                                     Commands.argument("name", StringArgumentType.greedyString())
-                                        .executes { ctx ->
-                                            renameWaypoint(
-                                                ctx.source.player,
-                                                StringArgumentType.getString(ctx, "selector"),
-                                                StringArgumentType.getString(ctx, "name"),
+                                        .executes {
+                                            rename(
+                                                it.player(),
+                                                it.selector(),
+                                                StringArgumentType.getString(it, "name"),
                                             )
                                         }
                                 )
@@ -101,194 +83,123 @@ object HeadingMarkerCommands {
                             Commands.argument("player", StringArgumentType.word())
                                 .suggests(::suggestOtherPlayers)
                                 .then(
-                                    Commands.argument("selector", StringArgumentType.greedyString())
-                                        .suggests(::suggestActiveWaypoints)
-                                        .executes { ctx ->
-                                            shareWaypoint(
-                                                ctx.source.player,
-                                                StringArgumentType.getString(ctx, "player"),
-                                                StringArgumentType.getString(ctx, "selector"),
-                                            )
-                                        }
-                                )
-                        )
-                )
-                .then(
-                    Commands.literal("set")
-                        // /hm set — player pos, auto color
-                        .executes { ctx -> setAtPlayerPos(ctx, null) }
-                        // /hm set <x> <z> ... — coordinates first.
-                        // ORDER MATTERS: this branch must be registered before the <color>
-                        // branch. A word argument also accepts numbers ("100"), so for inputs
-                        // like "/hm set 100 200" both branches parse the whole line, and
-                        // Brigadier keeps the first-registered one on a tie. With <color>
-                        // first, "100 200" became color="100" + an incomplete command.
-                        .then(
-                            Commands.argument("n1", DoubleArgumentType.doubleArg())
-                                // /hm set <x> — not enough coordinates
-                                .executes { ctx ->
-                                    ctx.source.sendFailure(Component.literal(INCOMPLETE_COORDS))
-                                    0
-                                }
-                                .then(
-                                    Commands.argument("n2", DoubleArgumentType.doubleArg())
-                                        // /hm set <x> <z> — 2D, auto color
-                                        .executes { ctx -> setXZ(ctx, null) }
-                                        // /hm set <x> <y> <z> ... — 3D branch (y is always a
-                                        // double, no ambiguity)
-                                        .then(
-                                            Commands.argument("n3", DoubleArgumentType.doubleArg())
-                                                // /hm set <x> <y> <z> — 3D, auto color
-                                                .executes { ctx -> setXYZ(ctx, null) }
-                                                // /hm set <x> <y> <z> <color> — 3D with color
-                                                .then(
-                                                    Commands.argument(
-                                                            "color",
-                                                            StringArgumentType.word(),
-                                                        )
-                                                        .suggests(::suggestColors)
-                                                        .executes { ctx ->
-                                                            setXYZ(
-                                                                ctx,
-                                                                StringArgumentType.getString(
-                                                                    ctx,
-                                                                    "color",
-                                                                ),
-                                                            )
-                                                        }
-                                                )
+                                    selectorArgument(StringArgumentType.greedyString()).executes {
+                                        share(
+                                            it.player(),
+                                            StringArgumentType.getString(it, "player"),
+                                            it.selector(),
                                         )
-                                        // /hm set <x> <z> <color> — 2D with color (word after two
-                                        // doubles, unambiguous)
-                                        .then(
-                                            Commands.argument("color", StringArgumentType.word())
-                                                .suggests(::suggestColors)
-                                                .executes { ctx ->
-                                                    setXZ(
-                                                        ctx,
-                                                        StringArgumentType.getString(ctx, "color"),
-                                                    )
-                                                }
-                                        )
-                                )
-                        )
-                        // /hm set <color> ...
-                        .then(
-                            Commands.argument("color", StringArgumentType.word())
-                                .suggests(::suggestColors)
-                                // /hm set <color> — player pos, specified color
-                                .executes { ctx ->
-                                    val arg = StringArgumentType.getString(ctx, "color")
-                                    if (arg.lowercase() in VALID_COLORS) {
-                                        return@executes setAtPlayerPos(ctx, arg)
                                     }
-                                    // Numeric-looking words the double parser rejects (e.g. "1e5")
-                                    // still land here.
-                                    val message =
-                                        if (arg.toDoubleOrNull() != null) INCOMPLETE_COORDS
-                                        else unknownColorMessage(arg)
-                                    ctx.source.sendFailure(Component.literal(message))
-                                    0
-                                }
-                                // /hm set <color> <x> <z> — 2D with color
-                                .then(
-                                    Commands.argument("n1", DoubleArgumentType.doubleArg())
-                                        .then(
-                                            Commands.argument("n2", DoubleArgumentType.doubleArg())
-                                                .executes { ctx ->
-                                                    setColorXZ(
-                                                        ctx,
-                                                        StringArgumentType.getString(ctx, "color"),
-                                                    )
-                                                }
-                                                // /hm set <color> <x> <y> <z> — 3D with color
-                                                .then(
-                                                    Commands.argument(
-                                                            "n3",
-                                                            DoubleArgumentType.doubleArg(),
-                                                        )
-                                                        .executes { ctx ->
-                                                            setColorXYZ(
-                                                                ctx,
-                                                                StringArgumentType.getString(
-                                                                    ctx,
-                                                                    "color",
-                                                                ),
-                                                            )
-                                                        }
-                                                )
-                                        )
                                 )
                         )
                 )
+                .then(setCommand())
                 .then(
-                    Commands.literal("purge").requires(::isOperator).executes { ctx ->
-                        purgeOrphanedEntities(ctx.source)
-                    }
+                    Commands.literal("purge").requires(IS_GAMEMASTER).executes { purge(it.source) }
                 )
 
         val node = dispatcher.register(hmCommand)
-        dispatcher.register(Commands.literal("headingmarker").redirect(node))
+        // A redirect alone is an incomplete command, so the bare alias needs its own executes.
+        dispatcher.register(
+            Commands.literal("headingmarker").executes { help(it.source) }.redirect(node)
+        )
     }
 
-    private fun service() = HeadingMarkerMod.service()
+    private fun setCommand() =
+        Commands.literal("set")
+            // /hm set — player pos, auto color
+            .executes { set(it, null, Shape.HERE) }
+            // /hm set <x> <z> ... — coordinates first.
+            // ORDER MATTERS: this branch must be registered before the <color> branch. A word
+            // argument also accepts numbers ("100"), so for inputs like "/hm set 100 200" both
+            // branches parse the whole line, and Brigadier keeps the first-registered one on a
+            // tie. With <color> first, "100 200" became color="100" + coordinates.
+            .then(
+                Commands.argument("n1", DoubleArgumentType.doubleArg())
+                    // /hm set <x> — not enough coordinates
+                    .executes(::incompleteCoordinates)
+                    .then(
+                        Commands.argument("n2", DoubleArgumentType.doubleArg())
+                            // /hm set <x> <z> — 2D, auto color
+                            .executes { set(it, null, Shape.XZ) }
+                            .then(
+                                Commands.argument("n3", DoubleArgumentType.doubleArg())
+                                    // /hm set <x> <y> <z> — 3D, auto color
+                                    .executes { set(it, null, Shape.XYZ) }
+                                    // /hm set <x> <y> <z> <color>
+                                    .then(colorArgument().executes { set(it, it.color(), Shape.XYZ) })
+                            )
+                            // /hm set <x> <z> <color>
+                            .then(colorArgument().executes { set(it, it.color(), Shape.XZ) })
+                    )
+            )
+            // /hm set <color> ...
+            .then(
+                colorArgument()
+                    // /hm set <color> — player pos
+                    .executes {
+                        // Numeric-looking words the double parser rejects (e.g. "1e5") land here.
+                        if (it.color().toDoubleOrNull() != null) incompleteCoordinates(it)
+                        else set(it, it.color(), Shape.HERE)
+                    }
+                    .then(
+                        Commands.argument("n1", DoubleArgumentType.doubleArg())
+                            // /hm set <color> <x>
+                            .executes(::incompleteCoordinates)
+                            .then(
+                                Commands.argument("n2", DoubleArgumentType.doubleArg())
+                                    // /hm set <color> <x> <z>
+                                    .executes { set(it, it.color(), Shape.XZ) }
+                                    // /hm set <color> <x> <y> <z>
+                                    .then(
+                                        Commands.argument("n3", DoubleArgumentType.doubleArg())
+                                            .executes { set(it, it.color(), Shape.XYZ) }
+                                    )
+                            )
+                    )
+            )
 
-    private fun setAtPlayerPos(ctx: CommandContext<CommandSourceStack>, color: String?): Int {
-        val player = ctx.source.player ?: return 0
-        return setWaypoint(player, color, player.x, player.y, player.z)
+    // --- Arguments ---
+
+    private fun colorArgument() =
+        Commands.argument("color", StringArgumentType.word()).suggests { _, builder ->
+            SharedSuggestionProvider.suggest(COLOR_NAMES, builder)
+        }
+
+    private fun selectorArgument(
+        type: StringArgumentType
+    ): RequiredArgumentBuilder<CommandSourceStack, String> {
+        // A greedy argument takes the rest of the line verbatim; a string argument needs quotes
+        // around anything but plain word characters, or the suggestion won't parse.
+        val quote = type.type != StringArgumentType.StringType.GREEDY_PHRASE
+        return Commands.argument("selector", type).suggests { ctx, builder ->
+            suggestSelectors(ctx, builder, quote)
+        }
     }
 
-    /** /hm set <color> <x> <z> */
-    private fun setColorXZ(ctx: CommandContext<CommandSourceStack>, color: String): Int {
-        val player = ctx.source.player ?: return 0
-        val x = DoubleArgumentType.getDouble(ctx, "n1")
-        val z = DoubleArgumentType.getDouble(ctx, "n2")
-        return setWaypoint(player, color, x, player.y, z)
-    }
+    private fun CommandContext<CommandSourceStack>.player(): ServerPlayer =
+        source.playerOrException
 
-    /** /hm set <color> <x> <y> <z> */
-    private fun setColorXYZ(ctx: CommandContext<CommandSourceStack>, color: String): Int {
-        val player = ctx.source.player ?: return 0
-        val x = DoubleArgumentType.getDouble(ctx, "n1")
-        val y = DoubleArgumentType.getDouble(ctx, "n2")
-        val z = DoubleArgumentType.getDouble(ctx, "n3")
-        return setWaypoint(player, color, x, y, z)
-    }
+    private fun CommandContext<CommandSourceStack>.selector(): String =
+        StringArgumentType.getString(this, "selector")
 
-    /** /hm set <n1:x> <n2:z> [color] — 2D, second arg is z */
-    private fun setXZ(ctx: CommandContext<CommandSourceStack>, color: String?): Int {
-        val player = ctx.source.player ?: return 0
-        val x = DoubleArgumentType.getDouble(ctx, "n1")
-        val z = DoubleArgumentType.getDouble(ctx, "n2")
-        return setWaypoint(player, color, x, player.y, z)
-    }
+    private fun CommandContext<CommandSourceStack>.color(): String =
+        StringArgumentType.getString(this, "color")
 
-    /** /hm set <n1:x> <n2:y> <n3:z> [color] — 3D */
-    private fun setXYZ(ctx: CommandContext<CommandSourceStack>, color: String?): Int {
-        val player = ctx.source.player ?: return 0
-        val x = DoubleArgumentType.getDouble(ctx, "n1")
-        val y = DoubleArgumentType.getDouble(ctx, "n2")
-        val z = DoubleArgumentType.getDouble(ctx, "n3")
-        return setWaypoint(player, color, x, y, z)
-    }
-
-    private fun suggestColors(
+    private fun suggestSelectors(
         context: CommandContext<CommandSourceStack>,
         builder: SuggestionsBuilder,
-    ): CompletableFuture<Suggestions> = SharedSuggestionProvider.suggest(VALID_COLORS, builder)
-
-    private fun suggestActiveWaypoints(
-        context: CommandContext<CommandSourceStack>,
-        builder: SuggestionsBuilder,
+        quote: Boolean,
     ): CompletableFuture<Suggestions> {
         val player = context.source.player ?: return builder.buildFuture()
         val suggestions = linkedSetOf<String>()
-        for (waypoint in service().waypointsHere(player).values) {
+        for (waypoint in HeadingMarkerMod.service().waypointsHere(player).values) {
             suggestions.add(waypoint.key)
             suggestions.add(waypoint.color.id)
             if (waypoint.name.isNotBlank()) suggestions.add(waypoint.name)
         }
-        return SharedSuggestionProvider.suggest(suggestions, builder)
+        val shown = if (quote) suggestions.map(StringArgumentType::escapeIfRequired) else suggestions
+        return SharedSuggestionProvider.suggest(shown, builder)
     }
 
     private fun suggestOtherPlayers(
@@ -298,236 +209,171 @@ object HeadingMarkerCommands {
         val selfName = context.source.textName
         val names =
             context.source.server.playerList.players
-                .map { it.name.string }
+                .map { it.gameProfile.name }
                 .filter { it != selfName }
         return SharedSuggestionProvider.suggest(names, builder)
     }
 
+    // --- Actions ---
+
+    private enum class Shape {
+        HERE,
+        XZ,
+        XYZ,
+    }
+
+    private fun incompleteCoordinates(ctx: CommandContext<CommandSourceStack>): Int {
+        ctx.source.sendFailure(Component.literal(INCOMPLETE_COORDS))
+        return 0
+    }
+
     /** Creates a waypoint; a null [colorName] picks the player's least-used color. */
-    private fun setWaypoint(
-        player: ServerPlayer,
-        colorName: String?,
-        x: Double,
-        y: Double,
-        z: Double,
-    ): Int {
+    private fun set(ctx: CommandContext<CommandSourceStack>, colorName: String?, shape: Shape): Int {
+        val player = ctx.player()
+        fun arg(name: String) = DoubleArgumentType.getDouble(ctx, name)
+        val (x, y, z) =
+            when (shape) {
+                Shape.HERE -> Triple(player.x, player.y, player.z)
+                Shape.XZ -> Triple(arg("n1"), player.y, arg("n2"))
+                Shape.XYZ -> Triple(arg("n1"), arg("n2"), arg("n3"))
+            }
+
+        val service = HeadingMarkerMod.service()
         val color =
-            if (colorName == null) service().nextColor(player)
+            if (colorName == null) service.nextColor(player)
             else WaypointColor.parse(colorName)?.takeIf { it.selectable }
         if (color == null) {
-            player.sendSystemMessage(
-                Component.literal(unknownColorMessage(colorName!!)).withStyle(ChatFormatting.RED)
-            )
+            player.tell(unknownColorMessage(colorName!!), ChatFormatting.RED)
             return 0
         }
-        val waypoint = service().create(player, color, x, y, z)
+        if (!Level.isInSpawnableBounds(BlockPos.containing(x, y, z))) {
+            player.tell("Those coordinates are outside the world.", ChatFormatting.RED)
+            return 0
+        }
+        val waypoint = service.create(player, color, x, y, z)
         if (waypoint == null) {
-            player.sendSystemMessage(
-                Component.literal("Failed to create waypoint. Check server logs.")
-                    .withStyle(ChatFormatting.RED)
-            )
+            player.tell("Failed to create waypoint. Check server logs.", ChatFormatting.RED)
             return 0
         }
-        player.sendSystemMessage(
-            Component.literal(
-                    "${color.id} waypoint set at (${x.toInt()}, ${y.toInt()}, ${z.toInt()}) [key: ${waypoint.key}]"
-                )
-                .withStyle(ChatFormatting.GREEN)
+        player.tell(
+            "${color.id} waypoint set at (${blockCoords(waypoint)}) [key: ${waypoint.key}]",
+            ChatFormatting.GREEN,
         )
         return 1
     }
 
-    private fun removeWaypoint(player: ServerPlayer?, selector: String): Int {
-        player ?: return 0
-        val removed = service().remove(player, selector).size
-        return if (removed > 0) {
-            player.sendSystemMessage(
-                Component.literal("Removed $removed waypoint(s) matching \"$selector\".")
-                    .withStyle(ChatFormatting.YELLOW)
-            )
-            removed
-        } else {
-            player.sendSystemMessage(
-                Component.literal("No waypoint found matching \"$selector\" in this dimension.")
-                    .withStyle(ChatFormatting.RED)
-            )
-            0
-        }
+    private fun remove(player: ServerPlayer, selector: String): Int {
+        val removed = HeadingMarkerMod.service().remove(player, selector).size
+        if (removed == 0) return noMatch(player, selector)
+        player.tell("Removed $removed waypoint(s) matching \"$selector\".", ChatFormatting.YELLOW)
+        return removed
     }
 
-    private fun clearWaypointsInDimension(player: ServerPlayer?): Int {
-        player ?: return 0
-        val count = service().clearDimension(player)
+    private fun clear(player: ServerPlayer): Int {
+        val count = HeadingMarkerMod.service().clearDimension(player)
         if (count == 0) {
-            player.sendSystemMessage(
-                Component.literal("You have no waypoints to clear in this dimension.")
-                    .withStyle(ChatFormatting.YELLOW)
-            )
+            player.tell("You have no waypoints to clear in this dimension.", ChatFormatting.YELLOW)
         } else {
-            player.sendSystemMessage(
-                Component.literal("Cleared $count waypoint(s) in this dimension.")
-                    .withStyle(ChatFormatting.GREEN)
-            )
+            player.tell("Cleared $count waypoint(s) in this dimension.", ChatFormatting.GREEN)
         }
         return count
     }
 
-    private fun clearAllWaypoints(player: ServerPlayer?): Int {
-        player ?: return 0
-        val count = service().clearAll(player)
+    private fun clearAll(player: ServerPlayer): Int {
+        val count = HeadingMarkerMod.service().clearAll(player)
         if (count == 0) {
-            player.sendSystemMessage(
-                Component.literal("You have no waypoints to clear.")
-                    .withStyle(ChatFormatting.YELLOW)
-            )
+            player.tell("You have no waypoints to clear.", ChatFormatting.YELLOW)
         } else {
-            player.sendSystemMessage(
-                Component.literal("Cleared $count waypoint(s) across all dimensions.")
-                    .withStyle(ChatFormatting.GREEN)
-            )
+            player.tell("Cleared $count waypoint(s) across all dimensions.", ChatFormatting.GREEN)
         }
         return count
     }
 
-    private fun renameWaypoint(player: ServerPlayer?, selector: String, newName: String): Int {
-        player ?: return 0
-        val trimmed = newName.trim()
-        val renamed = service().rename(player, selector, trimmed).size
-        return if (renamed > 0) {
-            if (trimmed.isEmpty()) {
-                player.sendSystemMessage(
-                    Component.literal("Cleared name on $renamed waypoint(s) matching \"$selector\".")
-                        .withStyle(ChatFormatting.GREEN)
-                )
-            } else {
-                player.sendSystemMessage(
-                    Component.literal(
-                            "Renamed $renamed waypoint(s) matching \"$selector\" to \"$trimmed\"."
-                        )
-                        .withStyle(ChatFormatting.GREEN)
-                )
-            }
-            renamed
+    private fun rename(player: ServerPlayer, selector: String, newName: String): Int {
+        val name = cleanInput(newName)
+        val renamed = HeadingMarkerMod.service().rename(player, selector, name).size
+        if (renamed == 0) return noMatch(player, selector)
+        if (name.isEmpty()) {
+            player.tell("Cleared name on $renamed waypoint(s) matching \"$selector\".", ChatFormatting.GREEN)
         } else {
-            player.sendSystemMessage(
-                Component.literal("No waypoint found matching \"$selector\" in this dimension.")
-                    .withStyle(ChatFormatting.RED)
+            player.tell(
+                "Renamed $renamed waypoint(s) matching \"$selector\" to \"$name\".",
+                ChatFormatting.GREEN,
             )
-            0
         }
+        return renamed
     }
 
-    private fun purgeOrphanedEntities(source: CommandSourceStack): Int {
-        val removed = service().purgeOrphans()
+    private fun share(from: ServerPlayer, targetName: String, selector: String): Int {
+        val to = from.level().server.playerList.getPlayer(targetName)
+        if (to == null) {
+            from.tell("Player not found or not online: $targetName", ChatFormatting.RED)
+            return 0
+        }
+        if (to.uuid == from.uuid) {
+            from.tell("You cannot share a waypoint with yourself.", ChatFormatting.RED)
+            return 0
+        }
+
+        val result = HeadingMarkerMod.service().share(from, to, selector)
+        val targetLabel = to.gameProfile.name
+        if (result.matched == 0) return noMatch(from, selector)
+        if (result.shared == 0) {
+            from.tell("$targetLabel already has those waypoint(s).", ChatFormatting.YELLOW)
+            return 0
+        }
+        val skipped =
+            if (result.alreadyHad > 0) " (${result.alreadyHad} they already had were skipped)" else ""
+        from.tell(
+            "Shared ${result.shared} waypoint(s) matching \"$selector\" with $targetLabel$skipped.",
+            ChatFormatting.GREEN,
+        )
+        to.tell(
+            "${from.gameProfile.name} shared ${result.shared} waypoint(s) with you in " +
+                "${Dimensions.idOf(from.level())}.",
+            ChatFormatting.AQUA,
+        )
+        return result.shared
+    }
+
+    private fun purge(source: CommandSourceStack): Int {
+        val removed = HeadingMarkerMod.service().purgeOrphans()
         if (removed == 0) {
             source.sendSuccess(
-                {
-                    Component.literal("No orphaned waypoint entities found.")
-                        .withStyle(ChatFormatting.YELLOW)
-                },
+                { Component.literal("No orphaned waypoint entities found.").withStyle(ChatFormatting.YELLOW) },
                 false,
             )
         } else {
             source.sendSuccess(
                 {
-                    Component.literal(
-                            "Purged $removed orphaned waypoint entity(ies) across all dimensions."
-                        )
+                    Component.literal("Purged $removed orphaned waypoint entity(ies) across all dimensions.")
                         .withStyle(ChatFormatting.GREEN)
                 },
                 true,
             )
         }
-        return 1
+        return removed
     }
 
-    private fun shareWaypoint(
-        fromPlayer: ServerPlayer?,
-        targetName: String,
-        selector: String,
-    ): Int {
-        fromPlayer ?: return 0
-
-        val toPlayer = fromPlayer.level().server.playerList.getPlayer(targetName)
-        if (toPlayer == null) {
-            fromPlayer.sendSystemMessage(
-                Component.literal("Player not found or not online: $targetName")
-                    .withStyle(ChatFormatting.RED)
-            )
-            return 0
-        }
-
-        if (toPlayer.uuid == fromPlayer.uuid) {
-            fromPlayer.sendSystemMessage(
-                Component.literal("You cannot share a waypoint with yourself.")
-                    .withStyle(ChatFormatting.RED)
-            )
-            return 0
-        }
-
-        val shared = service().share(fromPlayer, toPlayer, selector)
-        return if (shared > 0) {
-            fromPlayer.sendSystemMessage(
-                Component.literal("Shared $shared waypoint(s) matching \"$selector\" with $targetName")
-                    .withStyle(ChatFormatting.GREEN)
-            )
-            val dimension = Dimensions.idOf(fromPlayer.level())
-            toPlayer.sendSystemMessage(
-                Component.literal(
-                        "${fromPlayer.name.string} shared $shared waypoint(s) with you in $dimension."
-                    )
-                    .withStyle(ChatFormatting.AQUA)
-            )
-            shared
-        } else {
-            fromPlayer.sendSystemMessage(
-                Component.literal("You have no waypoint matching \"$selector\" in this dimension.")
-                    .withStyle(ChatFormatting.RED)
-            )
-            0
-        }
-    }
-
-    private fun listWaypoints(player: ServerPlayer?): Int {
-        player ?: return 0
-        val dim = Dimensions.idOf(player.level())
-        val waypoints = service().waypointsHere(player)
+    private fun list(player: ServerPlayer): Int {
+        val dimension = Dimensions.idOf(player.level())
+        val waypoints = HeadingMarkerMod.service().waypointsHere(player)
         if (waypoints.isEmpty()) {
-            player.sendSystemMessage(
-                Component.literal("You have no active waypoints in $dim.")
-                    .withStyle(ChatFormatting.YELLOW)
-            )
+            player.tell("You have no active waypoints in $dimension.", ChatFormatting.YELLOW)
             return 0
         }
-        player.sendSystemMessage(
-            Component.literal("Active Waypoints in $dim:").withStyle(ChatFormatting.GOLD)
-        )
+        player.tell("Active Waypoints in $dimension:", ChatFormatting.GOLD)
         for (waypoint in waypoints.values.sortedBy { it.key }) {
-            val nameDisplay = if (waypoint.name.isNotBlank()) " \"${waypoint.name}\"" else ""
-            player.sendSystemMessage(
-                Component.literal(
-                        " - ${waypoint.color.id}$nameDisplay at (${waypoint.x.toInt()}, ${waypoint.y.toInt()}, ${waypoint.z.toInt()}) [key: ${waypoint.key}]"
-                    )
-                    .withStyle(ChatFormatting.GRAY)
+            val name = if (waypoint.name.isNotBlank()) " \"${waypoint.name}\"" else ""
+            player.tell(
+                " - ${waypoint.color.id}$name at (${blockCoords(waypoint)}) [key: ${waypoint.key}]",
+                ChatFormatting.GRAY,
             )
         }
         return waypoints.size
     }
 
-    /**
-     * MC 26.1 removed hasPermission() from CommandSourceStack, so we check the server's operator
-     * list directly via PlayerList.isOp(). Non-player sources (console, command blocks) are treated
-     * as operators.
-     */
-    private fun isOperator(source: CommandSourceStack): Boolean {
-        val player = source.player ?: return true
-        return player.level()
-            .server
-            .playerList
-            .isOp(NameAndId(player.uuid, player.gameProfile.name))
-    }
-
-    private fun sendHelpMessage(source: CommandSourceStack) {
+    private fun help(source: CommandSourceStack): Int {
         fun line(text: String, vararg styles: ChatFormatting) =
             source.sendSuccess({ Component.literal(text).withStyle(*styles) }, false)
 
@@ -549,14 +395,29 @@ object HeadingMarkerCommands {
         cmdLine("/hm share <player> <selector>", "Give an online player copies")
         cmdLine("/hm clear", "Remove all waypoints in this dimension")
         cmdLine("/hm clearall", "Remove waypoints in every dimension")
-        if (isOperator(source)) {
+        if (IS_GAMEMASTER.test(source)) {
             cmdLine("/hm purge", "Remove orphaned waypoint entities (OP only)")
         }
         line(
             "<selector> is a key, color, or name and matches every fitting waypoint in this " +
-                "dimension. Quote multi-word names for rename, e.g. \"Home Base\".",
+                "dimension. Quote multi-word names, e.g. \"Home Base\".",
             ChatFormatting.GRAY,
         )
         line("Distances to your waypoints show on the actionbar automatically.", ChatFormatting.GRAY)
+        return 1
     }
+
+    // --- Formatting ---
+
+    private fun noMatch(player: ServerPlayer, selector: String): Int {
+        player.tell("No waypoint found matching \"$selector\" in this dimension.", ChatFormatting.RED)
+        return 0
+    }
+
+    /** Block coordinates as F3 shows them: floored, so -0.5 is block -1, not 0. */
+    private fun blockCoords(waypoint: Waypoint): String =
+        "${Mth.floor(waypoint.x)}, ${Mth.floor(waypoint.y)}, ${Mth.floor(waypoint.z)}"
+
+    private fun ServerPlayer.tell(text: String, color: ChatFormatting) =
+        sendSystemMessage(Component.literal(text).withStyle(color))
 }

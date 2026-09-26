@@ -2,6 +2,7 @@ package com.daolan.headingmarker
 
 import com.daolan.headingmarker.model.MarkerKeys
 import com.daolan.headingmarker.model.WaypointColor
+import com.daolan.headingmarker.model.cleanInput
 import java.util.UUID
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -43,6 +44,17 @@ class WaypointRegistryTest {
         assertEquals(listOf(camp), registry.select(alice, "overworld", " Camp "))
         assertTrue(registry.select(alice, "overworld", "").isEmpty())
         assertTrue(registry.select(alice, "overworld", "nothing").isEmpty())
+    }
+
+    @Test
+    fun `quotes around selectors and names are stripped`() {
+        val camp = registry.add(alice, "overworld", WaypointColor.BLUE, 0.0, 0.0, 0.0, "\"Home Base\"")
+        assertEquals("Home Base", camp.name)
+        assertEquals(listOf(camp), registry.select(alice, "overworld", "\"Home Base\""))
+        assertEquals("Camp", registry.rename(alice, "overworld", camp.key, " \"Camp\" ")?.name)
+        // Only one surrounding pair; quotes inside a name are kept.
+        assertEquals("say \"hi\"", cleanInput("say \"hi\""))
+        assertEquals("\"", cleanInput("\""))
     }
 
     @Test

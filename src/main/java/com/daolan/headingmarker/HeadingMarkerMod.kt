@@ -275,7 +275,8 @@ class HeadingMarkerMod : ModInitializer {
                 ArmorStand(EntityTypes.ARMOR_STAND, world).apply {
                     setPos(x, y, z)
                     isInvisible = true
-                    isInvulnerable = true
+                    // MC 26.3 renamed setInvulnerable() to setPermanentlyInvulnerable()
+                    setPermanentlyInvulnerable(true)
                     setNoGravity(true)
                     isSilent = true
                     customName = Component.literal("${color.colorName} waypoint")

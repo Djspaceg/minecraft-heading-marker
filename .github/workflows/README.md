@@ -66,7 +66,7 @@ ls -la build/libs/
 
 ## Notes
 
-- The workflows use Java 25 to match the project's requirements (Minecraft 26.1)
+- The workflows use Java 25 to match the project's requirements (Minecraft 26.3)
 - Gradle caching is enabled to speed up builds
 - All builds use `--stacktrace` for better error diagnostics
 - The gradle-wrapper.jar is committed to the repository (exception in .gitignore)

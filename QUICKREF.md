@@ -89,8 +89,8 @@ When markers are active, your actionbar shows:
 
 ## Version
 
-- Minecraft: 1.21+
-- Data Pack Format: 48
+- Minecraft: 1.21.11 - 26.3
+- Data Pack Format: 94 - 121
 - Uses macros (added in Minecraft 1.20.2)
 
 ## More Help

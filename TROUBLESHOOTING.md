@@ -69,7 +69,8 @@ Before diving into specific issues, verify:
 2. **Incompatible Pack Format**
     - If the `pack_format` in `pack.mcmeta` is newer than your game version, the game may disable
       the functions.
-    - **Fix:** Ensure `pack.mcmeta` uses a compatible format (e.g., 48 for 1.21-1.21.1).
+    - **Fix:** Ensure `pack.mcmeta` declares a `min_format`/`max_format` range that includes your
+      game version (the pack ships with 94 - 121, i.e. 1.21.11 - 26.3).
 
 You should see `headingmarker` in the enabled list.
 
@@ -83,12 +84,12 @@ You should see `headingmarker` in the enabled list.
 **Solutions:**
 
 1. **Check Minecraft version**
-    - This pack needs 1.20.2+ for macros
-    - If on older version, the `pack_format: 48` won't be recognized
+    - This pack targets 1.21.11 - 26.3
+    - Older versions don't read `min_format`/`max_format` and will reject the pack
 
 2. **Check pack.mcmeta**
     - File should exist at: `datapacks/headingmarker/pack.mcmeta`
-    - Should contain valid JSON with `pack_format: 48`
+    - Should contain valid JSON with `"min_format": 94` and `"max_format": 121`
 
 3. **Force enable (if using older version)**
    ```

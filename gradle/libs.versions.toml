@@ -1,10 +1,10 @@
 [versions]
-minecraft = "26.2"
-fabric-loader = "0.18.5"
-fabric-loom = "1.17.11"
-fabric-kotlin = "1.13.10+kotlin.2.3.20"
-fabric-api = "0.152.1+26.2"
-kotlin = "2.3.20"
+minecraft = "26.3"
+fabric-loader = "0.19.5"
+fabric-loom = "1.17.21"
+fabric-kotlin = "1.14.1+kotlin.2.4.20"
+fabric-api = "0.161.0+26.3"
+kotlin = "2.4.20"
 jetbrains-annotations = "26.1.0"
 junit = "5.10.2"
 

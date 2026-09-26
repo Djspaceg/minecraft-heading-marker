@@ -7,8 +7,8 @@ connecting.
 
 ## Solution Implemented
 
-The mod now uses Minecraft 1.21.11's native waypoint system by creating armor stand entities with
-the `waypoint_transmission_range` attribute.
+The mod uses Minecraft's native waypoint system (the Locator Bar) by creating armor stand entities
+with the `waypoint_transmission_range` attribute.
 
 ## How It Works
 
@@ -75,7 +75,7 @@ the `waypoint_transmission_range` attribute.
 
 **For Players:**
 
-- Connect with vanilla Minecraft (1.21.11+)
+- Connect with vanilla Minecraft 26.3
 - See waypoints in Locator Bar automatically
 - See distances on the actionbar automatically, e.g. `🔴 Red 245  🔵 Home 180`
 - No client-side installation required
@@ -93,9 +93,9 @@ There is nothing to toggle.
 
 ## Technical Details
 
-### Minecraft 1.21.11 Waypoint System
+### Minecraft Waypoint System
 
-Minecraft 1.20+ introduced built-in waypoint support:
+Minecraft 1.21.6 introduced built-in waypoint support (the Locator Bar):
 
 - Entities with `waypoint_transmission_range` attribute are tracked
 - Server automatically sends waypoint data to clients
@@ -122,7 +122,7 @@ Minecraft 1.20+ introduced built-in waypoint support:
 ### Test 1: Vanilla Client Connection
 
 1. Install mod on Fabric server
-2. Connect with vanilla Minecraft 1.21.11 client
+2. Connect with vanilla Minecraft 26.3 client
 3. Run `/hm set red`
 4. ✅ Expected: Waypoint appears in client's Locator Bar
 
@@ -178,7 +178,7 @@ Minecraft 1.20+ introduced built-in waypoint support:
 
 ## Compatibility
 
-- **Minecraft Version**: 1.21.11 or later (requires native waypoint system)
+- **Minecraft Version**: 26.3
 - **Server**: Fabric server with Fabric API
 - **Client**: Vanilla Minecraft (no mods needed)
 - **Datapack**: The `datapack_for_headingmarker` remains a separate, independent implementation

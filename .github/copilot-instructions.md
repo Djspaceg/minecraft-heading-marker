@@ -2,16 +2,16 @@
 
 ## Target Environment
 
-**Minecraft 26.1 / Fabric / Kotlin — Java 25**
+**Minecraft 26.3 / Fabric / Kotlin — Java 25**
 
 ### Rules:
 
-1. **NO downgrade suggestions** - 26.1 is current, not going backwards
+1. **NO downgrade suggestions** - 26.3 is current, not going backwards
 2. **SEARCH CODEBASE FIRST** - Don't guess APIs, look at working code
 3. **TEST COMPILATION** - Use `get_errors` tool before claiming success
 4. **FIX YOUR MISTAKES** - If you reference deprecated code, YOU fix it
 
-### API Quick Reference (MC 26.1 / Mojang mappings):
+### API Quick Reference (MC 26.3 / Mojang mappings):
 
 ```kotlin
 // Player access:
@@ -26,8 +26,11 @@ HeadingMarkerMod.getDimensionKey(world.dimension())  // "overworld", "the_nether
 
 // Permission check (hasPermission removed in 26.1):
 (player.level() as ServerLevel).server.playerList.isOp(
-    NameAndId(player.uuid, player.name.string)
+    NameAndId(player.uuid, player.gameProfile.name)
 )
+
+// Entity invulnerability (setInvulnerable renamed in 26.3):
+entity.setPermanentlyInvulnerable(true)
 ```
 
 ### Before ANY code change:
@@ -41,13 +44,13 @@ HeadingMarkerMod.getDimensionKey(world.dimension())  // "overworld", "the_nether
 
 ## Project Overview
 
-Fabric mod (Kotlin) + data pack for per-player, per-dimension waypoint markers in Minecraft 26.1.
+Fabric mod (Kotlin) + data pack for per-player, per-dimension waypoint markers in Minecraft 26.3.
 
 **Key Structure:**
 
 - `src/main/java/com/daolan/headingmarker/` - Mod code (Kotlin .kt files)
 - `datapack_for_headingmarker/headingmarker_datapack/` - Data pack functions
-- 5 colors × 3 dimensions × per-player = 15 total waypoints per player
+- Waypoints are keyed by an 8-character marker key; there's no per-color or per-dimension limit
 
 **Critical Invariant:** Waypoints are isolated by BOTH player UUID AND dimension.
 
@@ -55,18 +58,19 @@ Fabric mod (Kotlin) + data pack for per-player, per-dimension waypoint markers i
 
 ### Issue: Compilation errors about missing methods
 
-**Cause:** Using older MC APIs that don't exist in 26.1
+**Cause:** Using older MC APIs that don't exist in 26.3
 **Fix:** Search the codebase for working examples first
 
 ### Issue: Optional serialization crashes
 
 **Cause:** Gson can't serialize `Optional<T>` due to Java module system
-**Fix:** Use `GsonBuilder` with custom `TypeAdapter` (see `WaypointStorage.kt`)
+**Fix:** Serialize plain DTOs (`PlayerFile` / `StoredWaypoint` in `WaypointStorage.kt`), never
+`WaypointData` or `TrackedWaypoint` directly
 
 ### Issue: Waypoints appearing in wrong dimensions
 
 **Cause:** Missing dimension isolation in data structure
-**Fix:** Map structure must be `Player → Dimension → Color → Data`
+**Fix:** Map structure must be `Player → Dimension → MarkerKey → Data`
 
 ## Quick Commands
 

@@ -119,9 +119,9 @@ Before submitting a pull request:
 
 Currently targeting:
 
-- **Minecraft Java Edition:** 26.1+
-- **Data Pack Format:** 48
-- **Resource Pack Format:** 34
+- **Minecraft Java Edition:** 26.3 (mod); 1.21.11 - 26.3 (data pack)
+- **Data Pack Format:** `min_format` 94, `max_format` 121
+- **Resource Pack Format:** 34 - 97
 
 If adding features that require a different version:
 

@@ -295,7 +295,7 @@ The system is 100% vanilla Minecraft - it works on any server running the data p
 
 ## Compatibility
 
-- **Minecraft Version:** 26.1+ (Data Pack Format 48)
+- **Minecraft Version:** 1.21.11 - 26.3 (data pack formats 94 - 121)
 - **Game Mode:** Survival, Creative, Adventure
 - **Multiplayer:** ✅ Fully supported
 - **Server:** ✅ Works on vanilla servers
@@ -306,7 +306,7 @@ The system is 100% vanilla Minecraft - it works on any server running the data p
 
 ```
 headingmarker/                              # Main data pack folder (goes in datapacks/)
-├── pack.mcmeta                              # Data pack metadata (format 48)
+├── pack.mcmeta                              # Data pack metadata (formats 94 - 121)
 └── data/
     ├── headingmarker/
     │   └── functions/

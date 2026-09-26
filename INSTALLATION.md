@@ -5,7 +5,7 @@ Minecraft Java Edition.
 
 ## Prerequisites
 
-- Minecraft Java Edition 1.21 or later
+- Minecraft Java Edition 1.21.11 - 26.3
 - A Minecraft world (singleplayer or multiplayer with operator permissions)
 
 ## Step-by-Step Installation
@@ -80,7 +80,7 @@ If you see the help message, congratulations! The data pack is installed correct
 - Check that `pack.mcmeta` is directly inside the data pack folder:
   `datapacks/headingmarker/pack.mcmeta`
 - The folder structure should be: `datapacks/headingmarker/data/headingmarker/functions/...`
-- Verify your Minecraft version is 1.21 or later (requires macro support from 1.20.2+)
+- Verify your Minecraft version is between 1.21.11 and 26.3 (the range declared in `pack.mcmeta`)
 - Try running `/reload` in-game
 - Check for error messages in the chat or game output log
 

@@ -1,6 +1,7 @@
 {
   "pack": {
-    "pack_format": 94,
-    "description": "Heading Marker Data Pack for Minecraft 1.21.11"
+    "min_format": 94,
+    "max_format": 121,
+    "description": "Heading Marker Data Pack for Minecraft 1.21.11 - 26.3"
   }
 }

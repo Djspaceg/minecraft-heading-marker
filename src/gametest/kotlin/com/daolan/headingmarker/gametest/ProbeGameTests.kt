@@ -65,7 +65,7 @@ class ProbeGameTests {
                     helper,
                     "far visible=${markerFor(helper.level, key) != null} " +
                         "transmitting=$transmitting " +
-                        "ownerConnections=${connections(helper.level).row(owner).size} " +
+                        "owner->marker=${stand != null && connections(helper.level).contains(owner, stand)} " +
                         "iconColor=${stand?.waypointIcon()?.color}",
                 )
             }

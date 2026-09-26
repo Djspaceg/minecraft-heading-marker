@@ -3,6 +3,7 @@ package com.daolan.headingmarker
 import java.nio.file.Files
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents
@@ -16,7 +17,8 @@ class HeadingMarkerMod : ModInitializer {
     override fun onInitialize() {
         CommandRegistrationCallback.EVENT.register(HeadingMarkerCommands::register)
 
-        ServerLifecycleEvents.SERVER_STARTED.register { server ->
+        // STARTING runs before the levels load, so ENTITY_LOAD sees every stand saved in the world.
+        ServerLifecycleEvents.SERVER_STARTING.register { server ->
             val storageDir = FabricLoader.getInstance().gameDir.resolve("waypoints")
             Files.createDirectories(storageDir)
             active = WaypointService(server, storageDir).also { it.load() }
@@ -28,6 +30,7 @@ class HeadingMarkerMod : ModInitializer {
         ServerPlayConnectionEvents.DISCONNECT.register { handler, _ ->
             active?.onDisconnect(handler.player)
         }
+        ServerEntityEvents.ENTITY_LOAD.register { entity, level -> active?.onEntityLoad(entity, level) }
         ServerTickEvents.END_SERVER_TICK.register { _ -> active?.tick() }
 
         LOGGER.info("Heading Marker Mod initialized.")

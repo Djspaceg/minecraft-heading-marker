@@ -8,7 +8,9 @@ import com.daolan.headingmarker.storage.WaypointStorage
 import java.nio.file.Path
 import java.util.UUID
 import net.minecraft.server.MinecraftServer
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.entity.Entity
 
 /**
  * Everything Heading Marker does for one running server: keeps waypoint data, marker entities,
@@ -132,7 +134,10 @@ class WaypointService(private val server: MinecraftServer, private val storageDi
         }
     }
 
+    fun onEntityLoad(entity: Entity, level: ServerLevel) = entities.onEntityLoad(entity, level)
+
     fun tick() {
+        entities.tick()
         if (++ticks < HUD_INTERVAL_TICKS) return
         ticks = 0
         for (player in server.playerList.players) {

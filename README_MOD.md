@@ -6,7 +6,7 @@ Locator Bar with live distances on the actionbar.
 ## Features
 
 - **Per-Player Waypoints:** Each player places as many waypoints as they like in red, blue, green,
-  yellow, or purple, and only their own commands can change them.
+  yellow, or purple. Other players can't see them unless they're shared.
 - **Locator Bar + Distances:** Waypoints appear in the vanilla Locator Bar (direction). The
   actionbar shows the distance to each one, e.g. `🔴 Red 245  🔵 Home 180`.
 - **Names and Keys:** Every waypoint gets an 8-character key. You can also give it a name.

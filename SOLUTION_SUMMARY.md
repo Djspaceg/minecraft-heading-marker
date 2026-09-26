@@ -14,11 +14,11 @@ the `waypoint_transmission_range` attribute.
 
 ### Server-Side (Mod)
 
-1. When `/hm set <color>` is called, the mod creates an invisible armor stand at the waypoint
+1. When `/hm set` is called, the mod creates an invisible armor stand at the waypoint
    location
 2. Sets these properties on the armor stand:
     - Invisible, Invulnerable, NoGravity, Silent, Marker
-    - Custom name (e.g., "red waypoint")
+    - Custom name `hm:<key>`, where `<key>` is the waypoint's 8-character marker key
     - `waypoint_transmission_range` attribute = 9999
 
 3. The armor stand entity is spawned in the world
@@ -56,16 +56,14 @@ the `waypoint_transmission_range` attribute.
 - ✅ `recreateWaypointEntities()` for player join
 - ✅ Entity ID tracking for cleanup
 - ✅ Vanilla waypoint attribute registration
-- ✅ Trigger-based distance display system (`/trigger hm.distance`)
-- ✅ Scoreboard objectives for distance toggle state
-- ✅ Server tick handler for real-time distance updates
-- ✅ Actionbar distance display with colored text
+- ✅ Server tick handler for distance updates
+- ✅ Always-on actionbar distance display with colored text
 
 ### What Remains
 
 - ✅ Server-side command system (`/hm` commands)
 - ✅ Server-side waypoint storage and persistence
-- ✅ `environment: "server"` in fabric.mod.json
+- ✅ `environment: "*"` in fabric.mod.json (loads on server, optional on client)
 
 ## Key Features
 
@@ -73,45 +71,25 @@ the `waypoint_transmission_range` attribute.
 
 - Install mod on Fabric server only
 - Vanilla clients can connect without any mods
-- `/hm` commands work normally
-- `/trigger hm.distance` for distance display toggle
+- `/hm` commands work for all players; only `/hm purge` needs operator
 
 **For Players:**
 
 - Connect with vanilla Minecraft (1.21.11+)
 - See waypoints in Locator Bar automatically
-- Toggle distance display on actionbar with `/trigger hm.distance`
-- Distance shows as: `🔴 245m  🔵 180m  🟢 12m`
+- See distances on the actionbar automatically, e.g. `🔴 Red 245  🔵 Home 180`
 - No client-side installation required
 
 ## Distance Display Feature
 
-The distance display feature allows players to toggle real-time distance information on their
-actionbar.
+Distances to every waypoint in the player's current dimension are always shown on the actionbar.
+There is nothing to toggle.
 
-**How to use:**
-
-```
-/trigger hm.distance    # Toggle on/off
-```
-
-**When enabled:**
-
-- Shows distances to all waypoints on actionbar
-- Updates in real-time as player moves
-- Format: `🔴 245m  🔵 180m  🟢 12m` (colored by waypoint)
-- Calculates actual 3D distance (not distance²)
-
-**Technical implementation:**
-
-- Uses Minecraft's built-in scoreboard trigger system
-- No OP permissions required for players
-- State persists via scoreboard (survives server restart)
-- Server-side only - works for vanilla clients
-- Connect with vanilla Minecraft (1.21.11+)
-- See waypoints in Locator Bar automatically
-- No client-side installation required
-- Works exactly like vanilla waypoint entities
+- Format: `<emoji> <label> <distance>`, e.g. `🔴 Red 245  🔵 Home 180  🟢 Green 12`
+- The label is the waypoint's name (first 12 characters), or its color if unnamed
+- The distance is the 3D distance in whole blocks, colored to match the waypoint
+- Updates every 5 ticks, and is only re-sent when the text changes
+- Server-side only, so it works for vanilla clients
 
 ## Technical Details
 
@@ -162,29 +140,23 @@ Minecraft 1.20+ introduced built-in waypoint support:
 ### Test 4: Removal
 
 1. Set waypoint
-2. Run `/hm remove <color>`
-3. ✅ Expected: Waypoint disappears from Locator Bar
+2. Run `/hm remove <selector>` (a marker key, color, or name)
+3. ✅ Expected: Matching waypoints disappear from Locator Bar
 
-### Test 5: Distance Display Toggle
+### Test 5: Distance Display
 
-1. Run `/trigger hm.distance`
-2. ✅ Expected: Message "Distance display enabled"
-3. ✅ Expected: Actionbar shows distances (e.g., `🔴 245m  🔵 180m`)
-4. Run `/trigger hm.distance` again
-5. ✅ Expected: Message "Distance display disabled"
+1. Set a waypoint
+2. ✅ Expected: Actionbar shows its distance (e.g., `🔴 Red 245`)
+3. Walk towards/away from it
+4. ✅ Expected: Distance updates on the actionbar
+5. Remove all waypoints in the dimension
 6. ✅ Expected: Actionbar cleared
 
-### Test 6: Distance Updates
-
-1. Enable distance display
-2. Walk towards/away from waypoints
-3. ✅ Expected: Distances update in real-time on actionbar
-
-### Test 7: No OP Required
+### Test 6: No OP Required
 
 1. Test as non-OP player
-2. Run `/trigger hm.distance`
-3. ✅ Expected: Works without operator permissions
+2. Run `/hm set`, `/hm list`, and `/hm remove <selector>`
+3. ✅ Expected: All work without operator permissions; `/hm purge` is not offered
 
 ## Advantages Over Previous Approach
 

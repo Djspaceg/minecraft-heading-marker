@@ -31,8 +31,8 @@ Heading Marker is configured as a **dual-mode mod** that can run in multiple sce
 
 ### No Custom Argument Types
 
-The mod uses **only standard Minecraft argument types** (`StringArgumentType.word()`,
-`Vec3ArgumentType.vec3()`):
+The mod uses **only standard Brigadier argument types** (`StringArgumentType`,
+`DoubleArgumentType`):
 
 - ✅ No custom registry entries
 - ✅ No client-server sync requirements

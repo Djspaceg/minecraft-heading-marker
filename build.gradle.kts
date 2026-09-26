@@ -29,6 +29,8 @@ dependencies {
   // JUnit for unit testing
   testImplementation(libs.junit.jupiter)
   testRuntimeOnly(libs.junit.platform.launcher)
+  // Boots a Fabric/Knot environment so tests can touch Minecraft classes (Commands, registries)
+  testImplementation(libs.fabric.loader.junit)
 
   minecraft(libs.minecraft)
   implementation(libs.fabric.loader)

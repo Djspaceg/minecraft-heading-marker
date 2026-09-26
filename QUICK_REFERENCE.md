@@ -24,14 +24,14 @@
 }
 ```
 
-#### HeadingMarkerMod.java
+#### HeadingMarkerCommands.kt
 
 - ✅ No custom argument type registration
-- ✅ Uses StringArgumentType.word() instead
+- ✅ Uses StringArgumentType and DoubleArgumentType instead
 - ✅ All commands server-side
 - ✅ All waypoint logic server-side
 
-#### HeadingMarkerClientMod.java (NEW)
+#### HeadingMarkerClientMod.kt
 
 - ✅ No-op implementation
 - ✅ Allows mod to load on clients
@@ -42,32 +42,34 @@
 1. **No custom argument types** → Vanilla clients don't need registry sync
 2. **Passive client entrypoint** → Mod can be installed on clients without conflicts
 3. **Server-side commands** → All logic runs on logical server (dedicated or integrated)
-4. **Standard Minecraft types** → `StringArgumentType`, `Vec3ArgumentType` work everywhere
+4. **Standard Brigadier types** → `StringArgumentType`, `DoubleArgumentType` work everywhere
 
 ### Build & Deploy
 
 ```bash
 # Build the mod
-gradlew build
+./gradlew build
 
 # Find the JAR
-build/libs/headingmarker-1.0.4.jar
+build/libs/minecraft-heading-marker-<version>.jar
 
 # Deploy to server
-Copy to: server/mods/headingmarker-1.0.4.jar
+Copy to: server/mods/
 
 # Optional: Install on clients for singleplayer
-Copy to: .minecraft/mods/headingmarker-1.0.4.jar
+Copy to: .minecraft/mods/
 ```
 
 ### Testing Commands
 
 ```
-/hm help              # Show help
-/hm set red           # Set red waypoint at current position
-/hm set blue 100 64 200  # Set blue waypoint at coordinates
-/hm list              # List all waypoints
-/hm remove green      # Remove green waypoint
+/hm help                  # Show help
+/hm set red               # Set red waypoint at current position
+/hm set blue 100 64 200   # Set blue waypoint at x y z
+/hm set 100 200           # Set waypoint at x z (your Y), least-used color
+/hm list                  # List waypoints and keys in this dimension
+/hm rename red Home       # Name every red waypoint in this dimension "Home"
+/hm remove Home           # Remove waypoints by key, color, or name
 ```
 
 ### Troubleshooting

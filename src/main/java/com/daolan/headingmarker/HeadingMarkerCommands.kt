@@ -24,6 +24,12 @@ object HeadingMarkerCommands {
             .filter { it != HeadingMarkerMod.WaypointColor.WHITE }
             .map { it.colorName }
 
+    private const val INCOMPLETE_COORDS =
+        "Incomplete coordinates. Usage: /hm set [color] <x> [y] <z>, e.g. /hm set red 100 200"
+
+    private fun unknownColorMessage(color: String) =
+        "Unknown color: $color. Valid colors: ${VALID_COLORS.joinToString(", ")}"
+
     @JvmStatic
     fun register(
         dispatcher: CommandDispatcher<CommandSourceStack>,
@@ -114,65 +120,19 @@ object HeadingMarkerCommands {
                     Commands.literal("set")
                         // /hm set — player pos, auto color
                         .executes { ctx -> setAtPlayerPos(ctx, null) }
-                        // /hm set <color> ...
-                        .then(
-                            Commands.argument("color", StringArgumentType.word())
-                                .suggests(::suggestColors)
-                                // /hm set <color> — player pos, specified color
-                                .executes { ctx ->
-                                    val arg = StringArgumentType.getString(ctx, "color")
-                                    if (arg.lowercase() in VALID_COLORS) {
-                                        return@executes setAtPlayerPos(ctx, arg)
-                                    }
-                                    try {
-                                        arg.toDouble()
-                                        ctx.source.sendFailure(
-                                            Component.literal(
-                                                "Incomplete coordinates. Usage: /hm set <x> <z> [color]"
-                                            )
-                                        )
-                                    } catch (_: NumberFormatException) {
-                                        ctx.source.sendFailure(
-                                            Component.literal(
-                                                "Unknown color: $arg. Valid colors: ${VALID_COLORS.joinToString(", ")}"
-                                            )
-                                        )
-                                    }
-                                    0
-                                }
-                                // /hm set <color> <x> <z> — 2D with color
-                                .then(
-                                    Commands.argument("n1", DoubleArgumentType.doubleArg())
-                                        .then(
-                                            Commands.argument("n2", DoubleArgumentType.doubleArg())
-                                                .executes { ctx ->
-                                                    setColorXZ(
-                                                        ctx,
-                                                        StringArgumentType.getString(ctx, "color"),
-                                                    )
-                                                }
-                                                // /hm set <color> <x> <y> <z> — 3D with color
-                                                .then(
-                                                    Commands.argument(
-                                                            "n3",
-                                                            DoubleArgumentType.doubleArg(),
-                                                        )
-                                                        .executes { ctx ->
-                                                            setColorXYZ(
-                                                                ctx,
-                                                                StringArgumentType.getString(
-                                                                    ctx,
-                                                                    "color",
-                                                                ),
-                                                            )
-                                                        }
-                                                )
-                                        )
-                                )
-                        )
-                        // /hm set <x> <z> ... — coordinates first
+                        // /hm set <x> <z> ... — coordinates first.
+                        // ORDER MATTERS: this branch must be registered before the <color>
+                        // branch. A word argument also accepts numbers ("100"), so for inputs
+                        // like "/hm set 100 200" both branches parse the whole line, and
+                        // Brigadier keeps the first-registered one on a tie. With <color>
+                        // first, "100 200" became color="100" + an incomplete command.
                         .then(
                             Commands.argument("n1", DoubleArgumentType.doubleArg())
+                                // /hm set <x> — not enough coordinates
+                                .executes { ctx ->
+                                    ctx.source.sendFailure(Component.literal(INCOMPLETE_COORDS))
+                                    0
+                                }
                                 .then(
                                     Commands.argument("n2", DoubleArgumentType.doubleArg())
                                         // /hm set <x> <z> — 2D, auto color
@@ -212,6 +172,54 @@ object HeadingMarkerCommands {
                                                         StringArgumentType.getString(ctx, "color"),
                                                     )
                                                 }
+                                        )
+                                )
+                        )
+                        // /hm set <color> ...
+                        .then(
+                            Commands.argument("color", StringArgumentType.word())
+                                .suggests(::suggestColors)
+                                // /hm set <color> — player pos, specified color
+                                .executes { ctx ->
+                                    val arg = StringArgumentType.getString(ctx, "color")
+                                    if (arg.lowercase() in VALID_COLORS) {
+                                        return@executes setAtPlayerPos(ctx, arg)
+                                    }
+                                    // Numeric-looking words the double parser rejects (e.g. "1e5")
+                                    // still land here.
+                                    val message =
+                                        if (arg.toDoubleOrNull() != null) INCOMPLETE_COORDS
+                                        else unknownColorMessage(arg)
+                                    ctx.source.sendFailure(Component.literal(message))
+                                    0
+                                }
+                                // /hm set <color> <x> <z> — 2D with color
+                                .then(
+                                    Commands.argument("n1", DoubleArgumentType.doubleArg())
+                                        .then(
+                                            Commands.argument("n2", DoubleArgumentType.doubleArg())
+                                                .executes { ctx ->
+                                                    setColorXZ(
+                                                        ctx,
+                                                        StringArgumentType.getString(ctx, "color"),
+                                                    )
+                                                }
+                                                // /hm set <color> <x> <y> <z> — 3D with color
+                                                .then(
+                                                    Commands.argument(
+                                                            "n3",
+                                                            DoubleArgumentType.doubleArg(),
+                                                        )
+                                                        .executes { ctx ->
+                                                            setColorXYZ(
+                                                                ctx,
+                                                                StringArgumentType.getString(
+                                                                    ctx,
+                                                                    "color",
+                                                                ),
+                                                            )
+                                                        }
+                                                )
                                         )
                                 )
                         )
@@ -311,10 +319,7 @@ object HeadingMarkerCommands {
         val lowerColor = color.lowercase()
         if (lowerColor !in VALID_COLORS) {
             player.sendSystemMessage(
-                Component.literal(
-                        "Unknown color: $color. Valid colors: ${VALID_COLORS.joinToString(", ")}"
-                    )
-                    .withStyle(ChatFormatting.RED)
+                Component.literal(unknownColorMessage(color)).withStyle(ChatFormatting.RED)
             )
             return 0
         }
@@ -354,7 +359,7 @@ object HeadingMarkerCommands {
             removed
         } else {
             player.sendSystemMessage(
-                Component.literal("No waypoint found matching \"$selector\".")
+                Component.literal("No waypoint found matching \"$selector\" in this dimension.")
                     .withStyle(ChatFormatting.RED)
             )
             0
@@ -477,9 +482,10 @@ object HeadingMarkerCommands {
                 Component.literal("Shared $shared waypoint(s) matching \"$selector\" with $targetName")
                     .withStyle(ChatFormatting.GREEN)
             )
+            val dimension = HeadingMarkerMod.getDimensionKey(fromPlayer.level().dimension())
             toPlayer.sendSystemMessage(
                 Component.literal(
-                        "${fromPlayer.name.string} shared $shared waypoint(s) with you."
+                        "${fromPlayer.name.string} shared $shared waypoint(s) with you in $dimension."
                     )
                     .withStyle(ChatFormatting.AQUA)
             )
@@ -547,16 +553,21 @@ object HeadingMarkerCommands {
             )
 
         line("=== Heading Marker (/hm) ===", ChatFormatting.GOLD, ChatFormatting.BOLD)
-        cmdLine("/hm set [color] [x z | x y z]", "Place waypoint (player pos if no coords)")
-        cmdLine("/hm list", "List active waypoints")
-        cmdLine("/hm rename <selector> [name]", "Name, rename, or clear marker labels")
-        cmdLine("/hm remove <selector>", "Remove marker(s) by key, color, or name")
-        cmdLine("/hm clear", "Clear waypoints in this dimension")
-        cmdLine("/hm clearall", "Clear waypoints in all dimensions")
-        cmdLine("/hm share <player> <selector>", "Share marker(s) by key, color, or name")
-        line("Distances to active waypoints are shown automatically on the actionbar.", ChatFormatting.GRAY)
+        cmdLine("/hm set [color] [x z | x y z]", "Place waypoint (your position if no coords)")
+        cmdLine("/hm list", "List waypoints and keys in this dimension")
+        cmdLine("/hm rename <selector> [name]", "Set a label, or clear it if no name")
+        cmdLine("/hm remove <selector>", "Remove matching waypoints")
+        cmdLine("/hm share <player> <selector>", "Give an online player copies")
+        cmdLine("/hm clear", "Remove all waypoints in this dimension")
+        cmdLine("/hm clearall", "Remove waypoints in every dimension")
         if (isOperator(source)) {
             cmdLine("/hm purge", "Remove orphaned waypoint entities (OP only)")
         }
+        line(
+            "<selector> is a key, color, or name and matches every fitting waypoint in this " +
+                "dimension. Quote multi-word names for rename, e.g. \"Home Base\".",
+            ChatFormatting.GRAY,
+        )
+        line("Distances to your waypoints show on the actionbar automatically.", ChatFormatting.GRAY)
     }
 }

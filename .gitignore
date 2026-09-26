@@ -31,6 +31,8 @@ bin/
 # fabric
 
 run/
+# fabric-loader-junit processed-mod cache
+.fabric/
 
 # java
 

@@ -25,5 +25,5 @@ scoreboard objectives add hm.input.color dummy
 scoreboard objectives add hm.nextcolor dummy
 
 # Announce successful load
-tellraw @a {"text":"Heading Marker loaded! Use /function headingmarker:set to create a waypoint.","color":"green"}
+tellraw @a {"text":"Heading Marker loaded! Run /function headingmarker:help to get started.","color":"green"}
 tellraw @a {"text":"Waypoints will appear in your Locator Bar!","color":"gray","italic":true}

@@ -300,6 +300,76 @@ class WaypointStorageTest {
     }
 
     @Test
+    fun `corrupt json file is moved aside instead of being overwritten later`(@TempDir tempDir: Path) {
+        val file = tempDir.resolve("$TEST_UUID.json")
+        Files.writeString(file, "{ \"formatVersion\": 3, \"dimensions\": { truncated")
+
+        WaypointStorage.loadWaypoints(tempDir)
+
+        assertFalse(Files.exists(file), "corrupt file should no longer sit where saves go")
+        val backups = Files.list(tempDir).use { s -> s.map { it.fileName.toString() }.toList() }
+        assertTrue(backups.any { it.startsWith("$TEST_UUID.json.corrupt-") }, "no backup in $backups")
+    }
+
+    @Test
+    fun `bad fields fall back to defaults without losing other waypoints`(@TempDir tempDir: Path) {
+        val json =
+            """
+    {
+      "formatVersion": 3,
+      "dimensions": {
+        "overworld": {
+          "aaaa1111": { "markerKey": "aaaa1111", "color": null, "x": "oops", "y": 64.0, "z": 5.0, "name": null },
+          "bbbb2222": { "markerKey": "bbbb2222", "color": "blue", "x": 1.0, "y": 2.0, "z": 3.0 },
+          "cccc3333": "not an object"
+        }
+      }
+    }
+    """
+                .trimIndent()
+        Files.writeString(tempDir.resolve("$TEST_UUID.json"), json)
+
+        val overworld = WaypointStorage.loadWaypoints(tempDir)[TEST_UUID]!!["overworld"]!!
+
+        assertEquals(setOf("aaaa1111", "bbbb2222"), overworld.keys)
+        val damaged = overworld.getValue("aaaa1111")
+        assertEquals(WaypointColor.WHITE, damaged.color, "null color falls back to white")
+        assertEquals(0.0, damaged.x, "non-numeric x falls back to 0")
+        assertEquals(64.0, damaged.y)
+        assertEquals("", damaged.name)
+        assertEquals(WaypointColor.BLUE, overworld.getValue("bbbb2222").color)
+    }
+
+    @Test
+    fun `save leaves no temp files and one bad player doesn't block the rest`(@TempDir tempDir: Path) {
+        val good = wp("good0001", "red", "overworld", 1.0, 2.0, 3.0)
+        // Gson refuses to write NaN; this must only fail TEST_UUID's file.
+        val bad = wp("bad00001", "red", "overworld", Double.NaN, 2.0, 3.0)
+        WaypointStorage.saveWaypoints(
+            tempDir,
+            mapOf(
+                TEST_UUID to mapOf("overworld" to mapOf(bad.key to bad)),
+                TEST_UUID_2 to mapOf("overworld" to mapOf(good.key to good)),
+            ),
+        )
+
+        val files = Files.list(tempDir).use { s -> s.map { it.fileName.toString() }.toList() }
+        assertEquals(listOf("$TEST_UUID_2.json"), files)
+        val loaded = WaypointStorage.loadWaypoints(tempDir)
+        assertEquals(good, loaded[TEST_UUID_2]!!["overworld"]!![good.key])
+    }
+
+    @Test
+    fun `saved files are UTF-8`(@TempDir tempDir: Path) {
+        val named = wp("name0001", "green", "overworld", 0.0, 0.0, 0.0, "Café ☕ 北")
+        WaypointStorage.saveWaypoints(tempDir, mapOf(TEST_UUID to mapOf("overworld" to mapOf(named.key to named))))
+
+        val raw = Files.readAllBytes(tempDir.resolve("$TEST_UUID.json")).toString(Charsets.UTF_8)
+        assertTrue(raw.contains("Café ☕ 北"), raw)
+        assertEquals("Café ☕ 北", WaypointStorage.loadWaypoints(tempDir)[TEST_UUID]!!["overworld"]!![named.key]!!.name)
+    }
+
+    @Test
     fun `empty json file is skipped gracefully`(@TempDir tempDir: Path) {
         Files.writeString(tempDir.resolve("$TEST_UUID.json"), "")
 

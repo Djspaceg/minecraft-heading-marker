@@ -21,13 +21,12 @@ player.uuid                 // UUID
 player.gameProfile.name     // Stable profile name (use for selectors)
 player.name.string          // Display name (may differ from profile name)
 
-// Dimension:
-Dimensions.idOf(level)  // "overworld", "the_nether", "the_end"
+// Dimension ids (bare for minecraft:*, namespaced otherwise, e.g. "mymod:mining"):
+Dimensions.idOf(level)            // "overworld", "the_nether", "the_end"
+Dimensions.levelFor(server, id)   // any loaded level, not just the vanilla three
 
-// Permission check (hasPermission removed in 26.1):
-(player.level() as ServerLevel).server.playerList.isOp(
-    NameAndId(player.uuid, player.gameProfile.name)
-)
+// Permission check (CommandSourceStack.hasPermission was removed in 26.1):
+Commands.hasPermission<CommandSourceStack>(Commands.LEVEL_GAMEMASTERS)  // a Predicate
 
 // Entity invulnerability (setInvulnerable renamed in 26.3):
 entity.setPermanentlyInvulnerable(true)
@@ -66,6 +65,14 @@ Fabric mod (Kotlin) + data pack for per-player, per-dimension waypoint markers i
 **Cause:** Gson reflecting over runtime or Minecraft types
 **Fix:** Serialize plain DTOs (`PlayerFile` / `StoredWaypoint` in `WaypointStorage.kt`), never
 the `Waypoint` model directly
+
+### Issue: Marker entity still on the locator bar after removal, or missing far away
+
+**Cause:** Looking marker armor stands up with `Level.getEntity`. It can't see entities in
+unloaded chunks, but vanilla still transmits those.
+**Fix:** Keep going through `MarkerEntities`, which holds each stand by reference. Verify
+entity changes with a gametest (`src/gametest/`); `ProbeGameTests` logs how the vanilla waypoint
+manager treats markers.
 
 ### Issue: Waypoints appearing in wrong dimensions
 

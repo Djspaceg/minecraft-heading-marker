@@ -12,8 +12,10 @@ Locator Bar with live distances on the actionbar.
 - **Names and Keys:** Every waypoint gets an 8-character key. You can also give it a name.
 - **Dimension Aware:** Waypoints belong to the dimension they were set in. Commands act on your
   current dimension.
-- **Persistent Storage:** Waypoints are saved to `waypoints/<player-uuid>.json` in the game
-  directory when the server stops, and restored when it starts.
+- **Persistent Storage:** Each world keeps its own waypoints in
+  `<world>/headingmarker/<player-uuid>.json`, saved whenever the world saves. Earlier versions
+  used one shared `waypoints/` folder in the game directory; its files are copied into each
+  world the first time that world is opened.
 - **Server-Side:** Vanilla clients can connect to a server running the mod.
 
 ## Commands
@@ -28,13 +30,15 @@ Locator Bar with live distances on the actionbar.
     - Colors: red, blue, green, yellow, purple.
 - `/hm list` - List your waypoints in this dimension, with their keys.
 - `/hm rename <selector> [name]` - Name matching waypoints, or clear the name if you leave it out.
-  Quote a multi-word selector: `/hm rename "Home Base" Base`.
+  Quote a multi-word selector: `/hm rename "Home Base" Base`. Quotes around a selector or name
+  are optional everywhere else.
 - `/hm remove <selector>` - Remove matching waypoints.
 - `/hm share <player> <selector>` - Give an online player copies of matching waypoints. The copies
   are placed in the same dimension.
 - `/hm clear` - Remove all your waypoints in this dimension.
 - `/hm clearall` - Remove all your waypoints in every dimension.
-- `/hm purge` - Operator only. Remove orphaned waypoint entities left behind in any dimension.
+- `/hm purge` - Operators only (permission level 2). Remove leftover marker entities that are
+  currently loaded. Leftovers are also removed automatically when their chunk loads.
 
 A `<selector>` is a marker key, a color, or a name. It matches every waypoint in your current
 dimension that fits, so `/hm remove red` removes all your red waypoints there. Keys match exactly;

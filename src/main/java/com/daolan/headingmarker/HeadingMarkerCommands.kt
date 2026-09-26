@@ -1,5 +1,6 @@
 package com.daolan.headingmarker
 
+import com.daolan.headingmarker.model.WaypointColor
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
@@ -13,16 +14,12 @@ import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.commands.SharedSuggestionProvider
 import net.minecraft.network.chat.Component
-import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.server.players.NameAndId
 
 object HeadingMarkerCommands {
 
-    private val VALID_COLORS: List<String> =
-        HeadingMarkerMod.WaypointColor.entries
-            .filter { it != HeadingMarkerMod.WaypointColor.WHITE }
-            .map { it.colorName }
+    private val VALID_COLORS: List<String> = WaypointColor.SELECTABLE.map { it.id }
 
     private const val INCOMPLETE_COORDS =
         "Incomplete coordinates. Usage: /hm set [color] <x> [y] <z>, e.g. /hm set red 100 200"
@@ -234,10 +231,11 @@ object HeadingMarkerCommands {
         dispatcher.register(Commands.literal("headingmarker").redirect(node))
     }
 
+    private fun service() = HeadingMarkerMod.service()
+
     private fun setAtPlayerPos(ctx: CommandContext<CommandSourceStack>, color: String?): Int {
         val player = ctx.source.player ?: return 0
-        val colorToUse = color ?: getNextAvailableColor(player)
-        return setWaypoint(player, colorToUse, player.x, player.y, player.z)
+        return setWaypoint(player, color, player.x, player.y, player.z)
     }
 
     /** /hm set <color> <x> <z> */
@@ -262,8 +260,7 @@ object HeadingMarkerCommands {
         val player = ctx.source.player ?: return 0
         val x = DoubleArgumentType.getDouble(ctx, "n1")
         val z = DoubleArgumentType.getDouble(ctx, "n2")
-        val colorToUse = color ?: getNextAvailableColor(player)
-        return setWaypoint(player, colorToUse, x, player.y, z)
+        return setWaypoint(player, color, x, player.y, z)
     }
 
     /** /hm set <n1:x> <n2:y> <n3:z> [color] — 3D */
@@ -272,8 +269,7 @@ object HeadingMarkerCommands {
         val x = DoubleArgumentType.getDouble(ctx, "n1")
         val y = DoubleArgumentType.getDouble(ctx, "n2")
         val z = DoubleArgumentType.getDouble(ctx, "n3")
-        val colorToUse = color ?: getNextAvailableColor(player)
-        return setWaypoint(player, colorToUse, x, y, z)
+        return setWaypoint(player, color, x, y, z)
     }
 
     private fun suggestColors(
@@ -286,13 +282,11 @@ object HeadingMarkerCommands {
         builder: SuggestionsBuilder,
     ): CompletableFuture<Suggestions> {
         val player = context.source.player ?: return builder.buildFuture()
-        val dimension = HeadingMarkerMod.getDimensionKey(player.level().dimension())
-        val waypoints = HeadingMarkerMod.getWaypoints(player.uuid, dimension)
         val suggestions = linkedSetOf<String>()
-        for ((markerKey, data) in waypoints) {
-            suggestions.add(markerKey)
-            suggestions.add(data.color)
-            if (data.name.isNotBlank()) suggestions.add(data.name)
+        for (waypoint in service().waypointsHere(player).values) {
+            suggestions.add(waypoint.key)
+            suggestions.add(waypoint.color.id)
+            if (waypoint.name.isNotBlank()) suggestions.add(waypoint.name)
         }
         return SharedSuggestionProvider.suggest(suggestions, builder)
     }
@@ -309,22 +303,25 @@ object HeadingMarkerCommands {
         return SharedSuggestionProvider.suggest(names, builder)
     }
 
+    /** Creates a waypoint; a null [colorName] picks the player's least-used color. */
     private fun setWaypoint(
         player: ServerPlayer,
-        color: String,
+        colorName: String?,
         x: Double,
         y: Double,
         z: Double,
     ): Int {
-        val lowerColor = color.lowercase()
-        if (lowerColor !in VALID_COLORS) {
+        val color =
+            if (colorName == null) service().nextColor(player)
+            else WaypointColor.parse(colorName)?.takeIf { it.selectable }
+        if (color == null) {
             player.sendSystemMessage(
-                Component.literal(unknownColorMessage(color)).withStyle(ChatFormatting.RED)
+                Component.literal(unknownColorMessage(colorName!!)).withStyle(ChatFormatting.RED)
             )
             return 0
         }
-        val markerKey = HeadingMarkerMod.createWaypoint(player, lowerColor, x, y, z)
-        if (markerKey.isBlank()) {
+        val waypoint = service().create(player, color, x, y, z)
+        if (waypoint == null) {
             player.sendSystemMessage(
                 Component.literal("Failed to create waypoint. Check server logs.")
                     .withStyle(ChatFormatting.RED)
@@ -333,24 +330,16 @@ object HeadingMarkerCommands {
         }
         player.sendSystemMessage(
             Component.literal(
-                    "$lowerColor waypoint set at (${x.toInt()}, ${y.toInt()}, ${z.toInt()}) [key: $markerKey]"
+                    "${color.id} waypoint set at (${x.toInt()}, ${y.toInt()}, ${z.toInt()}) [key: ${waypoint.key}]"
                 )
                 .withStyle(ChatFormatting.GREEN)
         )
         return 1
     }
 
-    private fun getNextAvailableColor(player: ServerPlayer): String {
-        val dimension = HeadingMarkerMod.getDimensionKey(player.level().dimension())
-        val existing = HeadingMarkerMod.getWaypoints(player.uuid, dimension)
-        val counts = existing.values.groupingBy { it.color }.eachCount()
-        return VALID_COLORS.minWithOrNull(compareBy({ counts[it] ?: 0 }, { VALID_COLORS.indexOf(it) }))
-            ?: VALID_COLORS.first()
-    }
-
     private fun removeWaypoint(player: ServerPlayer?, selector: String): Int {
         player ?: return 0
-        val removed = HeadingMarkerMod.removeWaypoint(player, selector)
+        val removed = service().remove(player, selector).size
         return if (removed > 0) {
             player.sendSystemMessage(
                 Component.literal("Removed $removed waypoint(s) matching \"$selector\".")
@@ -368,7 +357,7 @@ object HeadingMarkerCommands {
 
     private fun clearWaypointsInDimension(player: ServerPlayer?): Int {
         player ?: return 0
-        val count = HeadingMarkerMod.clearWaypointsInDimension(player)
+        val count = service().clearDimension(player)
         if (count == 0) {
             player.sendSystemMessage(
                 Component.literal("You have no waypoints to clear in this dimension.")
@@ -385,7 +374,7 @@ object HeadingMarkerCommands {
 
     private fun clearAllWaypoints(player: ServerPlayer?): Int {
         player ?: return 0
-        val count = HeadingMarkerMod.clearAllWaypoints(player)
+        val count = service().clearAll(player)
         if (count == 0) {
             player.sendSystemMessage(
                 Component.literal("You have no waypoints to clear.")
@@ -403,7 +392,7 @@ object HeadingMarkerCommands {
     private fun renameWaypoint(player: ServerPlayer?, selector: String, newName: String): Int {
         player ?: return 0
         val trimmed = newName.trim()
-        val renamed = HeadingMarkerMod.renameWaypoint(player, selector, trimmed)
+        val renamed = service().rename(player, selector, trimmed).size
         return if (renamed > 0) {
             if (trimmed.isEmpty()) {
                 player.sendSystemMessage(
@@ -429,7 +418,7 @@ object HeadingMarkerCommands {
     }
 
     private fun purgeOrphanedEntities(source: CommandSourceStack): Int {
-        val removed = HeadingMarkerMod.purgeOrphanedWaypointEntities(source.server)
+        val removed = service().purgeOrphans()
         if (removed == 0) {
             source.sendSuccess(
                 {
@@ -476,13 +465,13 @@ object HeadingMarkerCommands {
             return 0
         }
 
-        val shared = HeadingMarkerMod.shareWaypoint(fromPlayer, toPlayer, selector)
+        val shared = service().share(fromPlayer, toPlayer, selector)
         return if (shared > 0) {
             fromPlayer.sendSystemMessage(
                 Component.literal("Shared $shared waypoint(s) matching \"$selector\" with $targetName")
                     .withStyle(ChatFormatting.GREEN)
             )
-            val dimension = HeadingMarkerMod.getDimensionKey(fromPlayer.level().dimension())
+            val dimension = Dimensions.idOf(fromPlayer.level())
             toPlayer.sendSystemMessage(
                 Component.literal(
                         "${fromPlayer.name.string} shared $shared waypoint(s) with you in $dimension."
@@ -501,8 +490,8 @@ object HeadingMarkerCommands {
 
     private fun listWaypoints(player: ServerPlayer?): Int {
         player ?: return 0
-        val dim = HeadingMarkerMod.getDimensionKey(player.level().dimension())
-        val waypoints = HeadingMarkerMod.getWaypoints(player.uuid, dim)
+        val dim = Dimensions.idOf(player.level())
+        val waypoints = service().waypointsHere(player)
         if (waypoints.isEmpty()) {
             player.sendSystemMessage(
                 Component.literal("You have no active waypoints in $dim.")
@@ -513,11 +502,11 @@ object HeadingMarkerCommands {
         player.sendSystemMessage(
             Component.literal("Active Waypoints in $dim:").withStyle(ChatFormatting.GOLD)
         )
-        for ((markerKey, data) in waypoints.entries.sortedBy { it.key }) {
-            val nameDisplay = if (data.name.isNotBlank()) " \"${data.name}\"" else ""
+        for (waypoint in waypoints.values.sortedBy { it.key }) {
+            val nameDisplay = if (waypoint.name.isNotBlank()) " \"${waypoint.name}\"" else ""
             player.sendSystemMessage(
                 Component.literal(
-                        " - ${data.color}$nameDisplay at (${data.x.toInt()}, ${data.y.toInt()}, ${data.z.toInt()}) [key: $markerKey]"
+                        " - ${waypoint.color.id}$nameDisplay at (${waypoint.x.toInt()}, ${waypoint.y.toInt()}, ${waypoint.z.toInt()}) [key: ${waypoint.key}]"
                     )
                     .withStyle(ChatFormatting.GRAY)
             )

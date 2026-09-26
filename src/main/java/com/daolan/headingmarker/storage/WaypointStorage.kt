@@ -1,9 +1,9 @@
 package com.daolan.headingmarker.storage
 
 import com.daolan.headingmarker.HeadingMarkerMod
-import com.daolan.headingmarker.HeadingMarkerMod.WaypointData
-import com.daolan.headingmarker.waypoint.TrackedWaypoint
-import com.daolan.headingmarker.waypoint.Waypoint
+import com.daolan.headingmarker.model.MarkerKeys
+import com.daolan.headingmarker.model.Waypoint
+import com.daolan.headingmarker.model.WaypointColor
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonSyntaxException
@@ -13,21 +13,16 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.*
-import kotlin.random.Random
-import net.minecraft.core.Vec3i
 
 object WaypointStorage {
 
     /** Current storage format version. Bump when the schema changes. */
     private const val FORMAT_VERSION = 3
-    private const val MARKER_KEY_LENGTH = 8
-    private const val MARKER_KEY_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
-    private val MARKER_KEY_REGEX = Regex("^[a-z0-9]{1,8}$")
 
     private val GSON: Gson = GsonBuilder().setPrettyPrinting().create()
 
     private data class ImportResult(
-        val dimensions: MutableMap<String, MutableMap<String, WaypointData>>,
+        val dimensions: MutableMap<String, MutableMap<String, Waypoint>>,
         val migrated: Boolean,
     )
 
@@ -52,20 +47,15 @@ object WaypointStorage {
 
     // --- Conversion helpers ---
 
-    private fun WaypointData.toStored(markerKey: String) =
-        StoredWaypoint(markerKey, color, dimension, x, y, z, name)
+    private fun Waypoint.toStored() = StoredWaypoint(key, color.id, dimension, x, y, z, name)
 
-    private fun StoredWaypoint.toRuntime(playerUuid: UUID, markerKey: String): WaypointData {
-        val resolvedColor = HeadingMarkerMod.WaypointColor.fromString(color)
-        val config = Waypoint.Config().apply { this.color = Optional.of(resolvedColor.colorInt) }
-        val wp = TrackedWaypoint.ofPos(playerUuid, config, Vec3i(x.toInt(), y.toInt(), z.toInt()))
-        return WaypointData(markerKey, color, dimension, x, y, z, name, wp, -1)
-    }
+    private fun StoredWaypoint.toRuntime(markerKey: String): Waypoint =
+        Waypoint(markerKey, WaypointColor.fromStored(color), dimension, x, y, z, name)
 
     /** Normalize color keys during import (e.g. "light_purple" -> "purple"). */
     private fun migrateColorKey(key: String): String =
         when (key) {
-            "light_purple" -> "purple"
+            WaypointColor.LEGACY_PURPLE -> WaypointColor.PURPLE.id
             else -> key
         }
 
@@ -79,18 +69,18 @@ object WaypointStorage {
     @JvmStatic
     fun saveWaypoints(
         storageDir: Path,
-        playerWaypoints: Map<UUID, Map<String, Map<String, WaypointData>>>,
+        playerWaypoints: Map<UUID, Map<String, Map<String, Waypoint>>>,
     ) {
         for ((playerUuid, dimensionWaypoints) in playerWaypoints) {
-            saveSinglePlayer(storageDir, playerUuid, dimensionWaypoints)
+            savePlayer(storageDir, playerUuid, dimensionWaypoints)
         }
     }
 
     @JvmStatic
     fun loadWaypoints(
         storageDir: Path
-    ): MutableMap<UUID, MutableMap<String, MutableMap<String, WaypointData>>> {
-        val result = HashMap<UUID, MutableMap<String, MutableMap<String, WaypointData>>>()
+    ): MutableMap<UUID, MutableMap<String, MutableMap<String, Waypoint>>> {
+        val result = HashMap<UUID, MutableMap<String, MutableMap<String, Waypoint>>>()
 
         try {
             Files.list(storageDir).use { files ->
@@ -128,7 +118,7 @@ object WaypointStorage {
                         if (importResult != null && importResult.dimensions.isNotEmpty()) {
                             result[playerUuid] = importResult.dimensions
                             if (importResult.migrated) {
-                                saveSinglePlayer(storageDir, playerUuid, importResult.dimensions)
+                                savePlayer(storageDir, playerUuid, importResult.dimensions)
                                 HeadingMarkerMod.LOGGER.info(
                                     "Migrated waypoint file {} to marker-key format v{}",
                                     fileName,
@@ -195,10 +185,10 @@ object WaypointStorage {
                 return ImportResult(HashMap(), false)
             }
 
-        val result = HashMap<String, MutableMap<String, WaypointData>>()
+        val result = HashMap<String, MutableMap<String, Waypoint>>()
         var migrated = envelope.formatVersion < FORMAT_VERSION
         for ((dimension, markerMap) in envelope.dimensions) {
-            val rebuilt = HashMap<String, WaypointData>()
+            val rebuilt = HashMap<String, Waypoint>()
             for ((mapKey, stored) in markerMap) {
                 val normalizedStored = migrateStored(stored.copy(dimension = dimension))
                 val candidate =
@@ -207,7 +197,7 @@ object WaypointStorage {
                 if (normalizedKey != candidate || normalizedStored != stored.copy(dimension = dimension)) {
                     migrated = true
                 }
-                rebuilt[normalizedKey] = normalizedStored.toRuntime(playerUuid, normalizedKey)
+                rebuilt[normalizedKey] = normalizedStored.toRuntime(normalizedKey)
             }
             result[dimension] = rebuilt
         }
@@ -227,11 +217,11 @@ object WaypointStorage {
         playerUuid: UUID,
     ): ImportResult {
         HeadingMarkerMod.LOGGER.info("Importing legacy waypoint file for player {}", playerUuid)
-        val result = HashMap<String, MutableMap<String, WaypointData>>()
+        val result = HashMap<String, MutableMap<String, Waypoint>>()
 
         for ((dimension, dimElement) in root.entrySet()) {
             if (!dimElement.isJsonObject) continue
-            val rebuilt = HashMap<String, WaypointData>()
+            val rebuilt = HashMap<String, Waypoint>()
 
             for ((colorKey, wpElement) in dimElement.asJsonObject.entrySet()) {
                 if (!wpElement.isJsonObject) continue
@@ -249,7 +239,7 @@ object WaypointStorage {
                     )
                 val migrated = migrateStored(stored)
                 val markerKey = ensureUniqueMarkerKey("", rebuilt)
-                rebuilt[markerKey] = migrated.toRuntime(playerUuid, markerKey)
+                rebuilt[markerKey] = migrated.toRuntime(markerKey)
             }
 
             if (rebuilt.isNotEmpty()) {
@@ -259,50 +249,23 @@ object WaypointStorage {
         return ImportResult(result, true)
     }
 
-    private fun ensureUniqueMarkerKey(
-        candidate: String,
-        existing: Map<String, WaypointData>,
-    ): String {
+    private fun ensureUniqueMarkerKey(candidate: String, existing: Map<String, Waypoint>): String {
         val normalized = candidate.trim()
-        val lower = normalized.lowercase()
-        val looksLikeLegacyColor =
-            lower == "light_purple" ||
-                HeadingMarkerMod.WaypointColor.entries.any { it.colorName == lower }
-        val validFormat = MARKER_KEY_REGEX.matches(normalized)
-        if (
-            normalized.isBlank() ||
-                !validFormat ||
-                looksLikeLegacyColor ||
-                existing.containsKey(normalized)
-        ) {
-            return generateShortMarkerKey(existing)
-        }
-        return normalized
+        return if (MarkerKeys.isUsable(normalized) && normalized !in existing) normalized
+        else MarkerKeys.generate { it in existing }
     }
 
-    private fun generateShortMarkerKey(existing: Map<String, WaypointData>): String {
-        repeat(1024) {
-            val generated =
-                buildString(MARKER_KEY_LENGTH) {
-                    repeat(MARKER_KEY_LENGTH) {
-                        append(MARKER_KEY_ALPHABET[Random.nextInt(MARKER_KEY_ALPHABET.length)])
-                    }
-                }
-            if (!existing.containsKey(generated)) return generated
-        }
-        throw IllegalStateException("Unable to generate a unique $MARKER_KEY_LENGTH-character marker key.")
-    }
-
-    private fun saveSinglePlayer(
+    @JvmStatic
+    fun savePlayer(
         storageDir: Path,
         playerUuid: UUID,
-        dimensionWaypoints: Map<String, Map<String, WaypointData>>,
+        dimensionWaypoints: Map<String, Map<String, Waypoint>>,
     ) {
         val playerFile = storageDir.resolve("$playerUuid.json")
         try {
             val storedDimensions =
                 dimensionWaypoints.mapValues { (_, markerMap) ->
-                    markerMap.mapValues { (markerKey, data) -> data.toStored(markerKey) }
+                    markerMap.mapValues { (_, data) -> data.toStored() }
                 }
             val envelope = PlayerFile(FORMAT_VERSION, storedDimensions)
             FileWriter(playerFile.toFile()).use { writer -> GSON.toJson(envelope, writer) }

@@ -17,7 +17,7 @@ internal fun markerFor(level: ServerLevel, key: String): ArmorStand? =
     markers(level).firstOrNull { it.customName?.string == "hm:$key" }
 
 internal fun waypoints(player: ServerPlayer) =
-    HeadingMarkerMod.getWaypoints(player.uuid, "overworld")
+    HeadingMarkerMod.service().waypoints(player.uuid, "overworld")
 
 internal fun GameTestHelper.check(condition: Boolean, message: () -> String) =
     assertTrue(condition, message())

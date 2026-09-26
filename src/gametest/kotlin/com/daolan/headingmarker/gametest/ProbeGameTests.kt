@@ -31,11 +31,16 @@ class ProbeGameTests {
         helper.runAfterDelay(10) {
             withPlayers(owner, other) {
                 val table = connections(helper.level)
+                val server = helper.level.server
+                val viewers = "waypoint modify ${stand.stringUUID} viewers @a[name=hm_probe_a]"
+                val parsed = server.commands.dispatcher.parse(viewers, server.createCommandSourceStack())
                 report(
                     helper,
                     "tableSize=${table.size()} owner->marker=${table.contains(owner, stand)} " +
                         "other->marker=${table.contains(other, stand)} " +
-                        "owner->other=${table.contains(owner, other)}",
+                        "owner->other=${table.contains(owner, other)} " +
+                        "iconColor=${stand.waypointIcon().color} " +
+                        "viewersCommandParses=${parsed.exceptions.isEmpty() && !parsed.reader.canRead()}",
                 )
             }
             helper.succeed()
@@ -53,11 +58,15 @@ class ProbeGameTests {
                     helper.level.waypointManager.transmitters().any {
                         (it as? ArmorStand)?.customName?.string == "hm:$key"
                     }
+                val stand =
+                    helper.level.waypointManager.transmitters().filterIsInstance<ArmorStand>()
+                        .firstOrNull { it.customName?.string == "hm:$key" }
                 report(
                     helper,
                     "far visible=${markerFor(helper.level, key) != null} " +
                         "transmitting=$transmitting " +
-                        "ownerConnections=${connections(helper.level).row(owner).size}",
+                        "ownerConnections=${connections(helper.level).row(owner).size} " +
+                        "iconColor=${stand?.waypointIcon()?.color}",
                 )
             }
             helper.succeed()

@@ -22,7 +22,7 @@ player.gameProfile.name     // Stable profile name (use for selectors)
 player.name.string          // Display name (may differ from profile name)
 
 // Dimension:
-HeadingMarkerMod.getDimensionKey(world.dimension())  // "overworld", "the_nether", "the_end"
+Dimensions.idOf(level)  // "overworld", "the_nether", "the_end"
 
 // Permission check (hasPermission removed in 26.1):
 (player.level() as ServerLevel).server.playerList.isOp(
@@ -63,9 +63,9 @@ Fabric mod (Kotlin) + data pack for per-player, per-dimension waypoint markers i
 
 ### Issue: Optional serialization crashes
 
-**Cause:** Gson can't serialize `Optional<T>` due to Java module system
+**Cause:** Gson reflecting over runtime or Minecraft types
 **Fix:** Serialize plain DTOs (`PlayerFile` / `StoredWaypoint` in `WaypointStorage.kt`), never
-`WaypointData` or `TrackedWaypoint` directly
+the `Waypoint` model directly
 
 ### Issue: Waypoints appearing in wrong dimensions
 
@@ -89,9 +89,13 @@ Fabric mod (Kotlin) + data pack for per-player, per-dimension waypoint markers i
 
 See these files for correct API usage:
 
-- `HeadingMarkerMod.kt` - Player/world/dimension access
-- `WaypointStorage.kt` - Gson with Optional handling
-- `HeadingMarkerCommands.kt` - Command registration
+- `HeadingMarkerMod.kt` - Fabric event wiring; `HeadingMarkerMod.service()` is the running server's `WaypointService`
+- `WaypointService.kt` - Operations that keep data, marker entities, HUD, and saves in step
+- `WaypointRegistry.kt` - Pure in-memory data (owner → dimension → key), selectors, dirty tracking
+- `entity/MarkerEntities.kt` - Armor stand markers that feed the vanilla locator bar
+- `storage/WaypointStorage.kt` - JSON load/save and format migration
+- `HeadingMarkerCommands.kt` - Command tree and chat feedback only
+- `src/gametest/` - In-game tests (`./gradlew runGameTest`, also part of `build`)
 
 ---
 

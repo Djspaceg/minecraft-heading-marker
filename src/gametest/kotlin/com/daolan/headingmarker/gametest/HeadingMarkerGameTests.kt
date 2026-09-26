@@ -17,7 +17,7 @@ class HeadingMarkerGameTests {
             val entry = waypoints(player).entries.singleOrNull()
             helper.check(entry != null) { "expected one waypoint, chat=${player.chat}" }
             val (key, data) = entry!!
-            helper.check(data.color == "red") { "color was ${data.color}" }
+            helper.check(data.color.id == "red") { "color was ${data.color}" }
 
             val stand = markerFor(helper.level, key)
             helper.check(stand != null) { "no marker entity for $key" }
@@ -90,7 +90,7 @@ class HeadingMarkerGameTests {
             val copy = waypoints(friend).values.singleOrNull()
             helper.check(copy != null) { "friend should have one copy, chat=${owner.chat}" }
             copy!!
-            helper.check(copy.color == "yellow" && copy.name == "Camp") { "copy was $copy" }
+            helper.check(copy.color.id == "yellow" && copy.name == "Camp") { "copy was $copy" }
             helper.check(copy.x == at.x && copy.z == at.z) { "copy moved: $copy" }
             helper.check(waypoints(owner).size == 1) { "owner should keep their waypoint" }
             helper.check(markerFor(helper.level, waypoints(friend).keys.single()) != null) {

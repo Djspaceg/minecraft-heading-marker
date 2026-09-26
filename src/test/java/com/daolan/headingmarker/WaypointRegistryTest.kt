@@ -86,6 +86,24 @@ class WaypointRegistryTest {
     }
 
     @Test
+    fun `renameDimension moves and merges waypoints for every owner`() {
+        val legacy = registry.add(alice, "mining", WaypointColor.RED, 1.0, 2.0, 3.0)
+        val existing = registry.add(alice, "mymod:mining", WaypointColor.BLUE, 0.0, 0.0, 0.0)
+        registry.add(bob, "mining", WaypointColor.GREEN, 0.0, 0.0, 0.0)
+        registry.takeDirty()
+
+        registry.renameDimension("mining", "mymod:mining")
+
+        val moved = registry.waypoints(alice, "mymod:mining")
+        assertEquals(setOf(legacy.key, existing.key), moved.keys)
+        assertEquals("mymod:mining", moved.getValue(legacy.key).dimension)
+        assertTrue(registry.waypoints(alice, "mining").isEmpty())
+        assertEquals(1, registry.waypoints(bob, "mymod:mining").size)
+        assertEquals(setOf(alice, bob), registry.takeDirty())
+        assertEquals(setOf("mymod:mining"), registry.dimensionIds())
+    }
+
+    @Test
     fun `snapshots don't change when the registry does`() {
         registry.add(alice, "overworld", WaypointColor.RED, 0.0, 0.0, 0.0)
         val snapshot = registry.waypoints(alice, "overworld")

@@ -95,6 +95,28 @@ class WaypointRegistry {
         return removed
     }
 
+    /** Every dimension id any owner has waypoints under. */
+    fun dimensionIds(): Set<String> = byOwner.values.flatMapTo(HashSet()) { it.keys }
+
+    /**
+     * Moves every owner's waypoints from dimension [from] to [to], merging with any already there.
+     * A key that collides with one already in [to] is replaced with a fresh one.
+     */
+    fun renameDimension(from: String, to: String) {
+        if (from == to) return
+        for ((owner, dimensions) in byOwner) {
+            val moving = dimensions.remove(from) ?: continue
+            val target = dimensions.getOrPut(to) { HashMap() }
+            for (waypoint in moving.values) {
+                val key =
+                    if (waypoint.key !in target) waypoint.key
+                    else MarkerKeys.generate { it in target }
+                target[key] = waypoint.copy(key = key, dimension = to)
+            }
+            dirty += owner
+        }
+    }
+
     /** Owners changed since the last call. */
     fun takeDirty(): Set<UUID> {
         val changed = dirty.toSet()

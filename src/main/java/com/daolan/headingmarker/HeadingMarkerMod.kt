@@ -20,6 +20,7 @@ class HeadingMarkerMod : ModInitializer {
         ServerLifecycleEvents.SERVER_STARTING.register { server ->
             active = WaypointService(server, StorageLocation.forServer(server)).also { it.load() }
         }
+        ServerLifecycleEvents.SERVER_STARTED.register { _ -> active?.onLevelsLoaded() }
         // Save alongside the world (autosave, /save-all, shutdown) so a crash loses at most one
         // autosave interval. STOPPING also saves in case the final world save fails.
         ServerLifecycleEvents.AFTER_SAVE.register { _, _, _ -> active?.saveChanged() }

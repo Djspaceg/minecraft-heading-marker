@@ -29,6 +29,15 @@ class WaypointService(private val server: MinecraftServer, private val storageDi
         LOGGER.info("Loaded waypoints for {} players.", loaded.size)
     }
 
+    /** Runs once the levels exist: moves waypoints saved under pre-namespace dimension ids. */
+    fun onLevelsLoaded() {
+        for (legacyId in registry.dimensionIds()) {
+            val current = Dimensions.upgradeLegacyId(server, legacyId) ?: continue
+            LOGGER.info("Moving waypoints from dimension id {} to {}", legacyId, current)
+            registry.renameDimension(legacyId, current)
+        }
+    }
+
     /** Writes every owner whose waypoints changed since the last save. */
     fun saveChanged() {
         for (owner in registry.takeDirty()) {

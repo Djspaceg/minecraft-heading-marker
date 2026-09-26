@@ -2,10 +2,8 @@ package com.daolan.headingmarker
 
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.ParseResults
-import net.minecraft.SharedConstants
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
-import net.minecraft.server.Bootstrap
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -16,9 +14,7 @@ class HeadingMarkerCommandsTest {
         @JvmStatic
         @BeforeAll
         fun bootstrapMinecraft() {
-            // Commands' static initializer touches registries, so vanilla must be bootstrapped.
-            SharedConstants.tryDetectVersion()
-            Bootstrap.bootStrap()
+            MinecraftTestEnv.bootstrap()
         }
     }
 

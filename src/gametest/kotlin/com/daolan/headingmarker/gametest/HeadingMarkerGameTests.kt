@@ -78,6 +78,27 @@ class HeadingMarkerGameTests {
     }
 
     @GameTest
+    fun worldSaveWritesWaypointsIntoTheWorldFolder(helper: GameTestHelper) {
+        val player = TestPlayers.join(helper, "hm_save")
+        withPlayers(player) {
+            TestPlayers.run(player, "hm set red ${coords(helper.spot(2.0, 2.0))}")
+            val key = waypoints(player).keys.single()
+            val file =
+                helper.level.server
+                    .getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
+                    .resolve("headingmarker/${player.uuid}.json")
+
+            helper.level.server.saveEverything(true, false, true)
+
+            helper.check(java.nio.file.Files.exists(file)) { "no waypoint file at $file" }
+            helper.check(java.nio.file.Files.readString(file).contains("\"markerKey\": \"$key\"")) {
+                "saved file doesn't contain waypoint $key"
+            }
+        }
+        helper.succeed()
+    }
+
+    @GameTest
     fun shareCopiesWaypointToTarget(helper: GameTestHelper) {
         val owner = TestPlayers.join(helper, "hm_share_a")
         val friend = TestPlayers.join(helper, "hm_share_b")

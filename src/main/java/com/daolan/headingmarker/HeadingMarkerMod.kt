@@ -1,13 +1,12 @@
 package com.daolan.headingmarker
 
-import java.nio.file.Files
+import com.daolan.headingmarker.storage.StorageLocation
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents
-import net.fabricmc.loader.api.FabricLoader
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -19,10 +18,11 @@ class HeadingMarkerMod : ModInitializer {
 
         // STARTING runs before the levels load, so ENTITY_LOAD sees every stand saved in the world.
         ServerLifecycleEvents.SERVER_STARTING.register { server ->
-            val storageDir = FabricLoader.getInstance().gameDir.resolve("waypoints")
-            Files.createDirectories(storageDir)
-            active = WaypointService(server, storageDir).also { it.load() }
+            active = WaypointService(server, StorageLocation.forServer(server)).also { it.load() }
         }
+        // Save alongside the world (autosave, /save-all, shutdown) so a crash loses at most one
+        // autosave interval. STOPPING also saves in case the final world save fails.
+        ServerLifecycleEvents.AFTER_SAVE.register { _, _, _ -> active?.saveChanged() }
         ServerLifecycleEvents.SERVER_STOPPING.register { _ -> active?.saveChanged() }
         ServerLifecycleEvents.SERVER_STOPPED.register { _ -> active = null }
 

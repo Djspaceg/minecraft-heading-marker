@@ -52,6 +52,16 @@ fabricApi {
   }
 }
 
+// Start every game test run from a fresh world so leftovers from earlier runs can't mask bugs.
+tasks.named("runGameTest") {
+  doFirst {
+    delete(
+        layout.buildDirectory.dir("run/gameTest/world"),
+        layout.buildDirectory.dir("run/gameTest/waypoints"),
+    )
+  }
+}
+
 tasks.test { useJUnitPlatform() }
 
 tasks.processResources {
